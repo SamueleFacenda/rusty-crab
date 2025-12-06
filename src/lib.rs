@@ -6,8 +6,9 @@ use std::sync::mpsc;
 use common_game::components::resource::{Combinator, Generator};
 use common_game::components::resource::BasicResourceType::Silicon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
-use common_game::components::resource::{Combinator, Generator};
-use common_game::protocols::messages::PlanetToOrchestrator::SunrayAck;
+use common_game::protocols::messages::PlanetToOrchestrator::*;
+use common_game::components::planet::PlanetType;
+
 
 pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
     //TODO!
@@ -28,59 +29,43 @@ impl PlanetAI for RustyCrabPlanetAI{
         msg: OrchestratorToPlanet,
     ) -> Option<PlanetToOrchestrator> {
         match msg {
+            // Handle a sunray.
+            // If there is no energy cell, recharge one. Then,
+            // If there is no rocket, build one;
+            // Else, do nothing.
             OrchestratorToPlanet::Sunray(sunray) => {
-                // If there is no energy cell, recharge one. Then,
-                // If there is no rocket, build one
-                // Else, do nothing
-
-                // Charge energy cell if it is empty
-                match state.empty_cell() {
-                    None => {
-                        // All cells are charged
-                    }
-                    Some((cell, _)) => {
-                        cell.charge(sunray);
-                    }
-                } // This is kind of superfluous since charging an already charged cell does nothing
-
-                // Create rocket if there is none
+                // Charge empty cell if available
+                if let Some((cell, _)) = state.empty_cell() {
+                    cell.charge(sunray);
+                }
+                
+                // Build rocket if none exists and we have a full cell
                 if !state.has_rocket() {
                     if let Some((_, index)) = state.full_cell() {
-                        // To be moved to test
-                        assert!(index <= state.cells_count());
-                        assert_eq!(state.has_rocket(), false);
-                        // We have a charged cell, try to build a rocket
                         let _ = state.build_rocket(index);
                     }
                 }
                 
                 Some(SunrayAck { planet_id: state.id() })
             }
-            OrchestratorToPlanet::Asteroid(_asteroid) => {
-                // If there is a rocket, fire it and attempt to rebuild it
-                // If there is no rocket, attempt to make one and fire it
-                // Else, die
-
-
-                None
-
-            }
-
-            OrchestratorToPlanet::StartPlanetAI => {
-                None
-            }
-            OrchestratorToPlanet::StopPlanetAI => {
-                None
-            }
             OrchestratorToPlanet::InternalStateRequest => {
-                None
+                let dummy_state = state.to_dummy();
+                Some(InternalStateResponse { planet_id: state.id(), planet_state: dummy_state })
             }
-            OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
-                None
-            }
-            OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                None
-            }
+            // According to docs:
+                // The following messages will **not** invoke this handler:
+                // - [OrchestratorToPlanet::StartPlanetAI] (see [PlanetAI::start])
+                // - [OrchestratorToPlanet::StopPlanetAI] (see [PlanetAI::stop])
+                // - [OrchestratorToPlanet::Asteroid] (see [PlanetAI::handle_asteroid])
+                // - [OrchestratorToPlanet::IncomingExplorerRequest], as this will be handled automatically by the planet
+                // - [OrchestratorToPlanet::OutgoingExplorerRequest] (same as previous one)
+            // This leaves out only Sunray and InternalStateRequest. 
+            // Returning None for these cases, since there is no neutral message
+            OrchestratorToPlanet::Asteroid(_) 
+            | OrchestratorToPlanet::StartPlanetAI 
+            | OrchestratorToPlanet::StopPlanetAI
+            | OrchestratorToPlanet::IncomingExplorerRequest { .. }
+            | OrchestratorToPlanet::OutgoingExplorerRequest { .. } => { None }
         }
     }
 
