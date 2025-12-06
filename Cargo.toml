@@ -1,8 +1,8 @@
 [package]
-name = "crusty-crab"
+name = "rusty-crab"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-common-game = { git = "https://github.com/unitn-ap-2025/common" }
+common-game = { git = "ssh://git@github.com/unitn-ap-2025/common.git" }
 crossbeam-channel = "0.5.15"
