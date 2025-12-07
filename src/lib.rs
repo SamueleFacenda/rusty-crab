@@ -2,7 +2,7 @@ use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, P
 use common_game::components::planet::{Planet, PlanetAI, PlanetState};
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages;
-use std::sync::mpsc;
+use crossbeam_channel::{Receiver, Sender};
 use common_game::components::resource::{Combinator, Generator};
 use common_game::components::resource::BasicResourceType::Silicon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
@@ -52,6 +52,11 @@ impl PlanetAI for RustyCrabPlanetAI{
                 let dummy_state = state.to_dummy();
                 Some(InternalStateResponse { planet_id: state.id(), planet_state: dummy_state })
             }
+            OrchestratorToPlanet::KillPlanet =>{
+                // Currently nothing more to do if not stopping planet AI
+                self.stop(state);
+                Some(KillPlanetResult {planet_id: state.id()})
+            }
             // According to docs:
                 // The following messages will **not** invoke this handler:
                 // - [OrchestratorToPlanet::StartPlanetAI] (see [PlanetAI::start])
@@ -95,9 +100,9 @@ impl PlanetAI for RustyCrabPlanetAI{
 
 #[allow(unused)]
 pub fn create_planet(
-    rx_orchestrator: mpsc::Receiver<messages::OrchestratorToPlanet>,
-    tx_orchestrator: mpsc::Sender<messages::PlanetToOrchestrator>,
-    rx_explorer: mpsc::Receiver<messages::ExplorerToPlanet>,
+    rx_orchestrator: Receiver<messages::OrchestratorToPlanet>,
+    tx_orchestrator: Sender<messages::PlanetToOrchestrator>,
+    rx_explorer: Receiver<messages::ExplorerToPlanet>,
 ) -> Planet {
     let id = 67;  // todo: choose a more original number
     let ai = RustyCrabPlanetAI {};
