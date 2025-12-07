@@ -1,0 +1,67 @@
+use clap::Parser;
+use config::{Config, Environment, File};
+use serde::Deserialize;
+use std::sync::OnceLock;
+
+macro_rules! config_fields {
+    ( $( $field:ident: $ty:ty = $default:expr ),* $(,)? ) => {
+        #[derive(Debug, Deserialize)]
+        pub struct AppConfig {
+            /// dependent crates will not be able to name this field.
+            _priv: (),
+            $( pub $field: $ty, )*
+            pub log_level: String,
+            pub log_file: Option<String>,
+        }
+
+        impl AppConfig {
+            fn from_settings(settings: &Config, args: CliArgs) -> Self {
+                Self {
+                    _priv: (),
+                    $( $field: settings.get(stringify!($field)).unwrap_or($default), )*
+                    log_level: args.log_level,
+                    log_file: args.log_file,
+                }
+            }
+        }
+    };
+}
+
+// Add your configuration fields here with their default values
+config_fields! {
+    asteroid_probability: f64 = 0.1,
+    sunray_probability: f64 =0.05,
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "rusty_crab")]
+pub struct CliArgs {
+    /// Path to the config file
+    #[arg(short, long, default_value = "config.toml")]
+    pub layout: String,
+    /// Log level (error, warn, info, debug, trace, off)
+    #[arg(long, default_value = "info")]
+    pub log_level: String,
+    /// Log file path
+    #[arg(long)]
+    pub log_file: Option<String>,
+}
+
+static CONFIG: OnceLock<AppConfig> = OnceLock::new();
+
+impl AppConfig {
+    pub fn init() {
+        let args = CliArgs::parse();
+        let settings = Config::builder()
+            .add_source(File::with_name(&*args.layout).required(false))
+            .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
+            .build()
+            .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
+        CONFIG.set(AppConfig::from_settings(&settings, args))
+            .expect("AppConfig can only be initialized once");
+    }
+
+    pub fn get() -> &'static AppConfig {
+        CONFIG.get().expect("AppConfig is not initialized")
+    }
+}
