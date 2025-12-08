@@ -115,3 +115,138 @@ pub fn create_planet(
         rx_explorer,
     ).expect("Failed to create the planet")
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+    use std::time::Duration;
+    use common_game::components::asteroid::Asteroid;
+    use common_game::components::sunray::Sunray;
+    use crossbeam_channel::{unbounded, Receiver, Sender};
+
+    fn get_test_channels() -> (
+        (Receiver<OrchestratorToPlanet>, Sender<PlanetToOrchestrator>),
+        (Receiver<ExplorerToPlanet>, Sender<PlanetToExplorer>),
+        (Sender<OrchestratorToPlanet>, Receiver<PlanetToOrchestrator>),
+        (Sender<ExplorerToPlanet>, Receiver<PlanetToExplorer>),
+    ) {
+        // Channel 1: Orchestrator -> Planet
+        let (tx_orch_in, rx_orch_in) = unbounded::<OrchestratorToPlanet>();
+        // Channel 2: Planet -> Orchestrator
+        let (tx_orch_out, rx_orch_out) = unbounded::<PlanetToOrchestrator>();
+
+        // Channel 3: Explorer -> Planet
+        let (tx_expl_in, rx_expl_in) = unbounded::<ExplorerToPlanet>();
+        // Channel 4: Planet -> Explorer
+        let (tx_expl_out, rx_expl_out) = unbounded::<PlanetToExplorer>();
+
+        (
+            (rx_orch_in, tx_orch_out),
+            (rx_expl_in, tx_expl_out),
+            (tx_orch_in, rx_orch_out),
+            (tx_expl_in, rx_expl_out),
+        )
+    }
+
+    #[test]
+    fn test_planet() {
+        let (planet_orch_ch, planet_expl_ch, orch_planet_ch, _) = get_test_channels();
+
+        let (rx_from_orch, tx_from_planet_orch) = planet_orch_ch;
+        let (rx_from_expl, _) = planet_expl_ch;
+        let (tx_to_planet_orch, rx_to_orch) = orch_planet_ch;
+
+
+        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl);
+
+        // Spawn thread to run the planet
+        let handle = thread::spawn(move || {
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let res = planet.run();
+                match res {
+                    Ok(_) => {}
+                    Err(err) => {
+                        dbg!(err);
+                    }
+                }
+            }));
+        });
+
+        // I have put all the tests in one function because the common prelude is very long
+
+        // 1. Start AI
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::StartPlanetAI)
+            .unwrap();
+        match rx_to_orch.recv_timeout(Duration::from_millis(50)) {
+            Ok(PlanetToOrchestrator::StartPlanetAIResult { .. }) => {}
+            _ => panic!("Planet sent incorrect response"),
+        }
+        thread::sleep(Duration::from_millis(50));
+
+        // 2. Send Sunray
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::Sunray(Sunray::default()))
+            .unwrap();
+
+        // Expect Ack
+        if let Ok(PlanetToOrchestrator::SunrayAck { planet_id, .. }) =
+            rx_to_orch.recv_timeout(Duration::from_millis(200))
+        {
+            assert_eq!(planet_id, 96);
+        } else {
+            panic!("Did not receive SunrayAck");
+        }
+
+        // 3. Send Asteroid (AI should build rocket using the charged cell)
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::Asteroid(Asteroid::default()))
+            .unwrap();
+
+        // 4. Expect Survival (Ack with Some(Rocket))
+        match rx_to_orch.recv_timeout(Duration::from_millis(200)) {
+            Ok(PlanetToOrchestrator::AsteroidAck {
+                   planet_id,
+                   rocket,
+                   ..
+               }) => {
+                assert_eq!(planet_id, 96);
+                assert!(rocket.is_some(), "Planet failed to build rocket!");
+            }
+            Ok(_) => panic!("Wrong message type"),
+            Err(_) => panic!("Timeout waiting for AsteroidAck"),
+        }
+
+        // 5. Stop
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::StopPlanetAI)
+            .unwrap();
+        match rx_to_orch.recv_timeout(Duration::from_millis(200)) {
+            Ok(PlanetToOrchestrator::StopPlanetAIResult { .. }) => {}
+            _ => panic!("Planet sent incorrect response"),
+        }
+
+        // 6. Try to send a request while stopped
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::InternalStateRequest)
+            .unwrap();
+        match rx_to_orch.recv_timeout(Duration::from_millis(200)) {
+            Ok(PlanetToOrchestrator::Stopped { .. }) => {}
+            _ => panic!("Planet sent incorrect response"),
+        }
+
+        // 7. Kill planet while stopped
+        tx_to_planet_orch
+            .send(OrchestratorToPlanet::KillPlanet)
+            .unwrap();
+        match rx_to_orch.recv_timeout(Duration::from_millis(200)) {
+            Ok(PlanetToOrchestrator::KillPlanetResult { .. }) => {}
+            _ => panic!("Planet sent incorrect response"),
+        }
+
+        // should return immediately
+        assert!(handle.join().is_ok(), "Planet thread exited with an error");
+    }
+}
