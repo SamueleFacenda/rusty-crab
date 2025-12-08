@@ -2,7 +2,7 @@ use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, P
 use common_game::components::planet::{Planet, PlanetAI, PlanetState};
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages;
-use std::sync::mpsc;
+use crossbeam_channel;
 use common_game::components::resource::{Combinator, Generator};
 use common_game::components::resource::BasicResourceType::Silicon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
@@ -95,11 +95,11 @@ impl PlanetAI for RustyCrabPlanetAI{
 
 #[allow(unused)]
 pub fn create_planet(
-    rx_orchestrator: mpsc::Receiver<messages::OrchestratorToPlanet>,
-    tx_orchestrator: mpsc::Sender<messages::PlanetToOrchestrator>,
-    rx_explorer: mpsc::Receiver<messages::ExplorerToPlanet>,
+    rx_orchestrator: crossbeam_channel::Receiver<messages::OrchestratorToPlanet>,
+    tx_orchestrator: crossbeam_channel::Sender<messages::PlanetToOrchestrator>,
+    rx_explorer: crossbeam_channel::Receiver<messages::ExplorerToPlanet>,
 ) -> Planet {
-    let id = 67;  // todo: choose a more original number
+    let id = 96;
     let ai = RustyCrabPlanetAI {};
     let gen_rules = vec![Silicon];  // todo: choose which one (max. 1)
     let comb_rules = vec![Diamond, Water, Life, Robot, Dolphin, AIPartner];
@@ -113,5 +113,5 @@ pub fn create_planet(
         comb_rules,
         (rx_orchestrator, tx_orchestrator),
         rx_explorer,
-    ).expect("Failed to create the planet")  //todo: change this if they change the common code
+    ).expect("Failed to create the planet")
 }
