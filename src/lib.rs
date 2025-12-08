@@ -3,7 +3,7 @@ use common_game::components::planet::{Planet, PlanetAI, PlanetState};
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages;
 use crossbeam_channel;
-use common_game::components::resource::{Combinator, Generator};
+use common_game::components::resource::{Combinator, ComplexResource, ComplexResourceRequest, ComplexResourceType, Generator};
 use common_game::components::resource::BasicResourceType::Carbon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
 use common_game::protocols::messages::PlanetToOrchestrator::*;
@@ -113,13 +113,81 @@ impl PlanetAI for RustyCrabPlanetAI{
                 } else {
                     let (cell, idx) = cell_option.unwrap();
                     out = Some(generator.make_carbon(cell).unwrap().to_basic());
+                    // TODO: change make_* if we change resource type
                 };
                 Some(PlanetToExplorer::GenerateResourceResponse { resource: out })
             },
             ExplorerToPlanet::CombineResourceRequest {
                 explorer_id, msg
             } => {
-                
+                // Planet C supports all the combinations, so there is no need to check manually
+                // if a certain complex combination is allowed or not.
+                // Also, the methods make_water, make_*, ..., return a error message if the
+                // combination is wrong or if there is no energy, so no need to check it.
+
+                let response_content;
+                let cell = state.cell_mut(0); // First and only cell
+                // The cell can be charged or not, the error is handled by make_water, make_*...
+
+                match msg {
+                    ComplexResourceRequest::Water(r1, r2) => {
+                        let combination = combinator.make_water(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::Water(complex))
+                            .map_err(|(msg, r1, r2)| {
+                            (msg, r1.to_generic(), r2.to_generic())
+                        });
+                    },
+                    ComplexResourceRequest::Diamond(r1, r2) => {
+                        let combination = combinator
+                            .make_diamond(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::Diamond(complex))
+                            .map_err(|(msg, r1, r2)| {
+                            (msg, r1.to_generic(), r2.to_generic())
+                        });
+                    },
+                    ComplexResourceRequest::Life(r1, r2) => {
+                        let combination = combinator
+                            .make_life(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::Life(complex))
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            });
+                    },
+                    ComplexResourceRequest::Robot(r1, r2) => {
+                        let combination = combinator
+                            .make_robot(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::Robot(complex))
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            });
+                    },
+                    ComplexResourceRequest::Dolphin(r1, r2) => {
+                        let combination = combinator
+                            .make_dolphin(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::Dolphin(complex))
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            });
+                    },
+                    ComplexResourceRequest::AIPartner(r1, r2) => {
+                        let combination = combinator
+                            .make_aipartner(r1, r2, cell);
+                        response_content = combination
+                            .map(|complex| ComplexResource::AIPartner(complex))
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            });
+                    }
+
+                }
+
+                Some(PlanetToExplorer::CombineResourceResponse {complex_response: response_content })
+
             }
         }
     }
