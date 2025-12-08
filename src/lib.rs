@@ -4,7 +4,7 @@ use common_game::components::rocket::Rocket;
 use common_game::protocols::messages;
 use crossbeam_channel;
 use common_game::components::resource::{Combinator, Generator};
-use common_game::components::resource::BasicResourceType::Silicon;
+use common_game::components::resource::BasicResourceType::Carbon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
 use common_game::protocols::messages::PlanetToOrchestrator::*;
 use common_game::components::planet::PlanetType;
@@ -69,9 +69,66 @@ impl PlanetAI for RustyCrabPlanetAI{
         }
     }
 
-    fn handle_explorer_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: ExplorerToPlanet) -> Option<PlanetToExplorer> {
-        todo!()
+
+
+    fn handle_explorer_msg(
+        &mut self,
+        state: &mut PlanetState,
+        generator: &Generator,
+        combinator: &Combinator,
+        msg: ExplorerToPlanet,
+    ) -> Option<PlanetToExplorer> {
+        // TODO: add that if the planet is stopped, return PlanetToExplorer::Stopped;
+
+        match msg {
+            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
+                Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 1 })
+            },
+            ExplorerToPlanet::SupportedResourceRequest { .. } => {
+                Some(PlanetToExplorer::SupportedResourceResponse {
+                    resource_list: generator.all_available_recipes()
+                })
+            },
+            ExplorerToPlanet::SupportedCombinationRequest { .. } => {
+                Some(PlanetToExplorer::SupportedCombinationResponse {
+                    combination_list: combinator.all_available_recipes()
+                })
+            },
+            ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id, resource
+            } => {
+                // Check if the planet can produce the requested basic resource, and whether an
+                // energy cell is charged. If so generate the requested resource
+
+                // (It is not explained in the docs what to return if the planet can't satisfy the
+                // request, like if cells are not charged or if the planet does not produce the
+                // requested basic resource. Of course it returns some kind of None, but how?
+                // returning None directly or returning a response with a None resource inside?
+                // I chose the latter, change if needed)
+
+                let cell_option = state.full_cell();
+                let out;
+                if !generator.contains(resource) || cell_option.is_none() {
+                    out = None;
+                } else {
+                    let (cell, idx) = cell_option.unwrap();
+                    out = Some(generator.make_carbon(cell).unwrap().to_basic());
+                };
+                Some(PlanetToExplorer::GenerateResourceResponse { resource: out })
+            },
+            ExplorerToPlanet::CombineResourceRequest {
+                explorer_id, msg
+            } => {
+                
+            }
+        }
     }
+
+
+
+
+
+
 
     fn handle_asteroid(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> Option<Rocket> {
         if !state.has_rocket(){  // if there is no rocket, create it
@@ -101,7 +158,7 @@ pub fn create_planet(
 ) -> Planet {
     let id = 96;
     let ai = RustyCrabPlanetAI {};
-    let gen_rules = vec![Silicon];  // todo: choose which one (max. 1)
+    let gen_rules = vec![Carbon];  // todo: choose which one (max. 1)
     let comb_rules = vec![Diamond, Water, Life, Robot, Dolphin, AIPartner];
 
     // Construct the planet and return it
