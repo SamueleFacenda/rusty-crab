@@ -10,6 +10,7 @@ use common_game::logging::{LogEvent, Payload};
 use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer, MessageOrchestratorToPlanet, MessageExplorerToPlanet};
 use crossbeam_channel;
 
+/// The RustyCrab Planet AI, a defensive, reliable and versatile planet.
 pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
     //TODO!
 }
