@@ -1,0 +1,15 @@
+[obfuscation]
+strings = true
+min_string_length = 4
+ignore_strings = ["DEBUG", "LOG"]
+control_flow = true
+# skip_files = ["src/lib.rs"]
+skip_attributes = true
+
+[identifiers]
+rename = true
+preserve = ["main"]
+
+[include]
+files = ["**/*.rs"]
+exclude = ["target/**", "tests/**", "result/**", "src/planet/**", "release/**"]

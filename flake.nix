@@ -49,6 +49,20 @@
               (python3.withPackages (ps: with ps; [
 
               ]))
+              (rustPlatform.buildRustPackage rec {
+                pname = "rustfuscator";
+                version = "0.2.10";
+              
+                src = fetchFromGitHub {
+                  owner = "GianIac";
+                  repo = "rustfuscator";
+                  rev = "v${version}";
+                  hash = "sha256-AG1PW5fN7TjxfCTVwig95iTRfpzHe38dNdwcXVZxHpg=";
+                };
+              
+                buildAndTestSubdir = "obfuscator_cli";
+                cargoHash = "sha256-UT3Rkq5r56Hy88zdlm21iNTyeqEa2mqU5b7oEeCeKE0=";
+              })
             ];
             RUST_BACKTRACE = 1;
             RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
