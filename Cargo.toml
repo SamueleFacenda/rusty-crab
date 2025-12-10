@@ -11,6 +11,7 @@ clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 fern = { version = "0.7.1", features = ["colored"] }
 config = "0.15.19"
+cryptify = "=3.1.1"
 
 [[bin]]
 name = "rusty-crab"

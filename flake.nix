@@ -50,18 +50,18 @@
 
               ]))
               (rustPlatform.buildRustPackage rec {
-                pname = "rustfuscator";
-                version = "0.2.10";
+                pname = "rust-obfuscator";
+                version = "1.1.1";
               
                 src = fetchFromGitHub {
-                  owner = "GianIac";
-                  repo = "rustfuscator";
+                  owner = "dronavallipranav";
+                  repo = "rust-obfuscator";
                   rev = "v${version}";
-                  hash = "sha256-AG1PW5fN7TjxfCTVwig95iTRfpzHe38dNdwcXVZxHpg=";
+                  hash = "sha256-8cLB0jd+Hp8rptTK+Ji+8cc6w3/ZgUcpvj/MlwUCrlM=";
                 };
               
-                buildAndTestSubdir = "obfuscator_cli";
-                cargoHash = "sha256-UT3Rkq5r56Hy88zdlm21iNTyeqEa2mqU5b7oEeCeKE0=";
+                # buildAndTestSubdir = "obfuscator_cli";
+                cargoHash = "sha256-ZXu0QFZ6mMtkWBCxvVgN5wVyn1f2GMaOkqA2lfPHTgA=";
               })
             ];
             RUST_BACKTRACE = 1;
