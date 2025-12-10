@@ -36,6 +36,7 @@
               lockFile = ./Cargo.lock;
               allowBuiltinFetchGit = true;
             };
+            cargoTestFlags = [ "--workspace" ];
           };
         };
         devShells = {
