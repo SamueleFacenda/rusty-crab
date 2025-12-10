@@ -7,7 +7,7 @@ use common_game::protocols::messages::PlanetToOrchestrator::*;
 use common_game::logging::ActorType::{Planet, SelfActor, Explorer, Orchestrator};
 use common_game::logging::Channel::{Trace, Debug, Info, Warning};
 use common_game::logging::{LogEvent, Payload};
-use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer, MessageOrchestratorToPlanet};
+use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer, MessageOrchestratorToPlanet, MessageExplorerToPlanet};
 use crossbeam_channel;
 
 pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
@@ -41,7 +41,7 @@ impl PlanetAI for RustyCrabPlanetAI{
 
                 // Build rocket if none exists and we have a full cell
                 if !state.has_rocket() {
-                    LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Info, Payload::from([
+                    LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Debug, Payload::from([
                         (String::from("Rocket"), String::from("Got a sunray, building a rocket...")),
                     ])).emit();
                     if let Some((_, index)) = state.full_cell() {
@@ -121,6 +121,11 @@ impl PlanetAI for RustyCrabPlanetAI{
                 // returning None directly or returning a response with a None resource inside?
                 // I chose the latter, change if needed)
 
+                LogEvent::new(Planet, state.id(), Explorer, explorer_id.to_string(), MessageExplorerToPlanet, Debug, Payload::from([
+                    (String::from("RustyCrab"), String::from("Explorer requested resource generation.")),
+                    (String::from("Resource"), format!("{:?}", resource)),
+                ])).emit();
+
                 let cell_option = state.full_cell();
                 let out;
                 if !generator.contains(resource) || cell_option.is_none() {
@@ -139,6 +144,12 @@ impl PlanetAI for RustyCrabPlanetAI{
                 // if a certain complex combination is allowed or not.
                 // Also, the methods make_water, make_*, ..., return a error message if the
                 // combination is wrong or if there is no energy, so no need to check it.
+
+                LogEvent::new(Planet, state.id(), Explorer, explorer_id.to_string(), MessageExplorerToPlanet, Debug, Payload::from([
+                    (String::from("RustyCrab"), String::from("Explorer requested resource combination.")),
+                    (String::from("Resource"), format!("{:?}", msg)),
+                ])).emit();
+
 
                 let response_content;
                 let cell = state.cell_mut(0); // First and only cell
@@ -208,7 +219,7 @@ impl PlanetAI for RustyCrabPlanetAI{
     }
 
     fn handle_asteroid(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> Option<Rocket> {
-        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([
+        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Debug, Payload::from([
             (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
         ])).emit();
         if !state.has_rocket(){  // if there is no rocket, create it
