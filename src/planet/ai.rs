@@ -226,6 +226,7 @@ mod tests {
     use std::thread;
     use std::time::Duration;
     use common_game::components::asteroid::Asteroid;
+    use common_game::components::resource::BasicResourceType::Carbon;
     use common_game::components::sunray::Sunray;
     use crossbeam_channel::{unbounded, Receiver, Sender};
 
@@ -262,7 +263,7 @@ mod tests {
         let (tx_to_planet_orch, rx_to_orch) = orch_planet_ch;
 
 
-        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl);
+        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, Carbon);
 
         // Spawn thread to run the planet
         let handle = thread::spawn(move || {
