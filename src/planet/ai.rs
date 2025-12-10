@@ -3,6 +3,10 @@ use common_game::components::planet::{ PlanetAI, PlanetState};
 use common_game::components::rocket::Rocket;
 use common_game::components::resource::{Combinator, ComplexResource, ComplexResourceRequest, Generator};
 use common_game::protocols::messages::PlanetToOrchestrator::*;
+use common_game::logging::ActorType::{Planet, SelfActor, Explorer, Orchestrator};
+use common_game::logging::Channel::{Trace, Debug, Info, Warning};
+use common_game::logging::{LogEvent, Payload};
+use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer};
 use crossbeam_channel;
 
 pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
@@ -68,8 +72,6 @@ impl PlanetAI for RustyCrabPlanetAI{
             | OrchestratorToPlanet::OutgoingExplorerRequest { .. } => { None }
         }
     }
-
-
 
     fn handle_explorer_msg(
         &mut self,
@@ -192,12 +194,6 @@ impl PlanetAI for RustyCrabPlanetAI{
         }
     }
 
-
-
-
-
-
-
     fn handle_asteroid(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> Option<Rocket> {
         if !state.has_rocket(){  // if there is no rocket, create it
             let requested_cell = state.full_cell();
@@ -210,11 +206,11 @@ impl PlanetAI for RustyCrabPlanetAI{
     }
 
     fn start(&mut self, state: &PlanetState) {
-        todo!()
+        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([(String::from("RustyCrab"), String::from("started"))])).emit();
     }
 
     fn stop(&mut self, state: &PlanetState) {
-        todo!()
+        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([(String::from("RustyCrab"), String::from("stopped"))])).emit();
     }
 }
 
