@@ -1,8 +1,12 @@
 use common_game::components::planet::{Planet, PlanetType};
+use common_game::components::resource::{BasicResource, BasicResourceType};
 use common_game::protocols::messages;
 use common_game::components::resource::BasicResourceType::Carbon;
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
-
+use common_game::logging::ActorType;
+use common_game::logging::Channel::Warning;
+use common_game::logging::{LogEvent, Payload};
+use common_game::logging::EventType::InternalPlanetAction;
 use super::ai::RustyCrabPlanetAI;
 
 #[allow(unused)]
@@ -10,11 +14,16 @@ pub fn create_planet(
     rx_orchestrator: crossbeam_channel::Receiver<messages::OrchestratorToPlanet>,
     tx_orchestrator: crossbeam_channel::Sender<messages::PlanetToOrchestrator>,
     rx_explorer: crossbeam_channel::Receiver<messages::ExplorerToPlanet>,
+    basic_resource: BasicResourceType
 ) -> Planet {
     let id = 96;
     let ai = RustyCrabPlanetAI {};
-    let gen_rules = vec![Carbon];  // todo: choose which one (max. 1)
+    let gen_rules = vec![basic_resource];
     let comb_rules = vec![Diamond, Water, Life, Robot, Dolphin, AIPartner];
+
+    LogEvent::new(ActorType::Planet, id, ActorType::SelfActor, String::from(""), InternalPlanetAction, Warning, Payload::from([
+        (String::from("RustyCrab"), String::from("You are choosing a basic resource for this planet, this is deprecated and will be removed in future versions.")),
+    ])).emit();
 
     // Construct the planet and return it
     Planet::new(
