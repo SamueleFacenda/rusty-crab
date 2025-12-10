@@ -22,7 +22,8 @@ jobs:
       - uses: nicknovitski/nix-develop@v1
 
       - run: |
-          git config --global url."https://${{ secrets.PAT_PRIVATE_REPO }}:@github.com/".insteadOf "ssh://git@github.com"
+          git config --global url."https://${{ secrets.PAT_PRIVATE_REPO }}:@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://${{ secrets.PAT_PRIVATE_REPO }}:@github.com/".insteadOf "git@github.com/"
 
       - name: fmt
         run: cargo fmt
@@ -30,5 +31,8 @@ jobs:
       - name: lint
         run: cargo clippy
       
-      - name: Build # builds and tests
-        run: nix build
+      - name: Build
+        run: cargo build --verbose
+        
+      - name: Test
+        run: cargo test --verbose
