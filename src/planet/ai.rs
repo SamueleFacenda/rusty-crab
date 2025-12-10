@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
 use common_game::components::planet::{ PlanetAI, PlanetState};
 use common_game::components::rocket::Rocket;
@@ -6,7 +7,7 @@ use common_game::protocols::messages::PlanetToOrchestrator::*;
 use common_game::logging::ActorType::{Planet, SelfActor, Explorer, Orchestrator};
 use common_game::logging::Channel::{Trace, Debug, Info, Warning};
 use common_game::logging::{LogEvent, Payload};
-use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer};
+use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer, MessageOrchestratorToPlanet};
 use crossbeam_channel;
 
 pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
@@ -40,6 +41,9 @@ impl PlanetAI for RustyCrabPlanetAI{
 
                 // Build rocket if none exists and we have a full cell
                 if !state.has_rocket() {
+                    LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Info, Payload::from([
+                        (String::from("Rocket"), String::from("Got a sunray, building a rocket...")),
+                    ])).emit();
                     if let Some((_, index)) = state.full_cell() {
                         let _ = state.build_rocket(index);
                     }
@@ -52,6 +56,9 @@ impl PlanetAI for RustyCrabPlanetAI{
                 Some(InternalStateResponse { planet_id: state.id(), planet_state: dummy_state })
             }
             OrchestratorToPlanet::KillPlanet =>{
+                LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Info, Payload::from([
+                    (String::from("RustyCrab"), String::from("Received KillPlanet command, shutting down...")),
+                ])).emit();
                 // Currently nothing more to do if not stopping planet AI
                 self.stop(state);
                 Some(KillPlanetResult {planet_id: state.id()})
@@ -69,7 +76,13 @@ impl PlanetAI for RustyCrabPlanetAI{
             | OrchestratorToPlanet::StartPlanetAI
             | OrchestratorToPlanet::StopPlanetAI
             | OrchestratorToPlanet::IncomingExplorerRequest { .. }
-            | OrchestratorToPlanet::OutgoingExplorerRequest { .. } => { None }
+            | OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
+                LogEvent::new(Planet, state.id(), SelfActor, String::from(""), MessageOrchestratorToPlanet, Warning, Payload::from([
+                    (String::from("RustyCrab"), String::from("Got an unexpected Orchestrator message in handle_orchestrator_msg, ignoring.")),
+                    // (String::from("Message"), format!("{:?}", msg)),
+                ])).emit();
+                None
+            }
         }
     }
 
@@ -195,7 +208,13 @@ impl PlanetAI for RustyCrabPlanetAI{
     }
 
     fn handle_asteroid(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> Option<Rocket> {
+        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([
+            (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
+        ])).emit();
         if !state.has_rocket(){  // if there is no rocket, create it
+            LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([
+                (String::from("Asteroid"), String::from("No defense, trying to build rocket on the fly...")),
+            ])).emit();
             let requested_cell = state.full_cell();
             if requested_cell.is_some() {  // constructs rocket only if possible
                 let (_, cell_idx) = requested_cell.unwrap();
