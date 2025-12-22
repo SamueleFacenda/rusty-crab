@@ -196,7 +196,7 @@ dependencies = [
 [[package]]
 name = "common-game"
 version = "1.0.0"
-source = "git+ssh://git@github.com/unitn-ap-2025/common.git#057049b785e5c6e6ad3cd3967b6ff44b5989769c"
+source = "git+https://github.com/unitn-ap-2025/common.git?rev=v1.0.0#057049b785e5c6e6ad3cd3967b6ff44b5989769c"
 dependencies = [
  "crossbeam-channel",
  "lazy_static",
