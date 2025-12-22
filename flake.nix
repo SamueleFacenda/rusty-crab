@@ -23,24 +23,30 @@
       in
       {
 
-        packages = rec {
-          default = rustycrab;
-          rustycrab = pkgs.rustPlatform.buildRustPackage {
-            pname = "rustycrab";
-            src = pkgs.lib.cleanSource ./.;
-            inherit version;
+        packages = let buildArgs = {
+          pname = "rustycrab";
+          src = pkgs.lib.cleanSource ./.;
+          inherit version;
 
-            buildInputs = with pkgs; [ ];
-            
+          buildInputs = with pkgs; [ ];
+          
+          cargoTestFlags = [ "--workspace" ];
+        };
+        in rec {
+          default = rustycrab;
+          rustycrab = pkgs.rustPlatform.buildRustPackage (buildArgs // {
             cargoLock = {
               lockFile = ./Cargo.lock;
               allowBuiltinFetchGit = true;
             };
-          };
+          });
+          rustycrab-nodeps = pkgs.rustPlatform.buildRustPackage (buildArgs // {
+            cargoHash = pkgs.lib.fakeHash;
+          });
         };
         devShells = {
           default = pkgs.mkShell {
-            inputsFrom = [ self.packages.${system}.default ];
+            inputsFrom = [ self.packages.${system}.rustycrab-nodeps ];
             packages = with pkgs; [
               rust-toolchain 
               evcxr 
