@@ -3,7 +3,7 @@ pub mod planet;
 pub(crate) mod orchestrator;
 pub(crate) mod app;
 
-
+#[allow(dead_code)]
 fn main() {
     app::AppConfig::init();
     app::setup_logger().expect("Failed to initialize logger");
