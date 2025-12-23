@@ -13,13 +13,12 @@ pub struct RustyCrabPlanetAI { // Alternatively can be named ust "AI" as in the 
     //TODO!
 }
 
-#[allow(unused)]
 impl PlanetAI for RustyCrabPlanetAI {
     fn handle_sunray(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
         sunray: Sunray,
     ) {
         if let Some((cell, _)) = state.empty_cell() {
@@ -40,8 +39,8 @@ impl PlanetAI for RustyCrabPlanetAI {
     fn handle_asteroid(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
     ) -> Option<Rocket> {
         LogEvent::new(Some(Participant::new(Planet, state.id())), None, InternalPlanetAction, Debug, Payload::from([
             (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
@@ -61,8 +60,8 @@ impl PlanetAI for RustyCrabPlanetAI {
     fn handle_internal_state_req(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
     ) -> DummyPlanetState {
         state.to_dummy()
     }
@@ -109,7 +108,7 @@ impl PlanetAI for RustyCrabPlanetAI {
 
                 let cell_option = state.full_cell();
 
-                let out = if let Some((cell, idx)) = cell_option && generator.contains(resource) {
+                let out = if let Some((cell, _idx)) = cell_option && generator.contains(resource) {
                     Some(generator.make_carbon(cell).unwrap().to_basic())
                     // TODO: change make_* if we change resource type
                 } else {

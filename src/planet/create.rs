@@ -20,7 +20,6 @@ use common_game::protocols::{orchestrator_planet, planet_explorer};
 ///     rx_from_expl, 
 ///     Carbon);
 /// ```
-#[allow(unused)]
 pub fn create_planet(
     rx_orchestrator: crossbeam_channel::Receiver<orchestrator_planet::OrchestratorToPlanet>,
     tx_orchestrator: crossbeam_channel::Sender<orchestrator_planet::PlanetToOrchestrator>,
