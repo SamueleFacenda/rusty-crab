@@ -1,5 +1,4 @@
 use super::AppConfig;
-use chrono;
 use fern::colors::ColoredLevelConfig;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {

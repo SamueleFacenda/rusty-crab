@@ -1,90 +1,69 @@
-use std::ops::Deref;
-use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
-use common_game::components::planet::{ PlanetAI, PlanetState};
-use common_game::components::rocket::Rocket;
+use common_game::components::planet::{DummyPlanetState, PlanetAI, PlanetState};
 use common_game::components::resource::{Combinator, ComplexResource, ComplexResourceRequest, Generator};
-use common_game::protocols::messages::PlanetToOrchestrator::*;
-use common_game::logging::ActorType::{Planet, SelfActor, Explorer, Orchestrator};
-use common_game::logging::Channel::{Trace, Debug, Info, Warning};
-use common_game::logging::{LogEvent, Payload};
-use common_game::logging::EventType::{InternalPlanetAction, MessagePlanetToOrchestrator, MessagePlanetToExplorer, MessageOrchestratorToPlanet, MessageExplorerToPlanet};
-use crossbeam_channel;
+use common_game::components::rocket::Rocket;
+use common_game::components::sunray::Sunray;
+use common_game::logging::ActorType::{Explorer, Orchestrator, Planet};
+use common_game::logging::Channel::{Debug, Info};
+use common_game::logging::EventType::{InternalPlanetAction, MessageExplorerToPlanet};
+use common_game::logging::{LogEvent, Participant, Payload};
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
 /// The RustyCrab Planet AI, a defensive, reliable and versatile planet.
-pub struct RustyCrabPlanetAI{ // Alternatively can be named ust "AI" as in the docs
+pub struct RustyCrabPlanetAI { // Alternatively can be named ust "AI" as in the docs
     //TODO!
 }
 
-impl RustyCrabPlanetAI{
-    pub fn new() -> RustyCrabPlanetAI{
-        RustyCrabPlanetAI{}
-    }
-}
-#[allow(unused)]
-impl PlanetAI for RustyCrabPlanetAI{
-    fn handle_orchestrator_msg(
+impl PlanetAI for RustyCrabPlanetAI {
+    fn handle_sunray(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
-        msg: OrchestratorToPlanet,
-    ) -> Option<PlanetToOrchestrator> {
-        match msg {
-            // Handle a sunray.
-            // If there is no energy cell, recharge one. Then,
-            // If there is no rocket, build one;
-            // Else, do nothing.
-            OrchestratorToPlanet::Sunray(sunray) => {
-                // Charge empty cell if available
-                if let Some((cell, _)) = state.empty_cell() {
-                    cell.charge(sunray);
-                }
+        _generator: &Generator,
+        _combinator: &Combinator,
+        sunray: Sunray,
+    ) {
+        if let Some((cell, _)) = state.empty_cell() {
+            cell.charge(sunray);
+        }
 
-                // Build rocket if none exists and we have a full cell
-                if !state.has_rocket() {
-                    LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Debug, Payload::from([
-                        (String::from("Rocket"), String::from("Got a sunray, building a rocket...")),
-                    ])).emit();
-                    if let Some((_, index)) = state.full_cell() {
-                        let _ = state.build_rocket(index);
-                    }
-                }
-
-                Some(SunrayAck { planet_id: state.id() })
-            }
-            OrchestratorToPlanet::InternalStateRequest => {
-                let dummy_state = state.to_dummy();
-                Some(InternalStateResponse { planet_id: state.id(), planet_state: dummy_state })
-            }
-            OrchestratorToPlanet::KillPlanet =>{
-                LogEvent::new(Planet, state.id(), Orchestrator, String::from(""), InternalPlanetAction, Info, Payload::from([
-                    (String::from("RustyCrab"), String::from("Received KillPlanet command, shutting down...")),
-                ])).emit();
-                // Currently nothing more to do if not stopping planet AI
-                self.stop(state);
-                Some(KillPlanetResult {planet_id: state.id()})
-            }
-            // According to docs:
-            // The following messages will **not** invoke this handler:
-            // - [OrchestratorToPlanet::StartPlanetAI] (see [PlanetAI::start])
-            // - [OrchestratorToPlanet::StopPlanetAI] (see [PlanetAI::stop])
-            // - [OrchestratorToPlanet::Asteroid] (see [PlanetAI::handle_asteroid])
-            // - [OrchestratorToPlanet::IncomingExplorerRequest], as this will be handled automatically by the planet
-            // - [OrchestratorToPlanet::OutgoingExplorerRequest] (same as previous one)
-            // This leaves out only Sunray and InternalStateRequest. 
-            // Returning None for these cases, since there is no neutral message
-            OrchestratorToPlanet::Asteroid(_)
-            | OrchestratorToPlanet::StartPlanetAI
-            | OrchestratorToPlanet::StopPlanetAI
-            | OrchestratorToPlanet::IncomingExplorerRequest { .. }
-            | OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                LogEvent::new(Planet, state.id(), SelfActor, String::from(""), MessageOrchestratorToPlanet, Warning, Payload::from([
-                    (String::from("RustyCrab"), String::from("Got an unexpected Orchestrator message in handle_orchestrator_msg, ignoring.")),
-                    // (String::from("Message"), format!("{:?}", msg)),
-                ])).emit();
-                None
+        // Build rocket if none exists and we have a full cell
+        if !state.has_rocket() {
+            LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Orchestrator, 0u32)), InternalPlanetAction, Debug, Payload::from([
+                (String::from("Rocket"), String::from("Got a sunray, building a rocket...")),
+            ])).emit();
+            if let Some((_, index)) = state.full_cell() {
+                let _ = state.build_rocket(index);
             }
         }
+    }
+
+    fn handle_asteroid(
+        &mut self,
+        state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+    ) -> Option<Rocket> {
+        LogEvent::new(Some(Participant::new(Planet, state.id())), None, InternalPlanetAction, Debug, Payload::from([
+            (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
+        ])).emit();
+        if !state.has_rocket() {  // if there is no rocket, create it
+            LogEvent::new(Some(Participant::new(Planet, state.id())), None, InternalPlanetAction, Info, Payload::from([
+                (String::from("Asteroid"), String::from("No defense, trying to build rocket on the fly...")),
+            ])).emit();
+            let requested_cell = state.full_cell();
+            if let Some((_, cell_idx)) = requested_cell {  // constructs rocket only if possible
+                state.build_rocket(cell_idx).unwrap();  // Our C type planet supports rockets, no check needed
+            }
+        }
+        state.take_rocket()
+    }
+
+    fn handle_internal_state_req(
+        &mut self,
+        state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+    ) -> DummyPlanetState {
+        state.to_dummy()
     }
 
     fn handle_explorer_msg(
@@ -99,17 +78,17 @@ impl PlanetAI for RustyCrabPlanetAI{
         match msg {
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
                 Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 1 })
-            },
+            }
             ExplorerToPlanet::SupportedResourceRequest { .. } => {
                 Some(PlanetToExplorer::SupportedResourceResponse {
                     resource_list: generator.all_available_recipes()
                 })
-            },
+            }
             ExplorerToPlanet::SupportedCombinationRequest { .. } => {
                 Some(PlanetToExplorer::SupportedCombinationResponse {
                     combination_list: combinator.all_available_recipes()
                 })
-            },
+            }
             ExplorerToPlanet::GenerateResourceRequest {
                 explorer_id, resource
             } => {
@@ -122,22 +101,21 @@ impl PlanetAI for RustyCrabPlanetAI{
                 // returning None directly or returning a response with a None resource inside?
                 // I chose the latter, change if needed)
 
-                LogEvent::new(Planet, state.id(), Explorer, explorer_id.to_string(), MessageExplorerToPlanet, Debug, Payload::from([
+                LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Explorer, explorer_id)), MessageExplorerToPlanet, Debug, Payload::from([
                     (String::from("RustyCrab"), String::from("Explorer requested resource generation.")),
                     (String::from("Resource"), format!("{:?}", resource)),
                 ])).emit();
 
                 let cell_option = state.full_cell();
-                let out;
-                if !generator.contains(resource) || cell_option.is_none() {
-                    out = None;
-                } else {
-                    let (cell, idx) = cell_option.unwrap();
-                    out = Some(generator.make_carbon(cell).unwrap().to_basic());
+
+                let out = if let Some((cell, _idx)) = cell_option && generator.contains(resource) {
+                    Some(generator.make_carbon(cell).unwrap().to_basic())
                     // TODO: change make_* if we change resource type
+                } else {
+                    None
                 };
                 Some(PlanetToExplorer::GenerateResourceResponse { resource: out })
-            },
+            }
             ExplorerToPlanet::CombineResourceRequest {
                 explorer_id, msg
             } => {
@@ -146,102 +124,68 @@ impl PlanetAI for RustyCrabPlanetAI{
                 // Also, the methods make_water, make_*, ..., return a error message if the
                 // combination is wrong or if there is no energy, so no need to check it.
 
-                LogEvent::new(Planet, state.id(), Explorer, explorer_id.to_string(), MessageExplorerToPlanet, Debug, Payload::from([
+                LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Explorer, explorer_id)), MessageExplorerToPlanet, Debug, Payload::from([
                     (String::from("RustyCrab"), String::from("Explorer requested resource combination.")),
                     (String::from("Resource"), format!("{:?}", msg)),
                 ])).emit();
 
 
-                let response_content;
                 let cell = state.cell_mut(0); // First and only cell
                 // The cell can be charged or not, the error is handled by make_water, make_*...
 
-                match msg {
+                let response_content = match msg {
                     ComplexResourceRequest::Water(r1, r2) => {
-                        let combination = combinator.make_water(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::Water(complex))
+                        combinator.make_water(r1, r2, cell)
+                            .map(ComplexResource::Water)
                             .map_err(|(msg, r1, r2)| {
                                 (msg, r1.to_generic(), r2.to_generic())
-                            });
-                    },
-                    ComplexResourceRequest::Diamond(r1, r2) => {
-                        let combination = combinator
-                            .make_diamond(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::Diamond(complex))
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            });
-                    },
-                    ComplexResourceRequest::Life(r1, r2) => {
-                        let combination = combinator
-                            .make_life(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::Life(complex))
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            });
-                    },
-                    ComplexResourceRequest::Robot(r1, r2) => {
-                        let combination = combinator
-                            .make_robot(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::Robot(complex))
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            });
-                    },
-                    ComplexResourceRequest::Dolphin(r1, r2) => {
-                        let combination = combinator
-                            .make_dolphin(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::Dolphin(complex))
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            });
-                    },
-                    ComplexResourceRequest::AIPartner(r1, r2) => {
-                        let combination = combinator
-                            .make_aipartner(r1, r2, cell);
-                        response_content = combination
-                            .map(|complex| ComplexResource::AIPartner(complex))
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            });
+                            })
                     }
+                    ComplexResourceRequest::Diamond(r1, r2) => {
+                        combinator
+                            .make_diamond(r1, r2, cell)
+                            .map(ComplexResource::Diamond)
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            })
+                    }
+                    ComplexResourceRequest::Life(r1, r2) => {
+                        combinator
+                            .make_life(r1, r2, cell)
+                            .map(ComplexResource::Life)
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            })
+                    }
+                    ComplexResourceRequest::Robot(r1, r2) => {
+                        combinator
+                            .make_robot(r1, r2, cell)
+                            .map(ComplexResource::Robot)
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            })
+                    }
+                    ComplexResourceRequest::Dolphin(r1, r2) => {
+                        combinator
+                            .make_dolphin(r1, r2, cell)
+                            .map(ComplexResource::Dolphin)
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            })
+                    }
+                    ComplexResourceRequest::AIPartner(r1, r2) => {
+                        combinator
+                            .make_aipartner(r1, r2, cell)
+                            .map(ComplexResource::AIPartner)
+                            .map_err(|(msg, r1, r2)| {
+                                (msg, r1.to_generic(), r2.to_generic())
+                            })
+                    }
+                };
 
-                }
-
-                Some(PlanetToExplorer::CombineResourceResponse {complex_response: response_content })
-
+                Some(PlanetToExplorer::CombineResourceResponse { complex_response: response_content })
             }
         }
-    }
-
-    fn handle_asteroid(&mut self, state: &mut PlanetState, _generator: &Generator, _combinator: &Combinator) -> Option<Rocket> {
-        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Debug, Payload::from([
-            (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
-        ])).emit();
-        if !state.has_rocket(){  // if there is no rocket, create it
-            LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([
-                (String::from("Asteroid"), String::from("No defense, trying to build rocket on the fly...")),
-            ])).emit();
-            let requested_cell = state.full_cell();
-            if requested_cell.is_some() {  // constructs rocket only if possible
-                let (_, cell_idx) = requested_cell.unwrap();
-                state.build_rocket(cell_idx).unwrap();  // Our C type planet supports rockets, no check needed
-            }
-        }
-        state.take_rocket()
-    }
-
-    fn start(&mut self, state: &PlanetState) {
-        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([(String::from("RustyCrab"), String::from("started"))])).emit();
-    }
-
-    fn stop(&mut self, state: &PlanetState) {
-        LogEvent::new(Planet, state.id(), SelfActor, String::from(""), InternalPlanetAction, Info, Payload::from([(String::from("RustyCrab"), String::from("stopped"))])).emit();
     }
 }
 
@@ -250,12 +194,13 @@ impl PlanetAI for RustyCrabPlanetAI{
 mod tests {
     use super::super::create_planet;
     use super::*;
-    use std::thread;
-    use std::time::Duration;
-    use common_game::components::asteroid::Asteroid;
+    use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
     use common_game::components::resource::BasicResourceType::Carbon;
+    use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
     use crossbeam_channel::{unbounded, Receiver, Sender};
+    use std::thread;
+    use std::time::Duration;
 
     fn get_test_channels() -> (
         (Receiver<OrchestratorToPlanet>, Sender<PlanetToOrchestrator>),

@@ -5,6 +5,7 @@ use std::sync::OnceLock;
 
 macro_rules! config_fields {
     ( $( $field:ident: $ty:ty = $default:expr ),* $(,)? ) => {
+        #[allow(unused)]
         #[derive(Debug, Deserialize)]
         pub struct AppConfig {
             /// dependent crates will not be able to name this field.
@@ -53,7 +54,7 @@ impl AppConfig {
     pub fn init() {
         let args = CliArgs::parse();
         let settings = Config::builder()
-            .add_source(File::with_name(&*args.layout).required(false))
+            .add_source(File::with_name(&args.layout).required(false))
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
             .build()
             .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
