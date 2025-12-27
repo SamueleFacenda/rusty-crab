@@ -235,7 +235,7 @@ mod tests {
         let (tx_to_planet_orch, rx_to_orch) = orch_planet_ch;
 
 
-        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, 0u32, Carbon);
+        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, 96u32, Carbon);
 
         // Spawn thread to run the planet
         let handle = thread::spawn(move || {
