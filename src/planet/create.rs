@@ -2,11 +2,6 @@ use super::ai::RustyCrabPlanetAI;
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::ComplexResourceType::{AIPartner, Diamond, Dolphin, Life, Robot, Water};
 use common_game::components::resource::BasicResourceType;
-use common_game::logging::ActorType;
-use common_game::logging::Channel::Warning;
-use common_game::logging::EventType::InternalPlanetAction;
-use common_game::logging::Participant;
-use common_game::logging::{LogEvent, Payload};
 use common_game::protocols::{orchestrator_planet, planet_explorer};
 
 /// Function to create and initialize the RustyCrab planet instance.
@@ -29,10 +24,6 @@ pub fn create_planet(
     let ai = RustyCrabPlanetAI {};
     let gen_rules = vec![BasicResourceType::Hydrogen];
     let comb_rules = vec![Diamond, Water, Life, Robot, Dolphin, AIPartner];
-
-    LogEvent::new(Some(Participant::new(ActorType::Planet, planet_id)), None, InternalPlanetAction, Warning, Payload::from([
-        (String::from("RustyCrab"), String::from("You are choosing a basic resource for this planet, this is deprecated and will be removed in future versions.")),
-    ])).emit();
 
     // Construct the planet and return it
     Planet::new(
