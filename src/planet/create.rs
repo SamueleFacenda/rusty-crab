@@ -18,18 +18,16 @@ use common_game::protocols::{orchestrator_planet, planet_explorer};
 ///     rx_from_orch, 
 ///     tx_from_planet_orch, 
 ///     rx_from_expl, 
-///     0u32
-///     Carbon);
+///     0u32);
 /// ```
 pub fn create_planet(
     rx_orchestrator: crossbeam_channel::Receiver<orchestrator_planet::OrchestratorToPlanet>,
     tx_orchestrator: crossbeam_channel::Sender<orchestrator_planet::PlanetToOrchestrator>,
     rx_explorer: crossbeam_channel::Receiver<planet_explorer::ExplorerToPlanet>,
     planet_id: u32,
-    basic_resource: BasicResourceType,
 ) -> Planet {
     let ai = RustyCrabPlanetAI {};
-    let gen_rules = vec![basic_resource];
+    let gen_rules = vec![BasicResourceType::Hydrogen];
     let comb_rules = vec![Diamond, Water, Life, Robot, Dolphin, AIPartner];
 
     LogEvent::new(Some(Participant::new(ActorType::Planet, planet_id)), None, InternalPlanetAction, Warning, Payload::from([
