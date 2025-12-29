@@ -109,8 +109,7 @@ impl PlanetAI for RustyCrabPlanetAI {
                 let cell_option = state.full_cell();
 
                 let out = if let Some((cell, _idx)) = cell_option && generator.contains(resource) {
-                    Some(generator.make_carbon(cell).unwrap().to_basic())
-                    // TODO: change make_* if we change resource type
+                    Some(generator.make_hydrogen(cell).unwrap().to_basic())
                 } else {
                     None
                 };
@@ -195,7 +194,6 @@ mod tests {
     use super::super::create_planet;
     use super::*;
     use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-    use common_game::components::resource::BasicResourceType::Carbon;
     use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
     use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -235,7 +233,7 @@ mod tests {
         let (tx_to_planet_orch, rx_to_orch) = orch_planet_ch;
 
 
-        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, 96u32, Carbon);
+        let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, 96u32);
 
         // Spawn thread to run the planet
         let handle = thread::spawn(move || {
