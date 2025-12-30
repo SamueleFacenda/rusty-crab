@@ -1,7 +1,8 @@
 [package]
 name = "rusty-crab-ap2025"
-version = "2.0.0-beta.1"
+version = "2.0.0-beta.2"
 edition = "2024"
+readme = false
 
 description = "The rusty crab group module, used in the unitn ap2025 class. It contains the planet definition."
 license = "CC-BY-NC-ND-4.0"
