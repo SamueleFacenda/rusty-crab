@@ -1,6 +1,6 @@
 [package]
 name = "rusty-crab-ap2025"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 edition = "2024"
 readme = false
 
@@ -8,7 +8,7 @@ description = "The rusty crab group module, used in the unitn ap2025 class. It c
 license = "CC-BY-NC-ND-4.0"
 
 [dependencies]
-common-game = "2.0.0"
+common-game = "3.0.0"
 crossbeam-channel = "0.5.15"
 chrono = "0.4.42"
 log = "0.4.29"
