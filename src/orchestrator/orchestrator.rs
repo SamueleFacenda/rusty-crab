@@ -4,8 +4,9 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, Orch
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 use crate::orchestrator::example_explorer::{ExampleExplorer, Explorer};
+use air_fryer;
 
 
 struct Orchestrator <T: Explorer>{
@@ -35,6 +36,9 @@ enum OrchestratorMode{
 pub struct PlanetHandle {
     planet: Planet,
     neighbors: HashSet<ID>,
+    pub tx: Sender<OrchestratorToPlanet>,
+    pub rx: Receiver<PlanetToOrchestrator>,
+    pub tx_explorer: Sender<ExplorerToPlanet>,
 }
 
 // Struct to hold explorers;
@@ -89,7 +93,13 @@ impl<T: Explorer> Orchestrator<T>{
         // Constant
         0.1
     }
-    pub fn add_planet(&mut self, planet: Planet) -> Result<(), String> {
+    pub fn add_planet(
+        &mut self,
+        planet: Planet,
+        tx: Sender<OrchestratorToPlanet>,
+        rx: Receiver<PlanetToOrchestrator>,
+        tx_explorer: Sender<ExplorerToPlanet>,
+    ) -> Result<(), String> {
         let id = planet.id();
         if self.planets.contains_key(&id) {
             return Err(format!("Planet {} already exists", id));
@@ -98,6 +108,9 @@ impl<T: Explorer> Orchestrator<T>{
         self.planets.insert(id, PlanetHandle {
             planet,
             neighbors: HashSet::new(),
+            tx,
+            rx,
+            tx_explorer,
         });
         Ok(())
     }
@@ -137,21 +150,70 @@ impl<T: Explorer> Orchestrator<T>{
         }
         Ok(())
     }
+
+    // Still uses 2.0.0, will stop working if updated
     fn create_planet_1(
         &mut self,
-        rx_orchestrator: Receiver<OrchestratorToPlanet>,
-        tx_orchestrator: Sender<PlanetToOrchestrator>,
-        rx_explorer: Receiver<ExplorerToPlanet>,
         id: ID
     ) -> Result<(), String> {
+        let (tx_orchestrator, rx_orchestrator) = unbounded();
+        let (tx_planet, rx_planet) = unbounded();
+        let (tx_explorer, rx_explorer) = unbounded();
+
         let p = the_compiler_strikes_back::planet::create_planet(
             rx_orchestrator,
-            tx_orchestrator,
+            tx_planet,
             rx_explorer,
             id
         );
-        self.add_planet(p)
+        self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
     }
+
+    // Functionally ok, but the package is outdated therefore the types are not matching
+    // arguments to this method are incorrect [E0308]
+    // Note: two different versions of crate `common_game` are being used; two types coming from
+    // two different versions of the same crate are different types even if they look the same
+    
+    // fn create_planet_2(
+    //     &mut self,
+    //     id: ID
+    // ) -> Result<(), String> {
+    //     let (tx_orchestrator, rx_orchestrator) = unbounded();
+    //     let (tx_planet, rx_planet) = unbounded();
+    //     let (tx_explorer, rx_explorer) = unbounded();
+    //     let p = match air_fryer::create_planet(
+    //         id,
+    //         air_fryer::PlanetAI::new(),
+    //         (rx_orchestrator, tx_planet), // To be checked
+    //         rx_explorer,
+    //
+    //     ){
+    //         Ok(p) => p,
+    //         Err(e) => return Err(e)
+    //     };
+    //     self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
+    // }
+
+    // Same thing wrong version
+
+    // fn create_planet_3(
+    //     &mut self,
+    //     id: ID
+    // ) -> Result<(), String> {
+    //     let (tx_orchestrator, rx_orchestrator) = unbounded();
+    //     let (tx_planet, rx_planet) = unbounded();
+    //     let (tx_explorer, rx_explorer) = unbounded();
+    //
+    //     let p = rustrelli::create_planet(
+    //         id,
+    //         rx_orchestrator,
+    //         tx_planet,
+    //         rx_explorer,
+    //         rustrelli::ExplorerRequestLimit::None,
+    //     );
+    //
+    //     self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
+    // }
 }
 
 
@@ -188,12 +250,12 @@ mod tests {
         fn handle_explorer_msg(&mut self, _state: &mut PlanetState, _gen: &Generator, _comb: &Combinator, _msg: ExplorerToPlanet) -> Option<PlanetToExplorer> { None }
     }
 
-    fn create_dummy_planet(id: ID) -> Planet {
+    fn create_dummy_planet(id: ID) -> (Planet, Sender<OrchestratorToPlanet>, Receiver<PlanetToOrchestrator>, Sender<ExplorerToPlanet>) {
         let (tx_orch, rx_orch) = unbounded();
         let (tx_planet, rx_planet) = unbounded();
-        let (_tx_expl, rx_expl) = unbounded();
+        let (tx_expl, rx_expl) = unbounded();
         
-        Planet::new(
+        let p = Planet::new(
             id,
             PlanetType::A,
             Box::new(DummyAI),
@@ -201,25 +263,29 @@ mod tests {
             vec![],
             (rx_orch, tx_planet),
             rx_expl
-        ).unwrap()
+        ).unwrap();
+
+        (p, tx_orch, rx_planet, tx_expl)
     }
 
     #[test]
     fn test_add_planet() {
         let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        let p1 = create_dummy_planet(1);
-        assert!(orchestrator.add_planet(p1).is_ok());
+        let (p1, tx, rx, tx_e) = create_dummy_planet(1);
+        assert!(orchestrator.add_planet(p1, tx, rx, tx_e).is_ok());
         assert!(orchestrator.planets.contains_key(&1));
         
-        let p1_dup = create_dummy_planet(1);
-        assert!(orchestrator.add_planet(p1_dup).is_err());
+        let (p1_dup, tx, rx, tx_e) = create_dummy_planet(1);
+        assert!(orchestrator.add_planet(p1_dup, tx, rx, tx_e).is_err());
     }
 
     #[test]
     fn test_connect_planets() {
         let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        orchestrator.add_planet(create_dummy_planet(1)).unwrap();
-        orchestrator.add_planet(create_dummy_planet(2)).unwrap();
+        let (p1, tx1, rx1, tx_e1) = create_dummy_planet(1);
+        orchestrator.add_planet(p1, tx1, rx1, tx_e1).unwrap();
+        let (p2, tx2, rx2, tx_e2) = create_dummy_planet(2);
+        orchestrator.add_planet(p2, tx2, rx2, tx_e2).unwrap();
         
         assert!(orchestrator.connect_planets(1, 2).is_ok());
         
@@ -232,9 +298,12 @@ mod tests {
     #[test]
     fn test_remove_planet_connections() {
         let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        orchestrator.add_planet(create_dummy_planet(1)).unwrap();
-        orchestrator.add_planet(create_dummy_planet(2)).unwrap();
-        orchestrator.add_planet(create_dummy_planet(3)).unwrap();
+        let (p1, tx1, rx1, tx_e1) = create_dummy_planet(1);
+        orchestrator.add_planet(p1, tx1, rx1, tx_e1).unwrap();
+        let (p2, tx2, rx2, tx_e2) = create_dummy_planet(2);
+        orchestrator.add_planet(p2, tx2, rx2, tx_e2).unwrap();
+        let (p3, tx3, rx3, tx_e3) = create_dummy_planet(3);
+        orchestrator.add_planet(p3, tx3, rx3, tx_e3).unwrap();
 
         orchestrator.connect_planets(1, 2).unwrap();
         orchestrator.connect_planets(1, 3).unwrap();

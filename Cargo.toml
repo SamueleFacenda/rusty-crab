@@ -16,3 +16,7 @@ clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 fern = { version = "0.7.1", features = ["colored"] }
 config = "0.15.19"
+# Planets
+the-compiler-strikes-back = "0.1.0"
+air_fryer = {git = "https://github.com/Advanced-Panic-Programming/AirFryer.git"}
+rustrelli = {git = "https://github.com/Rustrelli/rustrelli.git"}
