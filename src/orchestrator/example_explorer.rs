@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -11,6 +9,7 @@ pub trait Explorer{
         msg: OrchestratorToExplorer,
     ) -> Result<(), String>;
 }
+#[allow(dead_code)]
 pub struct ExampleExplorer {
     id: ID,
 

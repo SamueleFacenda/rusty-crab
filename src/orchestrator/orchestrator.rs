@@ -5,11 +5,10 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use crate::orchestrator::example_explorer::{ExampleExplorer, Explorer};
-use air_fryer;
+use crate::orchestrator::example_explorer::{Explorer};
 
-
-struct Orchestrator <T: Explorer>{
+#[allow(dead_code)]
+pub(crate) struct Orchestrator <T: Explorer>{
     // The behavior of the orchestrator is defined by turn-like units of time
     // Alternatively can be done real-time, but that's harder to implement
     time: u32,
@@ -18,12 +17,12 @@ struct Orchestrator <T: Explorer>{
     mode: OrchestratorMode,
 
     // List of planets in the galaxy and topology
-    planets: HashMap<ID, PlanetHandle>,
+    pub(crate) planets: HashMap<ID, PlanetHandle>,
 
     // List of explorers
     explorers: HashMap<ID, ExplorerHandle<T>>,
 }
-enum OrchestratorMode{
+pub(crate) enum OrchestratorMode{
     Auto,
     Manual,
 }
@@ -34,8 +33,8 @@ enum OrchestratorMode{
 // struct which would also require ID as key
 // Can be changed if you find a better way
 pub struct PlanetHandle {
-    planet: Planet,
-    neighbors: HashSet<ID>,
+    pub(crate) planet: Planet,
+    pub(crate) neighbors: HashSet<ID>,
     pub tx: Sender<OrchestratorToPlanet>,
     pub rx: Receiver<PlanetToOrchestrator>,
     pub tx_explorer: Sender<ExplorerToPlanet>,
@@ -60,12 +59,12 @@ pub enum ExplorerState {
 }
 
 
-impl<T: Explorer> Orchestrator<T>{
+impl<T: Explorer> Orchestrator<T> {
     pub fn new(
-               mode: OrchestratorMode,
-               planets: HashMap<ID, PlanetHandle>,
-               explorers: HashMap<ID, ExplorerHandle<T>>) -> Self{
-        Orchestrator{
+        mode: OrchestratorMode,
+        planets: HashMap<ID, PlanetHandle>,
+        explorers: HashMap<ID, ExplorerHandle<T>>) -> Self {
+        Orchestrator {
             time: 0,
             mode,
             planets,
@@ -73,13 +72,20 @@ impl<T: Explorer> Orchestrator<T>{
         }
     }
 
-    pub fn initialize(){
+    pub fn initialize() {
         todo!()
         // initialization functions
         // Add planets we bought -> create connections
         // logger?
         // Start planet AI and explorer AI
         // execute first loop
+    }
+
+    fn execute_cycle(&mut self) {
+        todo!()
+        // Send sunray and asteroid
+        // ...
+        // self.time += 1;
     }
 
     fn get_asteroid_p(&self) -> f32 {
@@ -93,127 +99,6 @@ impl<T: Explorer> Orchestrator<T>{
         // Constant
         0.1
     }
-    pub fn add_planet(
-        &mut self,
-        planet: Planet,
-        tx: Sender<OrchestratorToPlanet>,
-        rx: Receiver<PlanetToOrchestrator>,
-        tx_explorer: Sender<ExplorerToPlanet>,
-    ) -> Result<(), String> {
-        let id = planet.id();
-        if self.planets.contains_key(&id) {
-            return Err(format!("Planet {} already exists", id));
-        }
-
-        self.planets.insert(id, PlanetHandle {
-            planet,
-            neighbors: HashSet::new(),
-            tx,
-            rx,
-            tx_explorer,
-        });
-        Ok(())
-    }
-
-    // Function to connect planets.
-    // All planets should already be in the list from initialization
-    fn connect_planets (&mut self, planet1_id: ID, planet2_id: ID) -> Result<(), String> {
-        if planet1_id == planet2_id {
-            return Ok(())
-        }
-        
-        if !self.planets.contains_key(&planet1_id) {
-            return Err(format!("Planet {} does not exist", planet1_id));
-        }
-        if !self.planets.contains_key(&planet2_id) {
-            return Err(format!("Planet {} does not exist", planet2_id));
-        }
-
-        // Unwrap is safe after check
-        self.planets.get_mut(&planet1_id).unwrap().neighbors.insert(planet2_id);
-        self.planets.get_mut(&planet2_id).unwrap().neighbors.insert(planet1_id);
-        
-        Ok(())
-    }
-
-    fn remove_planet_connections(&mut self, planet_id: ID)-> Result<(), String>{
-        if !self.planets.contains_key(&planet_id) {
-            return Err(format!("Planet {} does not exist", planet_id));
-        }
-
-        for (id, planet) in self.planets.iter_mut() {
-            if *id == planet_id {
-                planet.neighbors.clear();
-            } else {
-                planet.neighbors.remove(&planet_id);
-            }
-        }
-        Ok(())
-    }
-
-    // Still uses 2.0.0, will stop working if updated
-    fn create_planet_1(
-        &mut self,
-        id: ID
-    ) -> Result<(), String> {
-        let (tx_orchestrator, rx_orchestrator) = unbounded();
-        let (tx_planet, rx_planet) = unbounded();
-        let (tx_explorer, rx_explorer) = unbounded();
-
-        let p = the_compiler_strikes_back::planet::create_planet(
-            rx_orchestrator,
-            tx_planet,
-            rx_explorer,
-            id
-        );
-        self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
-    }
-
-    // Functionally ok, but the package is outdated therefore the types are not matching
-    // arguments to this method are incorrect [E0308]
-    // Note: two different versions of crate `common_game` are being used; two types coming from
-    // two different versions of the same crate are different types even if they look the same
-    
-    // fn create_planet_2(
-    //     &mut self,
-    //     id: ID
-    // ) -> Result<(), String> {
-    //     let (tx_orchestrator, rx_orchestrator) = unbounded();
-    //     let (tx_planet, rx_planet) = unbounded();
-    //     let (tx_explorer, rx_explorer) = unbounded();
-    //     let p = match air_fryer::create_planet(
-    //         id,
-    //         air_fryer::PlanetAI::new(),
-    //         (rx_orchestrator, tx_planet), // To be checked
-    //         rx_explorer,
-    //
-    //     ){
-    //         Ok(p) => p,
-    //         Err(e) => return Err(e)
-    //     };
-    //     self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
-    // }
-
-    // Same thing wrong version
-
-    // fn create_planet_3(
-    //     &mut self,
-    //     id: ID
-    // ) -> Result<(), String> {
-    //     let (tx_orchestrator, rx_orchestrator) = unbounded();
-    //     let (tx_planet, rx_planet) = unbounded();
-    //     let (tx_explorer, rx_explorer) = unbounded();
-    //
-    //     let p = rustrelli::create_planet(
-    //         id,
-    //         rx_orchestrator,
-    //         tx_planet,
-    //         rx_explorer,
-    //         rustrelli::ExplorerRequestLimit::None,
-    //     );
-    //
-    //     self.add_planet(p, tx_orchestrator, rx_planet, tx_explorer)
-    // }
 }
 
 
@@ -241,6 +126,7 @@ mod tests {
     use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
     use common_game::protocols::orchestrator_planet::OrchestratorToPlanet;
     use crossbeam_channel::unbounded;
+    use crate::orchestrator::example_explorer::ExampleExplorer;
 
     struct DummyAI;
     impl PlanetAI for DummyAI {
@@ -340,4 +226,6 @@ mod tests {
         assert!(asteroid_1000 >= 0.9);
         assert_eq!(sunray_1000, 0.1);
     }
+
+
 }
