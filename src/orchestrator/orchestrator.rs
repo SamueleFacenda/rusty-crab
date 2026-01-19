@@ -1,11 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use common_game::components::planet::{Planet};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
+use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
-use crate::orchestrator::example_explorer::Explorer;
+use crate::orchestrator::example_explorer::{ExampleExplorer, Explorer};
 
-struct Orchestrator{
+
+struct Orchestrator <T: Explorer>{
     // The behavior of the orchestrator is defined by turn-like units of time
     // Alternatively can be done real-time, but that's harder to implement
     time: u32,
@@ -13,18 +16,11 @@ struct Orchestrator{
     // Auto/manual
     mode: OrchestratorMode,
 
-    // Asteroids and sunrays are produced randomly for each planet following a given pattern.
-    // For example, [(0,0.1), (10,0.2), (20, 0.3)] means that the probability of an event is 10% until time = 9, 20% until time = 19, 30% from 20 on.
-    // My idea was to have a slow start for asteroids which increase to 1 (end of the solar system-like), while keeping sunrays constant.
-    // Let me know what you think of this implementation; can be changed, but it's as simple as I could get it to be.
-    asteroid_pattern: Vec<(u32, f32)>,
-    sunray_pattern: Vec<(u32, f32)>,
-
     // List of planets in the galaxy and topology
     planets: HashMap<ID, PlanetHandle>,
 
     // List of explorers
-    explorers: HashMap<ID, ExplorerHandle>,
+    explorers: HashMap<ID, ExplorerHandle<T>>,
 }
 enum OrchestratorMode{
     Auto,
@@ -43,10 +39,9 @@ pub struct PlanetHandle {
 
 // Struct to hold explorers;
 // Again ID is probably also in the explorer struct,
-// As well as the state. There is no clear interface, but we should agree on the main content of the struct.
-// todo! Agree on the explorer fields
-pub struct ExplorerHandle {
-    explorer: Explorer, // Example implementation defined in example_explorer.rs
+// As well as the state. Created explorer trait.
+pub struct ExplorerHandle <T: Explorer> {
+    explorer: T, // Example implementation defined in example_explorer.rs
     current_planet: ID,
     tx: Sender<OrchestratorToExplorer>,
     rx: Receiver<ExplorerToOrchestrator<()>>,  // To determine what this parameter should be
@@ -61,18 +56,14 @@ pub enum ExplorerState {
 }
 
 
-impl Orchestrator{
+impl<T: Explorer> Orchestrator<T>{
     pub fn new(
                mode: OrchestratorMode,
-               asteroid_pattern: Vec<(u32, f32)>,
-               sunray_pattern: Vec<(u32, f32)>,
                planets: HashMap<ID, PlanetHandle>,
-               explorers: HashMap<ID, ExplorerHandle>) -> Self{
+               explorers: HashMap<ID, ExplorerHandle<T>>) -> Self{
         Orchestrator{
             time: 0,
             mode,
-            asteroid_pattern,
-            sunray_pattern,
             planets,
             explorers
         }
@@ -87,6 +78,17 @@ impl Orchestrator{
         // execute first loop
     }
 
+    fn get_asteroid_p(&self) -> f32 {
+        // Sigmoid starting from 0.01
+        let p_start = 0.01f32;
+        let t0 = (1.0 / p_start) * ((1.0 - p_start) / p_start).ln();
+        1.0 / (1.0 + (-p_start * (self.time as f32 - t0)).exp())
+    }
+
+    fn get_sunray_p(&self) -> f32 {
+        // Constant
+        0.1
+    }
     pub fn add_planet(&mut self, planet: Planet) -> Result<(), String> {
         let id = planet.id();
         if self.planets.contains_key(&id) {
@@ -135,16 +137,29 @@ impl Orchestrator{
         }
         Ok(())
     }
+    fn create_planet_1(
+        &mut self,
+        rx_orchestrator: Receiver<OrchestratorToPlanet>,
+        tx_orchestrator: Sender<PlanetToOrchestrator>,
+        rx_explorer: Receiver<ExplorerToPlanet>,
+        id: ID
+    ) -> Result<(), String> {
+        let p = the_compiler_strikes_back::planet::create_planet(
+            rx_orchestrator,
+            tx_orchestrator,
+            rx_explorer,
+            id
+        );
+        self.add_planet(p)
+    }
 }
 
 
-impl Default for Orchestrator{
+impl<T: Explorer> Default for Orchestrator<T>{
     fn default() -> Self {
         Orchestrator{
             time: 0,
             mode: OrchestratorMode::Auto,
-            asteroid_pattern: vec![(0, 0.0)],
-            sunray_pattern: vec![(0, 0.0)],
             planets: Default::default(),
             explorers: Default::default(),
         }
@@ -191,43 +206,69 @@ mod tests {
 
     #[test]
     fn test_add_planet() {
-        let mut orch = Orchestrator::default();
+        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
         let p1 = create_dummy_planet(1);
-        assert!(orch.add_planet(p1).is_ok());
-        assert!(orch.planets.contains_key(&1));
+        assert!(orchestrator.add_planet(p1).is_ok());
+        assert!(orchestrator.planets.contains_key(&1));
         
         let p1_dup = create_dummy_planet(1);
-        assert!(orch.add_planet(p1_dup).is_err());
+        assert!(orchestrator.add_planet(p1_dup).is_err());
     }
 
     #[test]
     fn test_connect_planets() {
-        let mut orch = Orchestrator::default();
-        orch.add_planet(create_dummy_planet(1)).unwrap();
-        orch.add_planet(create_dummy_planet(2)).unwrap();
+        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
+        orchestrator.add_planet(create_dummy_planet(1)).unwrap();
+        orchestrator.add_planet(create_dummy_planet(2)).unwrap();
         
-        assert!(orch.connect_planets(1, 2).is_ok());
+        assert!(orchestrator.connect_planets(1, 2).is_ok());
         
-        assert!(orch.planets.get(&1).unwrap().neighbors.contains(&2));
-        assert!(orch.planets.get(&2).unwrap().neighbors.contains(&1));
+        assert!(orchestrator.planets.get(&1).unwrap().neighbors.contains(&2));
+        assert!(orchestrator.planets.get(&2).unwrap().neighbors.contains(&1));
         
-        assert!(orch.connect_planets(1, 99).is_err());
+        assert!(orchestrator.connect_planets(1, 99).is_err());
     }
 
     #[test]
     fn test_remove_planet_connections() {
-        let mut orch = Orchestrator::default();
-        orch.add_planet(create_dummy_planet(1)).unwrap();
-        orch.add_planet(create_dummy_planet(2)).unwrap();
-        orch.add_planet(create_dummy_planet(3)).unwrap();
+        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
+        orchestrator.add_planet(create_dummy_planet(1)).unwrap();
+        orchestrator.add_planet(create_dummy_planet(2)).unwrap();
+        orchestrator.add_planet(create_dummy_planet(3)).unwrap();
+
+        orchestrator.connect_planets(1, 2).unwrap();
+        orchestrator.connect_planets(1, 3).unwrap();
         
-        orch.connect_planets(1, 2).unwrap();
-        orch.connect_planets(1, 3).unwrap();
+        assert!(orchestrator.remove_planet_connections(1).is_ok());
         
-        assert!(orch.remove_planet_connections(1).is_ok());
-        
-        assert!(!orch.planets.get(&2).unwrap().neighbors.contains(&1));
-        assert!(!orch.planets.get(&3).unwrap().neighbors.contains(&1));
-        assert!(orch.planets.get(&1).unwrap().neighbors.is_empty());
+        assert!(!orchestrator.planets.get(&2).unwrap().neighbors.contains(&1));
+        assert!(!orchestrator.planets.get(&3).unwrap().neighbors.contains(&1));
+        assert!(orchestrator.planets.get(&1).unwrap().neighbors.is_empty());
+        assert!(orchestrator.planets.get(&1).unwrap().neighbors.is_empty());
+    }
+
+    #[test]
+    fn verify_probabilities(){
+        // verify the initial value and that the probability tends to 1
+        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
+        let asteroid_0 = orchestrator.get_asteroid_p();
+        let sunray_0 = orchestrator.get_sunray_p();
+        // println!("0: {}, time: {}", asteroid_0, orchestrator.time);
+        assert!(asteroid_0 < 0.01001);
+        assert!(asteroid_0 > 0.0099);
+        assert_eq!(sunray_0, 0.1);
+        orchestrator.time = 100;
+        let asteroid_100 = orchestrator.get_asteroid_p();
+        let sunray_100 = orchestrator.get_sunray_p();
+        // println!("100: {}, time: {}", asteroid_100, orchestrator.time);
+        assert!(asteroid_100 <= 0.03);
+        assert!(asteroid_100 >= 0.02);
+        assert_eq!(sunray_100, 0.1);
+        orchestrator.time = 1000;
+        let asteroid_1000 = orchestrator.get_asteroid_p();
+        let sunray_1000 = orchestrator.get_sunray_p();
+        // println!("1000: {}, time: {}", asteroid_1000, orchestrator.time);
+        assert!(asteroid_1000 >= 0.9);
+        assert_eq!(sunray_1000, 0.1);
     }
 }

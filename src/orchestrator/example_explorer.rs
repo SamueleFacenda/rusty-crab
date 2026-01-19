@@ -5,7 +5,13 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
-pub struct Explorer {
+pub trait Explorer{
+    fn handle_orchestrator_message(
+        &mut self,
+        msg: OrchestratorToExplorer,
+    ) -> Result<(), String>;
+}
+pub struct ExampleExplorer {
     id: ID,
 
     // Current State
@@ -37,4 +43,10 @@ struct Bag {
 }
 struct ExplorerKnowledge {
     // not implemented in example
+}
+
+impl Explorer for ExampleExplorer {
+    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
+        Ok(())
+    }
 }
