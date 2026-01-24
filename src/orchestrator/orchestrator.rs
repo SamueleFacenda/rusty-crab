@@ -6,6 +6,7 @@ use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use crate::orchestrator::example_explorer::{Explorer};
+use crate::app::AppConfig;
 
 #[allow(dead_code)]
 pub(crate) struct Orchestrator <T: Explorer>{
@@ -89,15 +90,15 @@ impl<T: Explorer> Orchestrator<T> {
     }
 
     fn get_asteroid_p(&self) -> f32 {
-        // Sigmoid starting from 0.01
-        let p_start = 0.01f32;
-        let t0 = (1.0 / p_start) * ((1.0 - p_start) / p_start).ln();
-        1.0 / (1.0 + (-p_start * (self.time as f32 - t0)).exp())
+        // A sigmoid function that starts with y=initial_asteroid_probability
+        let p_start = AppConfig::get().initial_asteroid_probability;
+        let probability = AppConfig::get().asteroid_probability;
+        let t0 = (1.0 / probability) * ((1.0 - p_start) / p_start).ln();
+        1.0 / (1.0 + (-probability * (self.time as f32 - t0)).exp())
     }
 
     fn get_sunray_p(&self) -> f32 {
-        // Constant
-        0.1
+        AppConfig::get().sunray_probability
     }
 }
 
