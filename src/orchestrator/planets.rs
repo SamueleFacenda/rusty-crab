@@ -27,8 +27,9 @@ impl<T: Explorer> Orchestrator<T>{
         }
 
         self.planets.insert(id, PlanetHandle {
-            planet,
+            planet: Some(planet),
             neighbors: HashSet::new(),
+            thread_handle: None,
             tx,
             rx,
             tx_explorer,

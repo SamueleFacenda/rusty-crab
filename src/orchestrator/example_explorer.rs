@@ -4,6 +4,7 @@ use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
 pub trait Explorer{
+    fn run(&mut self) -> Result<(), String>;
     fn handle_orchestrator_message(
         &mut self,
         msg: OrchestratorToExplorer,
@@ -45,6 +46,22 @@ struct ExplorerKnowledge {
 }
 
 impl Explorer for ExampleExplorer {
+    fn run(&mut self) -> Result<(), String> {
+        loop {
+            match self.rx_orchestrator.recv() {
+                Ok(msg) => {
+                    if let Err(e) = self.handle_orchestrator_message(msg) {
+                        log::error!("Error handling orchestrator message: {}", e);
+                    }
+                }
+                Err(e) => {
+                    log::error!("Error receiving message from orchestrator: {}", e);
+                    Err(e.to_string())?;
+                }
+            }
+        }
+    }
+    
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
         Ok(())
     }

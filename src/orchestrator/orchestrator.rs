@@ -1,10 +1,13 @@
 use std::collections::{HashMap, HashSet};
-use common_game::components::planet::{Planet};
+use std::thread;
+
+use common_game::components::planet::{Planet, PlanetState};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
+use log::error;
 use crate::orchestrator::example_explorer::{Explorer};
 use crate::app::AppConfig;
 
@@ -34,8 +37,9 @@ pub(crate) enum OrchestratorMode{
 // struct which would also require ID as key
 // Can be changed if you find a better way
 pub struct PlanetHandle {
-    pub(crate) planet: Planet,
+    pub(crate) planet: Option<Planet>,
     pub(crate) neighbors: HashSet<ID>,
+    pub (crate) thread_handle: Option<thread::JoinHandle<()>>,
     pub tx: Sender<OrchestratorToPlanet>,
     pub rx: Receiver<PlanetToOrchestrator>,
     pub tx_explorer: Sender<ExplorerToPlanet>,
@@ -45,8 +49,9 @@ pub struct PlanetHandle {
 // Again ID is probably also in the explorer struct,
 // As well as the state. Created explorer trait.
 pub struct ExplorerHandle <T: Explorer> {
-    explorer: T, // Example implementation defined in example_explorer.rs
+    explorer: Option<T>, // Example implementation defined in example_explorer.rs
     current_planet: ID,
+    thread_handle: Option<thread::JoinHandle<()>>,
     tx: Sender<OrchestratorToExplorer>,
     rx: Receiver<ExplorerToOrchestrator<()>>,  // To determine what this parameter should be
     state: ExplorerState,
@@ -60,7 +65,7 @@ pub enum ExplorerState {
 }
 
 
-impl<T: Explorer> Orchestrator<T> {
+impl<T: Explorer + Send + 'static> Orchestrator<T> {
     pub fn new(
         mode: OrchestratorMode,
         planets: HashMap<ID, PlanetHandle>,
@@ -69,7 +74,7 @@ impl<T: Explorer> Orchestrator<T> {
             time: 0,
             mode,
             planets,
-            explorers
+            explorers,
         }
     }
 
@@ -78,7 +83,6 @@ impl<T: Explorer> Orchestrator<T> {
         while !self.is_game_over() {
             self.execute_cycle();
         }
-        self.wait_threads();
     }
 
     fn initialize(&mut self) {
@@ -87,18 +91,12 @@ impl<T: Explorer> Orchestrator<T> {
             panic!("Failed to add planets");
         });
         self.fully_connect_planets();
-        // Start planet AI and explorer AI
-        // execute first loop
-    }
-
-    fn wait_threads(&mut self) {
-        todo!()
+        self.start_planets();
+        self.start_explorers();
     }
 
     fn is_game_over(&self) -> bool {
-        self.planets.iter().any(|(id, handle)| {)
-            handle.
-        })
+        self.planets.is_empty()
     }
 
     fn fully_connect_planets(&mut self) {
@@ -113,11 +111,33 @@ impl<T: Explorer> Orchestrator<T> {
     }
 
     fn start_planets(&mut self) {
-        todo!()
+        for (id, planet_handle) in self.planets.iter_mut() {
+            let mut planet = planet_handle.planet.take().unwrap_or_else(||{
+                error!("Planet not found when starting planet thread");
+                panic!("Planet not found when starting planet thread");
+            });
+            let id = *id;
+            planet_handle.thread_handle = Some(thread::spawn(move || {
+                planet.run().unwrap_or_else(|e| {
+                    log::error!("Planet {} thread terminated with error: {}", id, e);
+                });
+            }));
+        }
     }
 
     fn start_explorers(&mut self) {
-        todo!()
+        for (id, explorer_handle) in self.explorers.iter_mut() {
+            let mut explorer = explorer_handle.explorer.take().unwrap_or_else(||{
+                error!("Explorer not found when starting explorer thread");
+                panic!("Explorer not found when starting explorer thread");
+            });
+            let id = *id;
+            explorer_handle.thread_handle = Some(thread::spawn(move || {
+                explorer.run().unwrap_or_else(|e| {
+                    log::error!("Explorer {} thread terminated with error: {}", id, e);
+                });
+            }));
+        }
     }
 
     fn execute_cycle(&mut self) {
