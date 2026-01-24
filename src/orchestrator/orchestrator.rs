@@ -147,6 +147,40 @@ impl<T: Explorer + Send + 'static> Orchestrator<T> {
         // self.time += 1;
     }
 
+    fn handle_planet_destroyed(&mut self, planet_id: ID) {
+        self.remove_planet_connections(planet_id).unwrap_or_else(|e| {
+            log::error!("Failed to remove connections for destroyed planet {}: {}", planet_id, e);
+        });
+        let handle = self.planets.remove(&planet_id);
+        if let Some(planet_handle) = handle {
+            if let Some(thread_handle) = planet_handle.thread_handle {
+                thread_handle.join().unwrap_or_else(|e| {
+                    log::error!("Failed to join thread for destroyed planet {}: {:?}", planet_id, e);
+                });
+            }
+        }
+        let explorers_to_remove: Vec<ID> = self.explorers.iter()
+            .filter_map(|(&explorer_id, explorer_handle)| {
+                if explorer_handle.current_planet == planet_id {
+                    Some(explorer_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for explorer_id in explorers_to_remove {
+            let handle = self.explorers.remove(&explorer_id);
+            if let Some(explorer_handle) = handle {
+                if let Some(thread_handle) = explorer_handle.thread_handle {
+                    thread_handle.join().unwrap_or_else(|e| {
+                        log::error!("Failed to join thread for destroyed explorer {}: {:?}", explorer_id, e);
+                    });
+                }
+            }
+        }
+    }
+
     fn get_asteroid_p(&self) -> f32 {
         // A sigmoid function that starts with y=initial_asteroid_probability
         let p_start = AppConfig::get().initial_asteroid_probability;
