@@ -73,13 +73,51 @@ impl<T: Explorer> Orchestrator<T> {
         }
     }
 
-    pub fn initialize() {
-        todo!()
-        // initialization functions
-        // Add planets we bought -> create connections
-        // logger?
+    pub fn run(&mut self) {
+        self.initialize();
+        while !self.is_game_over() {
+            self.execute_cycle();
+        }
+        self.wait_threads();
+    }
+
+    fn initialize(&mut self) {
+        self.add_planets().unwrap_or_else(|e| {
+            log::error!("Failed to add planets: {}", e);
+            panic!("Failed to add planets");
+        });
+        self.fully_connect_planets();
         // Start planet AI and explorer AI
         // execute first loop
+    }
+
+    fn wait_threads(&mut self) {
+        todo!()
+    }
+
+    fn is_game_over(&self) -> bool {
+        self.planets.iter().any(|(id, handle)| {)
+            handle.
+        })
+    }
+
+    fn fully_connect_planets(&mut self) {
+        let planet_ids: Vec<_> = self.planets.keys().cloned().collect();
+        for i in 0..planet_ids.len() {
+            for j in 0..planet_ids.len() {
+                if i != j {
+                    self.connect_planets(planet_ids[i], planet_ids[j]).unwrap();
+                }
+            }
+        }
+    }
+
+    fn start_planets(&mut self) {
+        todo!()
+    }
+
+    fn start_explorers(&mut self) {
+        todo!()
     }
 
     fn execute_cycle(&mut self) {
