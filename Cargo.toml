@@ -24,6 +24,9 @@ rustrelli = {git = "https://github.com/Rustrelli/rustrelli.git"}
 one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_million_crabs.git"}
 HWHAB = { package = "Planet", git = "https://github.com/Houston-we-have-a-borrow/Planet.git"} # Houston-we-have-a-borrow
 rust-eze = {package = "pub-rust-eze", git = "https://github.com/Rust-eze-Advanced-Programming/pub-Rust-eze.git"}
+
+[dev-dependencies]
+ctor = "0.6.3"
 # Required to fix rustrelli using the git version instead of the crate, which makes cargo treat them as different
 [patch.crates-io]
 common-game = { git = "https://github.com/unitn-ap-2025/common.git", branch = "main" }

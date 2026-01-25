@@ -30,7 +30,7 @@ macro_rules! config_fields {
 
 // Add your configuration fields here with their default values
 config_fields! {
-    asteroid_probability: f32 = 0.1,
+    asteroid_probability: f32 = 0.01,
     sunray_probability: f32 =0.1,
     initial_asteroid_probability: f32 = 0.01,
 }
