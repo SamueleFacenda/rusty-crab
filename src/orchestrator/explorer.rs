@@ -16,16 +16,17 @@ pub trait Explorer{
         msg: OrchestratorToExplorer,
     ) -> Result<(), String>;
 }
-trait ExplorerBuilder {
-    fn build(&self) -> Result<Box<dyn Explorer>, String>;
-    fn with_orchestrator_rx(self, rx: crossbeam_channel::Receiver<OrchestratorToExplorer>) -> Self;
-    fn with_orchestrator_tx(self, tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>) -> Self;
-    fn with_planet_rx(self, rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>) -> Self;
-    fn with_id(self, id: common_game::utils::ID) -> Self;
-    fn with_current_planet(self, planet_id: common_game::utils::ID) -> Self;
+
+pub(crate) trait ExplorerBuilder {
+    fn build(self: Box<Self>) -> Result<Box<dyn Explorer>, String>;
+    fn with_orchestrator_rx(self: Box<Self>, rx: crossbeam_channel::Receiver<OrchestratorToExplorer>) -> Box<dyn ExplorerBuilder>;
+    fn with_orchestrator_tx(self: Box<Self>, tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>) -> Box<dyn ExplorerBuilder>;
+    fn with_planet_rx(self: Box<Self>, rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>) -> Box<dyn ExplorerBuilder>;
+    fn with_id(self: Box<Self>, id: common_game::utils::ID) -> Box<dyn ExplorerBuilder>;
+    fn with_current_planet(self: Box<Self>, planet_id: common_game::utils::ID) -> Box<dyn ExplorerBuilder>;
 }
 
-struct ExplorerBuilderImpl <T: Explorer> {
+pub(crate) struct ExplorerBuilderImpl <T: Explorer> {
     rx_orchestrator: Option<crossbeam_channel::Receiver<OrchestratorToExplorer>>,
     tx_orchestrator: Option<crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>>,
     rx_planet: Option<crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>>,
@@ -48,7 +49,7 @@ impl <T: Explorer> ExplorerBuilderImpl<T> {
 }
 
 impl <T: Explorer> ExplorerBuilder for ExplorerBuilderImpl<T> {
-    fn build(&self) -> Result<Box<dyn Explorer>, String> {
+    fn build(self: Box<Self>) -> Result<Box<dyn Explorer>, String> {
         if self.id.is_none() {
             return Err("Explorer ID not set".to_string());
         }
@@ -73,38 +74,38 @@ impl <T: Explorer> ExplorerBuilder for ExplorerBuilderImpl<T> {
         )))
     }
 
-    fn with_orchestrator_rx(self, rx: crossbeam_channel::Receiver<OrchestratorToExplorer>) -> Self {
-        ExplorerBuilderImpl{
+    fn with_orchestrator_rx(self: Box<Self>, rx: crossbeam_channel::Receiver<OrchestratorToExplorer>) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl{
             rx_orchestrator: Some(rx),
-            ..self
-        }
+            ..*self
+        })
     }
 
-    fn with_orchestrator_tx(self, tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>) -> Self {
-        ExplorerBuilderImpl{
+    fn with_orchestrator_tx(self: Box<Self>, tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl{
             tx_orchestrator: Some(tx),
-            ..self
-        }
+            ..*self
+        })
     }
 
-    fn with_planet_rx(self, rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>) -> Self {
-        ExplorerBuilderImpl{
+    fn with_planet_rx(self: Box<Self>, rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl{
             rx_planet: Some(rx),
-            ..self
-        }
+            ..*self
+        })
     }
 
-    fn with_id(self, id: common_game::utils::ID) -> Self {
-        ExplorerBuilderImpl{
+    fn with_id(self: Box<Self>, id: common_game::utils::ID) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl{
             id: Some(id),
-            ..self
-        }
+            ..*self
+        })
     }
 
-    fn with_current_planet(self, planet_id: common_game::utils::ID) -> Self {
-        ExplorerBuilderImpl {
+    fn with_current_planet(self: Box<Self>, planet_id: common_game::utils::ID) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl {
             current_planet: Some(planet_id),
-            ..self
-        }
+            ..*self
+        })
     }
 }

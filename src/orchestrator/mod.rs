@@ -11,4 +11,4 @@ pub(crate) use galaxy::Galaxy;
 pub(crate) use galaxy_builder::GalaxyBuilder;
 pub(crate) use planet_factory::{PlanetFactory, PlanetType};
 pub(crate) use example_explorer::ExampleExplorer;
-pub(crate) use explorer::{Explorer, BagContent};
+pub(crate) use explorer::{Explorer, BagContent, ExplorerBuilderImpl, ExplorerBuilder};

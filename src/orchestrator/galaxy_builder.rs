@@ -6,14 +6,14 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
-use crate::orchestrator::{Explorer, BagContent, Galaxy, PlanetFactory, PlanetType};
+use crate::orchestrator::{BagContent, Galaxy, PlanetFactory, PlanetType, ExplorerBuilder};
 
 /// These builders creates all the galaxy entities and their connections
 pub(crate) struct GalaxyBuilder {
     fully_connected: bool,
     circular: bool,
     n_planets: usize,
-    explorers: Vec<Box<dyn Explorer>>
+    explorers: Vec<Box<dyn ExplorerBuilder>>
 }
 
 const PLANET_ORDER: [PlanetType; 7] = [
@@ -34,14 +34,11 @@ struct PlanetInit {
 }
 
 struct ExplorerInit {
-    explorer: Box<dyn Explorer>,
+    explorer: Box<dyn ExplorerBuilder>,
     initial_planet: ID,
-    explorer_to_orchestrator_tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
     explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
     orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
-    orchestrator_to_explorer_rx: crossbeam_channel::Receiver<OrchestratorToExplorer>,
     planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
-    planet_to_explorer_rx: crossbeam_channel::Receiver<PlanetToExplorer>,
 }
 
 struct GalaxyBuilderResult {
@@ -81,7 +78,7 @@ impl GalaxyBuilder {
         }
     }
 
-    pub fn with_explorers(self, explorers: Vec<Box<dyn Explorer>>) -> Self {
+    pub fn with_explorers(self, explorers: Vec<Box<dyn ExplorerBuilder>>) -> Self {
         GalaxyBuilder{
             explorers,
             ..self
@@ -123,15 +120,20 @@ impl GalaxyBuilder {
             let ex_to_orch_channel = unbounded();
             let orch_to_ex_channel = unbounded();
             let plan_to_ex_channel = unbounded();
+            let explorer = explorer
+                .with_id(id)
+                .with_current_planet(0) // all explorers start at planet 0
+                .with_orchestrator_rx(orch_to_ex_channel.1)
+                .with_orchestrator_tx(ex_to_orch_channel.0)
+                .with_planet_rx(plan_to_ex_channel.1)
+                .build()
+                .expect("Failed to build explorer");
             handles.insert(id, ExplorerInit{
                 explorer,
                 initial_planet: 0, // all explorers start at planet 0
-                explorer_to_orchestrator_tx: ex_to_orch_channel.0,
                 explorer_to_orchestrator_rx: ex_to_orch_channel.1,
                 orchestrator_to_explorer_tx: orch_to_ex_channel.0,
-                orchestrator_to_explorer_rx: orch_to_ex_channel.1,
                 planet_to_explorer_tx: plan_to_ex_channel.0,
-                planet_to_explorer_rx: plan_to_ex_channel.1,
             });
         }
         handles
