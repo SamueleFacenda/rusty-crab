@@ -16,6 +16,8 @@ pub(crate) struct GalaxyBuilder {
     circular: bool,
     n_planets: usize,
     explorers: Vec<Box<dyn ExplorerBuilder>>,
+    explorer_to_orchestrator: (Sender<ExplorerToOrchestrator<BagContent>>, Receiver<ExplorerToOrchestrator<BagContent>>),
+    planet_to_orchestrator: (Sender<PlanetToOrchestrator>, Receiver<PlanetToOrchestrator>),
 }
 
 const PLANET_ORDER: [PlanetType; 7] = [
@@ -32,15 +34,12 @@ const PLANET_ORDER: [PlanetType; 7] = [
 pub(crate) struct PlanetInit {
     pub planet: Planet,
     pub orchestrator_to_planet_tx: crossbeam_channel::Sender<OrchestratorToPlanet>,
-    pub planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
     pub explorer_to_planet_tx: crossbeam_channel::Sender<ExplorerToPlanet>,
 }
 
 pub(crate) struct ExplorerInit {
     pub explorer: Box<dyn ExplorerBuilder>,
     pub initial_planet: ID,
-    pub explorer_to_orchestrator_rx:
-        crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
     pub orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
     pub planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
 }
@@ -49,6 +48,8 @@ pub(crate) struct GalaxyBuilderResult {
     pub galaxy: Galaxy,
     pub planet_inits: HashMap<ID, PlanetInit>,
     pub explorer_inits: HashMap<ID, ExplorerInit>,
+    pub planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
+    pub explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
 }
 
 impl GalaxyBuilder {
@@ -58,6 +59,8 @@ impl GalaxyBuilder {
             circular: false,
             n_planets: 0,
             explorers: vec![],
+            explorer_to_orchestrator: unbounded(),
+            planet_to_orchestrator: unbounded(),
         }
     }
 
@@ -101,6 +104,8 @@ impl GalaxyBuilder {
             galaxy,
             planet_inits,
             explorer_inits,
+            planet_to_orchestrator_rx: self.planet_to_orchestrator.1,
+            explorer_to_orchestrator_rx: self.explorer_to_orchestrator.1,
         })
     }
 
@@ -118,21 +123,19 @@ impl GalaxyBuilder {
         let mut handles = HashMap::new();
         let explorer_ids = self.get_explorer_ids();
         for (explorer, id) in explorers.into_iter().zip(explorer_ids) {
-            let ex_to_orch_channel = unbounded();
             let orch_to_ex_channel = unbounded();
             let plan_to_ex_channel = unbounded();
             let explorer = explorer
                 .with_id(id)
                 .with_current_planet(0) // all explorers start at planet 0
                 .with_orchestrator_rx(orch_to_ex_channel.1)
-                .with_orchestrator_tx(ex_to_orch_channel.0)
+                .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
                 .with_planet_rx(plan_to_ex_channel.1);
             handles.insert(
                 id,
                 ExplorerInit {
                     explorer,
                     initial_planet: 0, // all explorers start at planet 0
-                    explorer_to_orchestrator_rx: ex_to_orch_channel.1,
                     orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                     planet_to_explorer_tx: plan_to_ex_channel.0,
                 },
@@ -145,19 +148,17 @@ impl GalaxyBuilder {
         let mut handles = HashMap::new();
         for planet_id in self.get_planet_ids() {
             let orch_to_planet_channel = unbounded();
-            let planet_to_orch_channel = unbounded();
             let explorer_to_planet_channel = unbounded();
             handles.insert(
                 planet_id,
                 PlanetInit {
                     planet: GalaxyBuilder::get_planet(
                         planet_id,
-                        planet_to_orch_channel.0,
+                        self.planet_to_orchestrator.0.clone(),
                         orch_to_planet_channel.1,
                         explorer_to_planet_channel.1,
                     )?,
                     orchestrator_to_planet_tx: orch_to_planet_channel.0,
-                    planet_to_orchestrator_rx: planet_to_orch_channel.1,
                     explorer_to_planet_tx: explorer_to_planet_channel.0,
                 },
             );

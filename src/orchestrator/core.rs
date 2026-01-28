@@ -35,6 +35,9 @@ pub(crate) struct Orchestrator {
     explorers: HashMap<ID, ExplorerHandle>,
     // List of planets
     planets: HashMap<ID, PlanetHandle>,
+
+    planets_rx: Receiver<PlanetToOrchestrator>,
+    explorers_rx: Receiver<ExplorerToOrchestrator<BagContent>>,
 }
 
 pub(crate) enum OrchestratorMode {
@@ -50,7 +53,6 @@ pub(crate) enum OrchestratorMode {
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
     pub tx: Sender<OrchestratorToPlanet>,
-    pub rx: Receiver<PlanetToOrchestrator>,
     pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
 }
 
@@ -61,7 +63,6 @@ pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
     pub tx: Sender<OrchestratorToExplorer>,
-    pub rx: Receiver<ExplorerToOrchestrator<BagContent>>,
     pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
@@ -94,7 +95,6 @@ impl Orchestrator {
                     PlanetHandle {
                         thread_handle: Self::start_planet(planet_init.planet, id),
                         tx: planet_init.orchestrator_to_planet_tx,
-                        rx: planet_init.planet_to_orchestrator_rx,
                         tx_explorer: planet_init.explorer_to_planet_tx,
                     },
                 )
@@ -111,7 +111,6 @@ impl Orchestrator {
                         current_planet: explorer_init.initial_planet,
                         thread_handle: Self::start_explorers(explorer_init.explorer, id),
                         tx: explorer_init.orchestrator_to_explorer_tx,
-                        rx: explorer_init.explorer_to_orchestrator_rx,
                         tx_planet: explorer_init.planet_to_explorer_tx,
                         state: ExplorerState::Autonomous,
                     },
@@ -125,12 +124,15 @@ impl Orchestrator {
             galaxy: initial_galaxy.galaxy,
             planets,
             explorers,
+            planets_rx: initial_galaxy.planet_to_orchestrator_rx,
+            explorers_rx: initial_galaxy.explorer_to_orchestrator_rx,
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
         while !self.is_game_over() {
             self.execute_cycle()?;
+            self.time += 1;
         }
         Ok(())
     }
@@ -161,6 +163,7 @@ impl Orchestrator {
     fn execute_cycle(&mut self) -> Result<(), String> {
         self.send_sunrays()?;
         self.send_asteroids()?;
+        self.send_bag_content_requests()?;
 
         Ok(())
     }
@@ -197,10 +200,24 @@ impl Orchestrator {
             .tx
             .try_send(msg)
             .map_err(|e| e.to_string())?;
-        self.planets[&planet_id]
-            .rx
+        self.planets_rx
             .recv_timeout(Duration::from_millis(AppConfig::get().max_wait_time_ms))
-            .map_err(|e| e.to_string())
+            .map(|r| if r.planet_id() == planet_id {
+                Ok(r)
+            } else {
+                Err(format!("The wrong planet responded! Expected {planet_id}, got {}", r.planet_id()))
+            } )
+            .map_err(|e| e.to_string())? // The ? is because it's a nested Result
+    }
+
+    fn send_bag_content_requests(&self) -> Result<(), String> {
+        for (_, explorer_handle) in &self.explorers {
+            explorer_handle
+                .tx
+                .try_send(OrchestratorToExplorer::BagContentRequest)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
     }
 
     fn handle_planet_destroyed(&mut self, planet_id: ID) {
