@@ -4,12 +4,13 @@ use std::thread;
 use common_game::components::planet::{Planet, PlanetState};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-use common_game::protocols::planet_explorer::ExplorerToPlanet;
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use log::error;
 use crate::orchestrator::example_explorer::{Explorer};
 use crate::app::AppConfig;
+use crate::orchestrator::galaxy::Galaxy;
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -22,11 +23,12 @@ pub(crate) struct Orchestrator {
     // Auto/manual
     mode: OrchestratorMode,
 
-    // List of planets in the galaxy and topology
-    pub(crate) planets: HashMap<ID, PlanetHandle>,
+    galaxy: Galaxy,
 
     // List of explorers
     explorers: HashMap<ID, ExplorerHandle>,
+    // List of planets
+    planets: HashMap<ID, PlanetHandle>,
 }
 pub(crate) enum OrchestratorMode{
     Auto,
@@ -39,10 +41,10 @@ pub(crate) enum OrchestratorMode{
 // struct which would also require ID as key
 // Can be changed if you find a better way
 pub(crate) struct PlanetHandle {
-    pub thread_handle: Option<thread::JoinHandle<()>>,
+    pub thread_handle: thread::JoinHandle<()>,
     pub tx: Sender<OrchestratorToPlanet>,
     pub rx: Receiver<PlanetToOrchestrator>,
-    pub tx_explorer: Sender<ExplorerToPlanet>,
+    pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
 }
 
 // Struct to hold explorers;
@@ -50,9 +52,10 @@ pub(crate) struct PlanetHandle {
 // As well as the state. Created explorer trait.
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
-    pub thread_handle: Option<thread::JoinHandle<()>>,
+    pub thread_handle: thread::JoinHandle<()>,
     pub tx: Sender<OrchestratorToExplorer>,
-    pub rx: Receiver<ExplorerToOrchestrator<()>>,  // To determine what this parameter should be
+    pub rx: Receiver<ExplorerToOrchestrator<()>>,
+    pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
 

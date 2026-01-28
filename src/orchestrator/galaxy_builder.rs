@@ -2,14 +2,11 @@ use std::collections::HashMap;
 use common_game::components::planet::Planet;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-use common_game::protocols::planet_explorer::ExplorerToPlanet;
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use crate::orchestrator::example_explorer::BagContent;
-use crate::orchestrator::Explorer;
-use crate::orchestrator::galaxy::Galaxy;
-use crate::orchestrator::orchestrator::{ExplorerHandle, PlanetHandle};
-use crate::orchestrator::planet_factory::{PlanetFactory, PlanetType};
+
+use crate::orchestrator::{Explorer, BagContent, Galaxy, PlanetFactory, PlanetType};
 
 /// These builders creates all the galaxy entities and their connections
 pub(crate) struct GalaxyBuilder {
@@ -43,6 +40,8 @@ struct ExplorerInit {
     explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
     orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
     orchestrator_to_explorer_rx: crossbeam_channel::Receiver<OrchestratorToExplorer>,
+    planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
+    planet_to_explorer_rx: crossbeam_channel::Receiver<PlanetToExplorer>,
 }
 
 struct GalaxyBuilderResult {
@@ -123,6 +122,7 @@ impl GalaxyBuilder {
         for (explorer, id) in explorers.into_iter().zip(explorer_ids) {
             let ex_to_orch_channel = unbounded();
             let orch_to_ex_channel = unbounded();
+            let plan_to_ex_channel = unbounded();
             handles.insert(id, ExplorerInit{
                 explorer,
                 initial_planet: 0, // all explorers start at planet 0
@@ -130,6 +130,8 @@ impl GalaxyBuilder {
                 explorer_to_orchestrator_rx: ex_to_orch_channel.1,
                 orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                 orchestrator_to_explorer_rx: orch_to_ex_channel.1,
+                planet_to_explorer_tx: plan_to_ex_channel.0,
+                planet_to_explorer_rx: plan_to_ex_channel.1,
             });
         }
         handles

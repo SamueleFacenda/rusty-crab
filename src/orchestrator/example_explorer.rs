@@ -2,16 +2,7 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, Orch
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
-
-pub struct BagContent;
-
-pub trait Explorer{
-    fn run(&mut self) -> Result<(), String>;
-    fn handle_orchestrator_message(
-        &mut self,
-        msg: OrchestratorToExplorer,
-    ) -> Result<(), String>;
-}
+use crate::orchestrator::explorer::{Explorer, BagContent};
 
 #[allow(dead_code)]
 pub struct ExampleExplorer {
@@ -49,6 +40,26 @@ struct ExplorerKnowledge {
 }
 
 impl Explorer for ExampleExplorer {
+    fn new(
+        id: ID,
+        current_planet: ID,
+        rx_orchestrator: Receiver<OrchestratorToExplorer>,
+        tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
+        rx_planet: Receiver<PlanetToExplorer>,
+    ) -> Self {
+        ExampleExplorer {
+            id,
+            current_planet_id: current_planet,
+            mode: ExplorerMode::Auto,
+            rx_orchestrator,
+            tx_orchestrator,
+            tx_planet: None,
+            rx_planet,
+            bag: Bag {},
+            knowledge: ExplorerKnowledge {},
+        }
+    }
+    
     fn run(&mut self) -> Result<(), String> {
         loop {
             match self.rx_orchestrator.recv() {
