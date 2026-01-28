@@ -8,7 +8,7 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 
 use crate::orchestrator::{BagContent, Galaxy, PlanetFactory, PlanetType, ExplorerBuilder};
 
-/// These builders creates all the galaxy entities and their connections
+/// This struct creates and initializes all the galaxy entities, with the help of the corresponding factories/builders.
 pub(crate) struct GalaxyBuilder {
     fully_connected: bool,
     circular: bool,
@@ -26,25 +26,26 @@ const PLANET_ORDER: [PlanetType; 7] = [
     PlanetType::RustEze,
 ];
 
-struct PlanetInit {
-    planet: Planet,
-    orchestrator_to_planet_tx: crossbeam_channel::Sender<OrchestratorToPlanet>,
-    planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
-    explorer_to_planet_tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+// DTOs used to initialize the entities
+pub(crate) struct PlanetInit {
+    pub planet: Planet,
+    pub orchestrator_to_planet_tx: crossbeam_channel::Sender<OrchestratorToPlanet>,
+    pub planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
+    pub explorer_to_planet_tx: crossbeam_channel::Sender<ExplorerToPlanet>,
 }
 
-struct ExplorerInit {
-    explorer: Box<dyn ExplorerBuilder>,
-    initial_planet: ID,
-    explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
-    orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
-    planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
+pub(crate) struct ExplorerInit {
+    pub explorer: Box<dyn ExplorerBuilder>,
+    pub initial_planet: ID,
+    pub explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
+    pub orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
+    pub planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
 }
 
-struct GalaxyBuilderResult {
-    galaxy: Galaxy,
-    planet_inits: HashMap<ID, PlanetInit>,
-    explorer_inits: HashMap<ID, ExplorerInit>,
+pub(crate) struct GalaxyBuilderResult {
+    pub galaxy: Galaxy,
+    pub planet_inits: HashMap<ID, PlanetInit>,
+    pub explorer_inits: HashMap<ID, ExplorerInit>,
 }
 
 impl GalaxyBuilder {
@@ -125,9 +126,7 @@ impl GalaxyBuilder {
                 .with_current_planet(0) // all explorers start at planet 0
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(ex_to_orch_channel.0)
-                .with_planet_rx(plan_to_ex_channel.1)
-                .build()
-                .expect("Failed to build explorer");
+                .with_planet_rx(plan_to_ex_channel.1);
             handles.insert(id, ExplorerInit{
                 explorer,
                 initial_planet: 0, // all explorers start at planet 0

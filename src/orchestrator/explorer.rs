@@ -17,7 +17,7 @@ pub trait Explorer{
     ) -> Result<(), String>;
 }
 
-pub(crate) trait ExplorerBuilder {
+pub(crate) trait ExplorerBuilder: Send {
     fn build(self: Box<Self>) -> Result<Box<dyn Explorer>, String>;
     fn with_orchestrator_rx(self: Box<Self>, rx: crossbeam_channel::Receiver<OrchestratorToExplorer>) -> Box<dyn ExplorerBuilder>;
     fn with_orchestrator_tx(self: Box<Self>, tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>) -> Box<dyn ExplorerBuilder>;
@@ -48,7 +48,7 @@ impl <T: Explorer> ExplorerBuilderImpl<T> {
     }
 }
 
-impl <T: Explorer> ExplorerBuilder for ExplorerBuilderImpl<T> {
+impl <T: Explorer + 'static + Send> ExplorerBuilder for ExplorerBuilderImpl<T> {
     fn build(self: Box<Self>) -> Result<Box<dyn Explorer>, String> {
         if self.id.is_none() {
             return Err("Explorer ID not set".to_string());

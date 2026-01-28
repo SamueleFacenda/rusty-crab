@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::iter::Map;
 use std::thread;
 
 use common_game::components::planet::{Planet, PlanetState};
@@ -8,9 +9,10 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use log::error;
-use crate::orchestrator::example_explorer::{Explorer};
+use crate::orchestrator::{Explorer, BagContent};
 use crate::app::AppConfig;
 use crate::orchestrator::galaxy::Galaxy;
+use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -54,7 +56,7 @@ pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
     pub tx: Sender<OrchestratorToExplorer>,
-    pub rx: Receiver<ExplorerToOrchestrator<()>>,
+    pub rx: Receiver<ExplorerToOrchestrator<BagContent>>,
     pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
@@ -66,80 +68,77 @@ pub enum ExplorerState {
     Destroyed,
 }
 
-
 impl Orchestrator {
     pub fn new(
         mode: OrchestratorMode,
-        planets: HashMap<ID, PlanetHandle>,
-        explorers: HashMap<ID, ExplorerHandle>) -> Self {
-        Orchestrator {
+        n_planets: usize,
+        explores: Vec<Box<dyn ExplorerBuilder>>,
+        ) -> Result<Self, String> {
+
+        let mut initialGalaxy = GalaxyBuilder::new()
+            .with_fully_connected_topology()
+            .with_n_planets(n_planets)
+            .with_explorers(explores)
+            .build()?;
+        
+        let planets = initialGalaxy.planet_inits.into_iter()
+            .map(|(id, planet_init)| {
+                ( id, PlanetHandle {
+                    thread_handle: Self::start_planet(planet_init.planet, id),
+                    tx: planet_init.orchestrator_to_planet_tx,
+                    rx: planet_init.planet_to_orchestrator_rx,
+                    tx_explorer: planet_init.explorer_to_planet_tx,
+                }) })
+            .collect();
+        
+        let explorers = initialGalaxy.explorer_inits.into_iter()
+            .map(|(id, explorer_init)| {
+                ( id, ExplorerHandle {
+                    current_planet: explorer_init.initial_planet,
+                    thread_handle: Self::start_explorers(explorer_init.explorer, id),
+                    tx: explorer_init.orchestrator_to_explorer_tx,
+                    rx: explorer_init.explorer_to_orchestrator_rx,
+                    tx_planet: explorer_init.planet_to_explorer_tx,
+                    state: ExplorerState::Autonomous,
+                }) })
+            .collect();
+
+        Ok(Orchestrator {
             time: 0,
             mode,
+            galaxy: initialGalaxy.galaxy,
             planets,
             explorers,
-        }
+        })
     }
 
     pub fn run(&mut self) {
-        self.initialize();
         while !self.is_game_over() {
             self.execute_cycle();
         }
     }
 
-    fn initialize(&mut self) {
-        self.add_planets().unwrap_or_else(|e| {
-            log::error!("Failed to add planets: {}", e);
-            panic!("Failed to add planets");
-        });
-        self.fully_connect_planets();
-        self.start_planets();
-        self.start_explorers();
-    }
-
     fn is_game_over(&self) -> bool {
-        self.planets.is_empty()
+        self.galaxy.get_planets().is_empty()
     }
 
-    fn fully_connect_planets(&mut self) {
-        let planet_ids: Vec<_> = self.planets.keys().cloned().collect();
-        for i in 0..planet_ids.len() {
-            for j in 0..planet_ids.len() {
-                if i != j {
-                    self.connect_planets(planet_ids[i], planet_ids[j]).unwrap();
-                }
-            }
-        }
-    }
-
-    fn start_planets(&mut self) {
-        for (id, planet_handle) in self.planets.iter_mut() {
-            let mut planet = planet_handle.planet.take().unwrap_or_else(||{
-                error!("Planet not found when starting planet thread");
-                panic!("Planet not found when starting planet thread");
+    fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
+        thread::spawn(move || {
+            planet.run().unwrap_or_else(|e| {
+                log::error!("Planet {} thread terminated with error: {}", id, e);
             });
-            let id = *id;
-            planet_handle.thread_handle = Some(thread::spawn(move || {
-                planet.run().unwrap_or_else(|e| {
-                    log::error!("Planet {} thread terminated with error: {}", id, e);
-                });
-            }));
-        }
+        })
     }
 
-    fn start_explorers(&mut self) {
-        for (id, explorer_handle) in self.explorers.iter_mut() {
-            let mut explorer = explorer_handle.explorer.take().unwrap_or_else(||{
-                error!("Explorer not found when starting explorer thread");
-                panic!("Explorer not found when starting explorer thread");
+    fn start_explorers(explorer: Box<dyn ExplorerBuilder>, id: ID) -> thread::JoinHandle<()> {
+        thread::spawn(move || {
+            let mut explorer_instance = explorer.build().unwrap_or_else(|e| {
+                panic!("Failed to build explorer {}: {}", id, e);
             });
-            let id = *id;
-            explorer_handle.thread_handle = Some(thread::spawn(move || {
-                explorer.run().unwrap_or_else(|e| {
-                    log::error!("Explorer {} thread terminated with error: {}", id, e);
-                });
-            }));
-        }
+            explorer_instance.run().unwrap_or_else(|e| {
+                log::error!("Explorer {} thread terminated with error: {}", id, e);
+            });
+        })
     }
 
     fn execute_cycle(&mut self) {
@@ -150,16 +149,13 @@ impl Orchestrator {
     }
 
     fn handle_planet_destroyed(&mut self, planet_id: ID) {
-        self.remove_planet_connections(planet_id).unwrap_or_else(|e| {
-            log::error!("Failed to remove connections for destroyed planet {}: {}", planet_id, e);
-        });
+        self.galaxy.remove_planet(planet_id);
+        
         let handle = self.planets.remove(&planet_id);
         if let Some(planet_handle) = handle {
-            if let Some(thread_handle) = planet_handle.thread_handle {
-                thread_handle.join().unwrap_or_else(|e| {
-                    log::error!("Failed to join thread for destroyed planet {}: {:?}", planet_id, e);
-                });
-            }
+            planet_handle.thread_handle.join().unwrap_or_else(|e| {
+                log::error!("Failed to join thread for destroyed planet {}: {:?}", planet_id, e);
+            });
         }
         let explorers_to_remove: Vec<ID> = self.explorers.iter()
             .filter_map(|(&explorer_id, explorer_handle)| {
@@ -172,14 +168,11 @@ impl Orchestrator {
             .collect();
 
         for explorer_id in explorers_to_remove {
-            let handle = self.explorers.remove(&explorer_id);
-            if let Some(explorer_handle) = handle {
-                if let Some(thread_handle) = explorer_handle.thread_handle {
-                    thread_handle.join().unwrap_or_else(|e| {
-                        log::error!("Failed to join thread for destroyed explorer {}: {:?}", explorer_id, e);
-                    });
-                }
-            }
+            // Unwrap is safe since the explorer cannot be already removed (the ID comes from the planet)
+            let handle = self.explorers.remove(&explorer_id).unwrap();
+            handle.thread_handle.join().unwrap_or_else(|e| {
+                log::error!("Failed to join thread for destroyed explorer {}: {:?}", explorer_id, e);
+            });
         }
     }
 
@@ -197,14 +190,9 @@ impl Orchestrator {
 }
 
 
-impl<T: Explorer> Default for Orchestrator<T>{
+impl Default for Orchestrator{
     fn default() -> Self {
-        Orchestrator{
-            time: 0,
-            mode: OrchestratorMode::Auto,
-            planets: Default::default(),
-            explorers: Default::default(),
-        }
+        Orchestrator::new(OrchestratorMode::Auto, 0, vec![]).unwrap()
     }
 }
 
@@ -214,93 +202,23 @@ impl<T: Explorer> Default for Orchestrator<T>{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_game::components::planet::{PlanetAI, PlanetState, PlanetType, DummyPlanetState};
-    use common_game::components::resource::{BasicResourceType, Combinator, Generator};
-    use common_game::components::sunray::Sunray;
-    use common_game::components::rocket::Rocket;
-    use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
-    use common_game::protocols::orchestrator_planet::OrchestratorToPlanet;
-    use crossbeam_channel::unbounded;
-    use crate::orchestrator::example_explorer::ExampleExplorer;
-
-    struct DummyAI;
-    impl PlanetAI for DummyAI {
-        fn handle_sunray(&mut self, _state: &mut PlanetState, _gen: &Generator, _comb: &Combinator, _sunray: Sunray) {}
-        fn handle_asteroid(&mut self, _state: &mut PlanetState, _gen: &Generator, _comb: &Combinator) -> Option<Rocket> { None }
-        fn handle_internal_state_req(&mut self, state: &mut PlanetState, _gen: &Generator, _comb: &Combinator) -> DummyPlanetState { state.to_dummy() }
-        fn handle_explorer_msg(&mut self, _state: &mut PlanetState, _gen: &Generator, _comb: &Combinator, _msg: ExplorerToPlanet) -> Option<PlanetToExplorer> { None }
-    }
-
-    fn create_dummy_planet(id: ID) -> (Planet, Sender<OrchestratorToPlanet>, Receiver<PlanetToOrchestrator>, Sender<ExplorerToPlanet>) {
-        let (tx_orch, rx_orch) = unbounded();
-        let (tx_planet, rx_planet) = unbounded();
-        let (tx_expl, rx_expl) = unbounded();
-        
-        let p = Planet::new(
-            id,
-            PlanetType::A,
-            Box::new(DummyAI),
-            vec![BasicResourceType::Oxygen],
-            vec![],
-            (rx_orch, tx_planet),
-            rx_expl
-        ).unwrap();
-
-        (p, tx_orch, rx_planet, tx_expl)
-    }
-
+    
     #[test]
-    fn test_add_planet() {
-        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        let (p1, tx, rx, tx_e) = create_dummy_planet(1);
-        assert!(orchestrator.add_planet(p1, tx, rx, tx_e).is_ok());
-        assert!(orchestrator.planets.contains_key(&1));
-        
-        let (p1_dup, tx, rx, tx_e) = create_dummy_planet(1);
-        assert!(orchestrator.add_planet(p1_dup, tx, rx, tx_e).is_err());
+    fn test_empty_galaxy_create(){
+        let orchestrator = Orchestrator::new(OrchestratorMode::Auto, 0, vec![]);
+        assert!(orchestrator.is_ok());
     }
-
+    
     #[test]
-    fn test_connect_planets() {
-        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        let (p1, tx1, rx1, tx_e1) = create_dummy_planet(1);
-        orchestrator.add_planet(p1, tx1, rx1, tx_e1).unwrap();
-        let (p2, tx2, rx2, tx_e2) = create_dummy_planet(2);
-        orchestrator.add_planet(p2, tx2, rx2, tx_e2).unwrap();
-        
-        assert!(orchestrator.connect_planets(1, 2).is_ok());
-        
-        assert!(orchestrator.planets.get(&1).unwrap().neighbors.contains(&2));
-        assert!(orchestrator.planets.get(&2).unwrap().neighbors.contains(&1));
-        
-        assert!(orchestrator.connect_planets(1, 99).is_err());
-    }
-
-    #[test]
-    fn test_remove_planet_connections() {
-        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-        let (p1, tx1, rx1, tx_e1) = create_dummy_planet(1);
-        orchestrator.add_planet(p1, tx1, rx1, tx_e1).unwrap();
-        let (p2, tx2, rx2, tx_e2) = create_dummy_planet(2);
-        orchestrator.add_planet(p2, tx2, rx2, tx_e2).unwrap();
-        let (p3, tx3, rx3, tx_e3) = create_dummy_planet(3);
-        orchestrator.add_planet(p3, tx3, rx3, tx_e3).unwrap();
-
-        orchestrator.connect_planets(1, 2).unwrap();
-        orchestrator.connect_planets(1, 3).unwrap();
-        
-        assert!(orchestrator.remove_planet_connections(1).is_ok());
-        
-        assert!(!orchestrator.planets.get(&2).unwrap().neighbors.contains(&1));
-        assert!(!orchestrator.planets.get(&3).unwrap().neighbors.contains(&1));
-        assert!(orchestrator.planets.get(&1).unwrap().neighbors.is_empty());
-        assert!(orchestrator.planets.get(&1).unwrap().neighbors.is_empty());
+    fn test_game_over_empty_galaxy(){
+        let orchestrator = Orchestrator::new(OrchestratorMode::Auto, 0, vec![]).unwrap();
+        assert!(orchestrator.is_game_over());
     }
 
     #[test]
     fn verify_probabilities(){
         // verify the initial value and that the probability tends to 1
-        let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
+        let mut orchestrator = Orchestrator::default();
         let asteroid_0 = orchestrator.get_asteroid_p();
         let sunray_0 = orchestrator.get_sunray_p();
         // println!("0: {}, time: {}", asteroid_0, orchestrator.time);
@@ -321,6 +239,4 @@ mod tests {
         assert!(asteroid_1000 >= 0.9);
         assert_eq!(sunray_1000, 0.1);
     }
-
-
 }

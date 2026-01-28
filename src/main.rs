@@ -17,7 +17,6 @@ fn init_tests() {
 fn main() {
     init();
     
-    let mut orchestrator: Orchestrator<ExampleExplorer> = Orchestrator::default();
-    
+    let mut orchestrator = Orchestrator::default();
     orchestrator.run();
 }
