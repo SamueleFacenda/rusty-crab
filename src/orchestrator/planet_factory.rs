@@ -10,8 +10,10 @@ use air_fryer;
 // use carbonium;
 use one_million_crabs;
 
+#[derive(Copy, Clone)]
 pub(crate) enum PlanetType {
-    AirFryer,
+    PanicOutOfOxygen,
+    TheCompilerStrikesBack,
     Rustrelli,
     Carbonium,
     OneMillionCrabs,
@@ -30,11 +32,14 @@ impl PlanetFactory {
         explorer_receiver: Receiver<ExplorerToPlanet>,
     ) -> Result<Planet, String> {
         match planet_type {
-            PlanetType::AirFryer => {
+            PlanetType::PanicOutOfOxygen => {
                 Self::create_panic_out_of_oxygen_planet(id, sender, receiver, explorer_receiver)
             }
             PlanetType::Rustrelli => {
                 Self::create_rustrelli_planet(id, sender, receiver, explorer_receiver)
+            }
+            PlanetType::TheCompilerStrikesBack => {
+                Self::create_the_compiler_strikes_back_planet(id, sender, receiver, explorer_receiver)
             }
             PlanetType::Carbonium => {
                 Self::create_carbonium_planet(id, sender, receiver, explorer_receiver)
@@ -184,7 +189,7 @@ mod tests {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
         let planet = PlanetFactory::make_planet(
-            PlanetType::AirFryer,
+            PlanetType::PanicOutOfOxygen,
             1,
             tx_planet,
             rx_orch,

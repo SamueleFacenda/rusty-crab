@@ -3,6 +3,8 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
+pub struct BagContent;
+
 pub trait Explorer{
     fn run(&mut self) -> Result<(), String>;
     fn handle_orchestrator_message(
@@ -10,6 +12,7 @@ pub trait Explorer{
         msg: OrchestratorToExplorer,
     ) -> Result<(), String>;
 }
+
 #[allow(dead_code)]
 pub struct ExampleExplorer {
     id: ID,
@@ -20,7 +23,7 @@ pub struct ExampleExplorer {
 
     // Communication Channels
     rx_orchestrator: Receiver<OrchestratorToExplorer>,
-    tx_orchestrator: Sender<ExplorerToOrchestrator<()>>, // Not sure about the type here
+    tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>, // Not sure about the type here
     tx_planet: Option<Sender<ExplorerToPlanet>>,
     rx_planet: Receiver<PlanetToExplorer>,
 

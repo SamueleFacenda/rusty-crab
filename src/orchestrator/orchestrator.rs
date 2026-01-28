@@ -11,8 +11,10 @@ use log::error;
 use crate::orchestrator::example_explorer::{Explorer};
 use crate::app::AppConfig;
 
+/// The Orchestrator is the main entity that manages the game.
+/// It's responsible for managing the communication and threads (IPC)
 #[allow(dead_code)]
-pub(crate) struct Orchestrator <T: Explorer>{
+pub(crate) struct Orchestrator {
     // The behavior of the orchestrator is defined by turn-like units of time
     // Alternatively can be done real-time, but that's harder to implement
     time: u32,
@@ -24,7 +26,7 @@ pub(crate) struct Orchestrator <T: Explorer>{
     pub(crate) planets: HashMap<ID, PlanetHandle>,
 
     // List of explorers
-    explorers: HashMap<ID, ExplorerHandle<T>>,
+    explorers: HashMap<ID, ExplorerHandle>,
 }
 pub(crate) enum OrchestratorMode{
     Auto,
@@ -36,10 +38,8 @@ pub(crate) enum OrchestratorMode{
 // But the alternative is to store topology in a separate
 // struct which would also require ID as key
 // Can be changed if you find a better way
-pub struct PlanetHandle {
-    pub(crate) planet: Option<Planet>,
-    pub(crate) neighbors: HashSet<ID>,
-    pub (crate) thread_handle: Option<thread::JoinHandle<()>>,
+pub(crate) struct PlanetHandle {
+    pub thread_handle: Option<thread::JoinHandle<()>>,
     pub tx: Sender<OrchestratorToPlanet>,
     pub rx: Receiver<PlanetToOrchestrator>,
     pub tx_explorer: Sender<ExplorerToPlanet>,
@@ -48,13 +48,12 @@ pub struct PlanetHandle {
 // Struct to hold explorers;
 // Again ID is probably also in the explorer struct,
 // As well as the state. Created explorer trait.
-pub struct ExplorerHandle <T: Explorer> {
-    explorer: Option<T>, // Example implementation defined in example_explorer.rs
-    current_planet: ID,
-    thread_handle: Option<thread::JoinHandle<()>>,
-    tx: Sender<OrchestratorToExplorer>,
-    rx: Receiver<ExplorerToOrchestrator<()>>,  // To determine what this parameter should be
-    state: ExplorerState,
+pub(crate) struct ExplorerHandle {
+    pub current_planet: ID,
+    pub thread_handle: Option<thread::JoinHandle<()>>,
+    pub tx: Sender<OrchestratorToExplorer>,
+    pub rx: Receiver<ExplorerToOrchestrator<()>>,  // To determine what this parameter should be
+    pub state: ExplorerState,
 }
 
 pub enum ExplorerState {
@@ -65,11 +64,11 @@ pub enum ExplorerState {
 }
 
 
-impl<T: Explorer + Send + 'static> Orchestrator<T> {
+impl Orchestrator {
     pub fn new(
         mode: OrchestratorMode,
         planets: HashMap<ID, PlanetHandle>,
-        explorers: HashMap<ID, ExplorerHandle<T>>) -> Self {
+        explorers: HashMap<ID, ExplorerHandle>) -> Self {
         Orchestrator {
             time: 0,
             mode,
