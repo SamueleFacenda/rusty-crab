@@ -1,35 +1,37 @@
-use std::collections::{HashMap, HashSet};
 use common_game::utils::ID;
+use std::collections::{HashMap, HashSet};
 
 /// Galaxy topology container, only manages the connections between planets.
 pub(crate) struct Galaxy {
-    connections: HashMap<ID, HashSet<ID>>
+    connections: HashMap<ID, HashSet<ID>>,
 }
 
 impl Galaxy {
-    pub fn make_fully_connected(ids: Vec<ID>) -> Result<Self, String> {
+    pub fn make_fully_connected(ids: &[ID]) -> Result<Self, String> {
         let mut connections: HashMap<ID, HashSet<ID>> = HashMap::new();
 
-        for &id in &ids {
+        for &id in ids {
             let mut connected_planets = HashSet::new();
             // Connect to all previously added planets
-            for (prev, prev_connection) in connections.iter_mut() {
+            for (prev, prev_connection) in &mut connections {
                 prev_connection.insert(id);
                 connected_planets.insert(*prev);
             }
 
             if connections.contains_key(&id) {
-                return Err(format!("Duplicate planet ID found: {}", id));
+                return Err(format!("Duplicate planet ID found: {id}"));
             }
             connections.insert(id, connected_planets);
         }
         Ok(Galaxy { connections })
     }
 
-    pub fn make_circular(ids: Vec<ID>) -> Result<Self, String> {
-        let mut connections: HashMap<ID, HashSet<ID>> = HashMap::from_iter(
-            ids.iter().map(|&id| (id, HashSet::new()))
-        );
+    pub fn make_circular(ids: &[ID]) -> Result<Self, String> {
+        let mut connections: HashMap<ID, HashSet<ID>> =
+            ids.iter().map(|&id| (id, HashSet::new())).collect();
+        if connections.len() != ids.len() {
+            return Err("Duplicate planet IDs found".to_string());
+        }
 
         // connect to the next planet
         for i in 0..ids.len() {
@@ -45,7 +47,7 @@ impl Galaxy {
     }
 
     pub fn get_planets(&self) -> Vec<ID> {
-        self.connections.keys().cloned().collect()
+        self.connections.keys().copied().collect()
     }
 
     pub fn are_planets_connected(&self, a: ID, b: ID) -> bool {
@@ -64,6 +66,7 @@ impl Galaxy {
     }
 }
 
+#[allow(clippy::wildcard_imports)] // It's just tests
 mod test {
     use super::*;
 
@@ -73,13 +76,13 @@ mod test {
 
     #[test]
     fn test_fully_connected() {
-        let galaxy = Galaxy::make_fully_connected(get_dummy_ids());
+        let galaxy = Galaxy::make_fully_connected(&get_dummy_ids());
         assert!(galaxy.is_ok());
     }
 
     #[test]
     fn test_fully_connected_connections() {
-        let galaxy = Galaxy::make_fully_connected(get_dummy_ids()).unwrap();
+        let galaxy = Galaxy::make_fully_connected(&get_dummy_ids()).unwrap();
 
         for planet in galaxy.get_planets() {
             for other_planet in galaxy.get_planets() {
@@ -92,13 +95,13 @@ mod test {
 
     #[test]
     fn test_circular() {
-        let galaxy = Galaxy::make_circular(get_dummy_ids());
+        let galaxy = Galaxy::make_circular(&get_dummy_ids());
         assert!(galaxy.is_ok());
     }
 
     #[test]
     fn test_circular_connections() {
-        let galaxy = Galaxy::make_circular(get_dummy_ids()).unwrap();
+        let galaxy = Galaxy::make_circular(&get_dummy_ids()).unwrap();
         let planets = galaxy.get_planets();
         let num_planets = planets.len();
 
@@ -114,7 +117,7 @@ mod test {
 
     #[test]
     fn test_remove_planet() {
-        let mut galaxy = Galaxy::make_fully_connected(get_dummy_ids()).unwrap();
+        let mut galaxy = Galaxy::make_fully_connected(&get_dummy_ids()).unwrap();
         let planet_to_remove = 3;
 
         galaxy.remove_planet(planet_to_remove);

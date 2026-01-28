@@ -1,8 +1,10 @@
-use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
+use crate::orchestrator::explorer::{BagContent, Explorer};
+use common_game::protocols::orchestrator_explorer::{
+    ExplorerToOrchestrator, OrchestratorToExplorer,
+};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
-use crate::orchestrator::explorer::{Explorer, BagContent};
 
 #[allow(dead_code)]
 pub struct ExampleExplorer {
@@ -59,23 +61,23 @@ impl Explorer for ExampleExplorer {
             knowledge: ExplorerKnowledge {},
         }
     }
-    
+
     fn run(&mut self) -> Result<(), String> {
         loop {
             match self.rx_orchestrator.recv() {
                 Ok(msg) => {
                     if let Err(e) = self.handle_orchestrator_message(msg) {
-                        log::error!("Error handling orchestrator message: {}", e);
+                        log::error!("Error handling orchestrator message: {e}");
                     }
                 }
                 Err(e) => {
-                    log::error!("Error receiving message from orchestrator: {}", e);
+                    log::error!("Error receiving message from orchestrator: {e}");
                     Err(e.to_string())?;
                 }
             }
         }
     }
-    
+
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
         Ok(())
     }

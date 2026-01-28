@@ -1,5 +1,7 @@
 use common_game::components::planet::{DummyPlanetState, PlanetAI, PlanetState};
-use common_game::components::resource::{Combinator, ComplexResource, ComplexResourceRequest, Generator};
+use common_game::components::resource::{
+    Combinator, ComplexResource, ComplexResourceRequest, Generator,
+};
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::logging::ActorType::{Explorer, Orchestrator, Planet};
@@ -8,8 +10,9 @@ use common_game::logging::EventType::{InternalPlanetAction, MessageExplorerToPla
 use common_game::logging::{LogEvent, Participant, Payload};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
-/// The RustyCrab Planet AI, a defensive, reliable and versatile planet.
-pub struct RustyCrabPlanetAI { // Alternatively can be named ust "AI" as in the docs
+/// The `RustyCrab` Planet AI, a defensive, reliable and versatile planet.
+pub struct RustyCrabPlanetAI {
+    // Alternatively can be named ust "AI" as in the docs
     //TODO!
 }
 
@@ -27,9 +30,17 @@ impl PlanetAI for RustyCrabPlanetAI {
 
         // Build rocket if none exists and we have a full cell
         if !state.has_rocket() {
-            LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Orchestrator, 0u32)), InternalPlanetAction, Debug, Payload::from([
-                (String::from("Rocket"), String::from("Got a sunray, building a rocket...")),
-            ])).emit();
+            LogEvent::new(
+                Some(Participant::new(Planet, state.id())),
+                Some(Participant::new(Orchestrator, 0u32)),
+                InternalPlanetAction,
+                Debug,
+                Payload::from([(
+                    String::from("Rocket"),
+                    String::from("Got a sunray, building a rocket..."),
+                )]),
+            )
+            .emit();
             if let Some((_, index)) = state.full_cell() {
                 let _ = state.build_rocket(index);
             }
@@ -42,16 +53,34 @@ impl PlanetAI for RustyCrabPlanetAI {
         _generator: &Generator,
         _combinator: &Combinator,
     ) -> Option<Rocket> {
-        LogEvent::new(Some(Participant::new(Planet, state.id())), None, InternalPlanetAction, Debug, Payload::from([
-            (String::from("Asteroid"), String::from("Asteroid received, checking for rocket construction.")),
-        ])).emit();
-        if !state.has_rocket() {  // if there is no rocket, create it
-            LogEvent::new(Some(Participant::new(Planet, state.id())), None, InternalPlanetAction, Info, Payload::from([
-                (String::from("Asteroid"), String::from("No defense, trying to build rocket on the fly...")),
-            ])).emit();
+        LogEvent::new(
+            Some(Participant::new(Planet, state.id())),
+            None,
+            InternalPlanetAction,
+            Debug,
+            Payload::from([(
+                String::from("Asteroid"),
+                String::from("Asteroid received, checking for rocket construction."),
+            )]),
+        )
+        .emit();
+        if !state.has_rocket() {
+            // if there is no rocket, create it
+            LogEvent::new(
+                Some(Participant::new(Planet, state.id())),
+                None,
+                InternalPlanetAction,
+                Info,
+                Payload::from([(
+                    String::from("Asteroid"),
+                    String::from("No defense, trying to build rocket on the fly..."),
+                )]),
+            )
+            .emit();
             let requested_cell = state.full_cell();
-            if let Some((_, cell_idx)) = requested_cell {  // constructs rocket only if possible
-                state.build_rocket(cell_idx).unwrap();  // Our C type planet supports rockets, no check needed
+            if let Some((_, cell_idx)) = requested_cell {
+                // constructs rocket only if possible
+                state.build_rocket(cell_idx).unwrap(); // Our C type planet supports rockets, no check needed
             }
         }
         state.take_rocket()
@@ -81,16 +110,17 @@ impl PlanetAI for RustyCrabPlanetAI {
             }
             ExplorerToPlanet::SupportedResourceRequest { .. } => {
                 Some(PlanetToExplorer::SupportedResourceResponse {
-                    resource_list: generator.all_available_recipes()
+                    resource_list: generator.all_available_recipes(),
                 })
             }
             ExplorerToPlanet::SupportedCombinationRequest { .. } => {
                 Some(PlanetToExplorer::SupportedCombinationResponse {
-                    combination_list: combinator.all_available_recipes()
+                    combination_list: combinator.all_available_recipes(),
                 })
             }
             ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id, resource
+                explorer_id,
+                resource,
             } => {
                 // Check if the planet can produce the requested basic resource, and whether an
                 // energy cell is charged. If so generate the requested resource
@@ -101,102 +131,99 @@ impl PlanetAI for RustyCrabPlanetAI {
                 // returning None directly or returning a response with a None resource inside?
                 // I chose the latter, change if needed)
 
-                LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Explorer, explorer_id)), MessageExplorerToPlanet, Debug, Payload::from([
-                    (String::from("RustyCrab"), String::from("Explorer requested resource generation.")),
-                    (String::from("Resource"), format!("{:?}", resource)),
-                ])).emit();
+                LogEvent::new(
+                    Some(Participant::new(Planet, state.id())),
+                    Some(Participant::new(Explorer, explorer_id)),
+                    MessageExplorerToPlanet,
+                    Debug,
+                    Payload::from([
+                        (
+                            String::from("RustyCrab"),
+                            String::from("Explorer requested resource generation."),
+                        ),
+                        (String::from("Resource"), format!("{resource:?}")),
+                    ]),
+                )
+                .emit();
 
                 let cell_option = state.full_cell();
 
-                let out = if let Some((cell, _idx)) = cell_option && generator.contains(resource) {
+                let out = if let Some((cell, _idx)) = cell_option
+                    && generator.contains(resource)
+                {
                     Some(generator.make_hydrogen(cell).unwrap().to_basic())
                 } else {
                     None
                 };
                 Some(PlanetToExplorer::GenerateResourceResponse { resource: out })
             }
-            ExplorerToPlanet::CombineResourceRequest {
-                explorer_id, msg
-            } => {
+            ExplorerToPlanet::CombineResourceRequest { explorer_id, msg } => {
                 // Planet C supports all the combinations, so there is no need to check manually
                 // if a certain complex combination is allowed or not.
                 // Also, the methods make_water, make_*, ..., return a error message if the
                 // combination is wrong or if there is no energy, so no need to check it.
 
-                LogEvent::new(Some(Participant::new(Planet, state.id())), Some(Participant::new(Explorer, explorer_id)), MessageExplorerToPlanet, Debug, Payload::from([
-                    (String::from("RustyCrab"), String::from("Explorer requested resource combination.")),
-                    (String::from("Resource"), format!("{:?}", msg)),
-                ])).emit();
-
+                LogEvent::new(
+                    Some(Participant::new(Planet, state.id())),
+                    Some(Participant::new(Explorer, explorer_id)),
+                    MessageExplorerToPlanet,
+                    Debug,
+                    Payload::from([
+                        (
+                            String::from("RustyCrab"),
+                            String::from("Explorer requested resource combination."),
+                        ),
+                        (String::from("Resource"), format!("{msg:?}")),
+                    ]),
+                )
+                .emit();
 
                 let cell = state.cell_mut(0); // First and only cell
                 // The cell can be charged or not, the error is handled by make_water, make_*...
 
                 let response_content = match msg {
-                    ComplexResourceRequest::Water(r1, r2) => {
-                        combinator.make_water(r1, r2, cell)
-                            .map(ComplexResource::Water)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
-                    ComplexResourceRequest::Diamond(r1, r2) => {
-                        combinator
-                            .make_diamond(r1, r2, cell)
-                            .map(ComplexResource::Diamond)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
-                    ComplexResourceRequest::Life(r1, r2) => {
-                        combinator
-                            .make_life(r1, r2, cell)
-                            .map(ComplexResource::Life)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
-                    ComplexResourceRequest::Robot(r1, r2) => {
-                        combinator
-                            .make_robot(r1, r2, cell)
-                            .map(ComplexResource::Robot)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
-                    ComplexResourceRequest::Dolphin(r1, r2) => {
-                        combinator
-                            .make_dolphin(r1, r2, cell)
-                            .map(ComplexResource::Dolphin)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
-                    ComplexResourceRequest::AIPartner(r1, r2) => {
-                        combinator
-                            .make_aipartner(r1, r2, cell)
-                            .map(ComplexResource::AIPartner)
-                            .map_err(|(msg, r1, r2)| {
-                                (msg, r1.to_generic(), r2.to_generic())
-                            })
-                    }
+                    ComplexResourceRequest::Water(r1, r2) => combinator
+                        .make_water(r1, r2, cell)
+                        .map(ComplexResource::Water)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
+                    ComplexResourceRequest::Diamond(r1, r2) => combinator
+                        .make_diamond(r1, r2, cell)
+                        .map(ComplexResource::Diamond)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
+                    ComplexResourceRequest::Life(r1, r2) => combinator
+                        .make_life(r1, r2, cell)
+                        .map(ComplexResource::Life)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
+                    ComplexResourceRequest::Robot(r1, r2) => combinator
+                        .make_robot(r1, r2, cell)
+                        .map(ComplexResource::Robot)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
+                    ComplexResourceRequest::Dolphin(r1, r2) => combinator
+                        .make_dolphin(r1, r2, cell)
+                        .map(ComplexResource::Dolphin)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
+                    ComplexResourceRequest::AIPartner(r1, r2) => combinator
+                        .make_aipartner(r1, r2, cell)
+                        .map(ComplexResource::AIPartner)
+                        .map_err(|(msg, r1, r2)| (msg, r1.to_generic(), r2.to_generic())),
                 };
 
-                Some(PlanetToExplorer::CombineResourceResponse { complex_response: response_content })
+                Some(PlanetToExplorer::CombineResourceResponse {
+                    complex_response: response_content,
+                })
             }
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::super::create_planet;
     use super::*;
-    use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
     use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
-    use crossbeam_channel::{unbounded, Receiver, Sender};
+    use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
+    use crossbeam_channel::{Receiver, Sender, unbounded};
     use std::thread;
     use std::time::Duration;
 
@@ -231,7 +258,6 @@ mod tests {
         let (rx_from_orch, tx_from_planet_orch) = planet_orch_ch;
         let (rx_from_expl, _) = planet_expl_ch;
         let (tx_to_planet_orch, rx_to_orch) = orch_planet_ch;
-
 
         let mut planet = create_planet(rx_from_orch, tx_from_planet_orch, rx_from_expl, 96u32);
 
@@ -282,10 +308,8 @@ mod tests {
         // 4. Expect Survival (Ack with Some(Rocket))
         match rx_to_orch.recv_timeout(Duration::from_millis(200)) {
             Ok(PlanetToOrchestrator::AsteroidAck {
-                   planet_id,
-                   rocket,
-                   ..
-               }) => {
+                planet_id, rocket, ..
+            }) => {
                 assert_eq!(planet_id, 96);
                 assert!(rocket.is_some(), "Planet failed to build rocket!");
             }

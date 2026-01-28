@@ -59,7 +59,8 @@ impl AppConfig {
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
             .build()
             .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
-        CONFIG.set(AppConfig::from_settings(&settings, args))
+        CONFIG
+            .set(AppConfig::from_settings(&settings, args))
             .expect("AppConfig can only be initialized once");
     }
 

@@ -10,7 +10,6 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .debug(fern::colors::Color::Magenta)
         .trace(fern::colors::Color::White);
 
-
     let mut log = fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
@@ -21,10 +20,10 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
                 record.file().unwrap_or("<unknown>"),
                 record.line().unwrap_or(0),
                 message
-            ))
+            ));
         })
         .level(log_level.parse().unwrap_or_else(|e| {
-            eprintln!("Failed to parse log level: {}. Defaulting to Info.", e);
+            eprintln!("Failed to parse log level: {e}. Defaulting to Info.");
             log::LevelFilter::Info
         }))
         .chain(std::io::stdout());
