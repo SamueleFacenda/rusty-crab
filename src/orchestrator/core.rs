@@ -86,9 +86,7 @@ impl Orchestrator {
             .with_explorers(explorer_builders)
             .build()?;
 
-        let planets = initial_galaxy
-            .planet_inits
-            .into_iter()
+        let planets = initial_galaxy.planet_inits.into_iter()
             .map(|(id, planet_init)| {
                 (
                     id,
@@ -101,9 +99,7 @@ impl Orchestrator {
             })
             .collect();
 
-        let explorers = initial_galaxy
-            .explorer_inits
-            .into_iter()
+        let explorers = initial_galaxy.explorer_inits.into_iter()
             .map(|(id, explorer_init)| {
                 (
                     id,
@@ -242,13 +238,8 @@ impl Orchestrator {
 
     fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
         self.explorers.iter()
-            .filter_map(|(&explorer_id, explorer_handle)| {
-                if explorer_handle.current_planet == planet_id {
-                    Some(explorer_id)
-                } else {
-                    None
-                }
-            })
+            .filter(|(_, handle)| handle.current_planet == planet_id)
+            .map(|(&explorer_id, _)| explorer_id)
             .collect()
     }
 
