@@ -24,6 +24,7 @@ rustrelli = {git = "https://github.com/Rustrelli/rustrelli.git"}
 one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_million_crabs.git"}
 HWHAB = { package = "Planet", git = "https://github.com/Houston-we-have-a-borrow/Planet.git"} # Houston-we-have-a-borrow
 rust-eze = {package = "pub-rust-eze", git = "https://github.com/Rust-eze-Advanced-Programming/pub-Rust-eze.git"}
+rand = "0.9.2"
 
 [dev-dependencies]
 ctor = "0.6.3"

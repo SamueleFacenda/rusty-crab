@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 use std::thread;
-
+use std::time::Duration;
+use common_game::components::asteroid::Asteroid;
 use common_game::components::planet::Planet;
+use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
+use config::Config;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::app::AppConfig;
@@ -125,10 +128,11 @@ impl Orchestrator {
         })
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> Result<(), String> {
         while !self.is_game_over() {
-            self.execute_cycle();
+            self.execute_cycle()?;
         }
+        Ok(())
     }
 
     fn is_game_over(&self) -> bool {
@@ -154,11 +158,49 @@ impl Orchestrator {
         })
     }
 
-    fn execute_cycle(&mut self) {
-        todo!()
-        // Send sunray and asteroid
-        // ...
-        // self.time += 1;
+    fn execute_cycle(&mut self) -> Result<(), String> {
+        self.send_sunrays()?;
+        self.send_asteroids()?;
+
+        Ok(())
+    }
+
+    fn send_asteroids(&mut self) -> Result<(), String> {
+        for planet_id in self.galaxy.get_planets() {
+            if rand::random::<f32>() < self.get_asteroid_p() {
+                match self.planet_syn_ack(planet_id, OrchestratorToPlanet::Asteroid(Asteroid::default()))? {
+                    PlanetToOrchestrator::AsteroidAck { planet_id, rocket: Some(_) } => {}, // planet defended itself
+                    PlanetToOrchestrator::AsteroidAck { planet_id, rocket: None } => { // handle destroyed planet
+                        self.handle_planet_destroyed(planet_id);
+                    },
+                    _ => return Err(format!("Unexpected response from planet {planet_id} to asteroid (invalid state)")),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn send_sunrays(&mut self) -> Result<(), String> {
+        for planet_id in self.galaxy.get_planets() {
+            if rand::random::<f32>() < self.get_sunray_p() {
+                match self.planet_syn_ack(planet_id, OrchestratorToPlanet::Sunray(Sunray::default()))? {
+                    PlanetToOrchestrator::SunrayAck{planet_id} => {}, // planet handled sunray
+                    _ => return Err(format!("Unexpected response from planet {planet_id} to sunray (invalid state)")),
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn planet_syn_ack(&self, planet_id: ID, msg: OrchestratorToPlanet) -> Result<PlanetToOrchestrator, String> {
+        self.planets[&planet_id]
+            .tx
+            .try_send(msg)
+            .map_err(|e| e.to_string())?;
+        self.planets[&planet_id]
+            .rx
+            .recv_timeout(Duration::from_millis(AppConfig::get().max_wait_time_ms))
+            .map_err(|e| e.to_string())
     }
 
     fn handle_planet_destroyed(&mut self, planet_id: ID) {
@@ -170,18 +212,8 @@ impl Orchestrator {
                 log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
             });
         }
-        let explorers_to_remove: Vec<ID> = self
-            .explorers
-            .iter()
-            .filter_map(|(&explorer_id, explorer_handle)| {
-                if explorer_handle.current_planet == planet_id {
-                    Some(explorer_id)
-                } else {
-                    None
-                }
-            })
-            .collect();
 
+        let explorers_to_remove = self.get_explorers_on_planet(planet_id);
         for explorer_id in explorers_to_remove {
             // Unwrap is safe since the explorer cannot be already removed (the ID comes from the planet)
             let handle = self.explorers.remove(&explorer_id).unwrap();
@@ -189,6 +221,18 @@ impl Orchestrator {
                 log::error!("Failed to join thread for destroyed explorer {explorer_id}: {e:?}");
             });
         }
+    }
+
+    fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
+        self.explorers.iter()
+            .filter_map(|(&explorer_id, explorer_handle)| {
+                if explorer_handle.current_planet == planet_id {
+                    Some(explorer_id)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     #[allow(clippy::cast_precision_loss)] // f32 is precise enough for our needs
