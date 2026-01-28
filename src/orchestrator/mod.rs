@@ -3,5 +3,9 @@ mod orchestrator;
 mod example_explorer;
 mod planets;
 
+mod planet_factory;
+
+mod galaxy;
+
 pub(crate) use orchestrator::Orchestrator;
 pub(crate) use example_explorer::{Explorer, ExampleExplorer};
