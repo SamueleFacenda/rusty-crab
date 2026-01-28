@@ -2,6 +2,7 @@ use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
 
+#[derive(Debug)]
 pub struct BagContent;
 
 pub trait Explorer {

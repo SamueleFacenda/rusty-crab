@@ -14,7 +14,7 @@ use config::Config;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::app::AppConfig;
-use crate::orchestrator::BagContent;
+use crate::orchestrator::{BagContent, ExplorerLoggingReceiver, ExplorerLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
 use crate::orchestrator::galaxy::Galaxy;
 use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder};
 
@@ -36,8 +36,8 @@ pub(crate) struct Orchestrator {
     // List of planets
     planets: HashMap<ID, PlanetHandle>,
 
-    planets_rx: Receiver<PlanetToOrchestrator>,
-    explorers_rx: Receiver<ExplorerToOrchestrator<BagContent>>,
+    planets_rx: PlanetLoggingReceiver,
+    explorers_rx: ExplorerLoggingReceiver,
 }
 
 pub(crate) enum OrchestratorMode {
@@ -52,7 +52,7 @@ pub(crate) enum OrchestratorMode {
 // Can be changed if you find a better way
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: Sender<OrchestratorToPlanet>,
+    pub tx: PlanetLoggingSender,
     pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
 }
 
@@ -62,7 +62,7 @@ pub(crate) struct PlanetHandle {
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: Sender<OrchestratorToExplorer>,
+    pub tx: ExplorerLoggingSender,
     pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
@@ -94,7 +94,7 @@ impl Orchestrator {
                     id,
                     PlanetHandle {
                         thread_handle: Self::start_planet(planet_init.planet, id),
-                        tx: planet_init.orchestrator_to_planet_tx,
+                        tx: PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx),
                         tx_explorer: planet_init.explorer_to_planet_tx,
                     },
                 )
@@ -110,7 +110,7 @@ impl Orchestrator {
                     ExplorerHandle {
                         current_planet: explorer_init.initial_planet,
                         thread_handle: Self::start_explorers(explorer_init.explorer, id),
-                        tx: explorer_init.orchestrator_to_explorer_tx,
+                        tx: ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx),
                         tx_planet: explorer_init.planet_to_explorer_tx,
                         state: ExplorerState::Autonomous,
                     },
@@ -124,8 +124,8 @@ impl Orchestrator {
             galaxy: initial_galaxy.galaxy,
             planets,
             explorers,
-            planets_rx: initial_galaxy.planet_to_orchestrator_rx,
-            explorers_rx: initial_galaxy.explorer_to_orchestrator_rx,
+            planets_rx: PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx),
+            explorers_rx: ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx),
         })
     }
 
@@ -198,10 +198,10 @@ impl Orchestrator {
     fn planet_syn_ack(&self, planet_id: ID, msg: OrchestratorToPlanet) -> Result<PlanetToOrchestrator, String> {
         self.planets[&planet_id]
             .tx
-            .try_send(msg)
+            .send(msg, planet_id)
             .map_err(|e| e.to_string())?;
         self.planets_rx
-            .recv_timeout(Duration::from_millis(AppConfig::get().max_wait_time_ms))
+            .recv_timeout(AppConfig::get().max_wait_time_ms, planet_id)
             .map(|r| if r.planet_id() == planet_id {
                 Ok(r)
             } else {
@@ -211,10 +211,10 @@ impl Orchestrator {
     }
 
     fn send_bag_content_requests(&self) -> Result<(), String> {
-        for (_, explorer_handle) in &self.explorers {
+        for (id, explorer_handle) in &self.explorers {
             explorer_handle
                 .tx
-                .try_send(OrchestratorToExplorer::BagContentRequest)
+                .send(OrchestratorToExplorer::BagContentRequest, *id)
                 .map_err(|e| e.to_string())?;
         }
         Ok(())

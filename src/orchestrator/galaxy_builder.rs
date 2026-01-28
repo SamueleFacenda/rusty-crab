@@ -33,15 +33,15 @@ const PLANET_ORDER: [PlanetType; 7] = [
 // DTOs used to initialize the entities
 pub(crate) struct PlanetInit {
     pub planet: Planet,
-    pub orchestrator_to_planet_tx: crossbeam_channel::Sender<OrchestratorToPlanet>,
-    pub explorer_to_planet_tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+    pub orchestrator_to_planet_tx: Sender<OrchestratorToPlanet>,
+    pub explorer_to_planet_tx: Sender<ExplorerToPlanet>,
 }
 
 pub(crate) struct ExplorerInit {
     pub explorer: Box<dyn ExplorerBuilder>,
     pub initial_planet: ID,
-    pub orchestrator_to_explorer_tx: crossbeam_channel::Sender<OrchestratorToExplorer>,
-    pub planet_to_explorer_tx: crossbeam_channel::Sender<PlanetToExplorer>,
+    pub orchestrator_to_explorer_tx: Sender<OrchestratorToExplorer>,
+    pub planet_to_explorer_tx: Sender<PlanetToExplorer>,
 }
 
 pub(crate) struct GalaxyBuilderResult {
