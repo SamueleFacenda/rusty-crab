@@ -1,14 +1,16 @@
 //! Module that contains the orchestrator
 mod core;
-mod example_explorer;
+mod state;
 mod explorer;
 mod galaxy;
 mod galaxy_builder;
 mod planet_factory;
 mod logging_channel;
+mod example_explorer;
 
 pub(crate) use core::Orchestrator;
 pub(crate) use example_explorer::ExampleExplorer;
+pub(crate) use state::{OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder, ExplorerBuilderImpl};
 pub(crate) use galaxy::Galaxy;
 pub(crate) use galaxy_builder::GalaxyBuilder;

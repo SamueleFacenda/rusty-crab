@@ -10,13 +10,11 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
-use config::Config;
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{Sender};
 
 use crate::app::AppConfig;
-use crate::orchestrator::{BagContent, ExplorerLoggingReceiver, ExplorerLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
-use crate::orchestrator::galaxy::Galaxy;
-use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder};
+use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
+use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder, OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -29,49 +27,12 @@ pub(crate) struct Orchestrator {
     // Auto/manual
     mode: OrchestratorMode,
 
-    galaxy: Galaxy,
-
-    // List of explorers
-    explorers: HashMap<ID, ExplorerHandle>,
-    // List of planets
-    planets: HashMap<ID, PlanetHandle>,
-
-    planets_rx: PlanetLoggingReceiver,
-    explorers_rx: ExplorerLoggingReceiver,
+    state: OrchestratorState,
 }
 
 pub(crate) enum OrchestratorMode {
     Auto,
     Manual,
-}
-
-// struct used to handle the list of planets.
-// This is partly redundant as ID is stored twice,
-// But the alternative is to store topology in a separate
-// struct which would also require ID as key
-// Can be changed if you find a better way
-pub(crate) struct PlanetHandle {
-    pub thread_handle: thread::JoinHandle<()>,
-    pub tx: PlanetLoggingSender,
-    pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
-}
-
-// Struct to hold explorers;
-// Again ID is probably also in the explorer struct,
-// As well as the state. Created explorer trait.
-pub(crate) struct ExplorerHandle {
-    pub current_planet: ID,
-    pub thread_handle: thread::JoinHandle<()>,
-    pub tx: ExplorerLoggingSender,
-    pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
-    pub state: ExplorerState,
-}
-
-pub enum ExplorerState {
-    Autonomous,
-    Manual,
-    Stopped,
-    Destroyed,
 }
 
 impl Orchestrator {
@@ -117,11 +78,13 @@ impl Orchestrator {
         Ok(Orchestrator {
             time: 0,
             mode,
-            galaxy: initial_galaxy.galaxy,
-            planets,
-            explorers,
-            planets_rx: PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx),
-            explorers_rx: ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx),
+            state: OrchestratorState {
+                galaxy: initial_galaxy.galaxy,
+                planets,
+                explorers,
+                planets_rx: PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx),
+                explorers_rx: ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx),
+            }
         })
     }
 
@@ -134,7 +97,7 @@ impl Orchestrator {
     }
 
     fn is_game_over(&self) -> bool {
-        self.galaxy.get_planets().is_empty()
+        self.state.galaxy.get_planets().is_empty()
     }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
@@ -165,12 +128,12 @@ impl Orchestrator {
     }
 
     fn send_asteroids(&mut self) -> Result<(), String> {
-        for planet_id in self.galaxy.get_planets() {
+        for planet_id in self.state.galaxy.get_planets() {
             if rand::random::<f32>() < self.get_asteroid_p() {
                 match self.planet_syn_ack(planet_id, OrchestratorToPlanet::Asteroid(Asteroid::default()))? {
                     PlanetToOrchestrator::AsteroidAck { planet_id, rocket: Some(_) } => {}, // planet defended itself
                     PlanetToOrchestrator::AsteroidAck { planet_id, rocket: None } => { // handle destroyed planet
-                        self.handle_planet_destroyed(planet_id);
+                        self.state.handle_planet_destroyed(planet_id);
                     },
                     _ => return Err(format!("Unexpected response from planet {planet_id} to asteroid (invalid state)")),
                 }
@@ -180,7 +143,7 @@ impl Orchestrator {
     }
 
     fn send_sunrays(&mut self) -> Result<(), String> {
-        for planet_id in self.galaxy.get_planets() {
+        for planet_id in self.state.galaxy.get_planets() {
             if rand::random::<f32>() < self.get_sunray_p() {
                 match self.planet_syn_ack(planet_id, OrchestratorToPlanet::Sunray(Sunray::default()))? {
                     PlanetToOrchestrator::SunrayAck{planet_id} => {}, // planet handled sunray
@@ -192,11 +155,11 @@ impl Orchestrator {
     }
 
     fn planet_syn_ack(&self, planet_id: ID, msg: OrchestratorToPlanet) -> Result<PlanetToOrchestrator, String> {
-        self.planets[&planet_id]
+        self.state.planets[&planet_id]
             .tx
             .send(msg, planet_id)
             .map_err(|e| e.to_string())?;
-        self.planets_rx
+        self.state.planets_rx
             .recv_timeout(AppConfig::get().max_wait_time_ms, planet_id)
             .map(|r| if r.planet_id() == planet_id {
                 Ok(r)
@@ -207,40 +170,13 @@ impl Orchestrator {
     }
 
     fn send_bag_content_requests(&self) -> Result<(), String> {
-        for (id, explorer_handle) in &self.explorers {
+        for (id, explorer_handle) in &self.state.explorers {
             explorer_handle
                 .tx
                 .send(OrchestratorToExplorer::BagContentRequest, *id)
                 .map_err(|e| e.to_string())?;
         }
         Ok(())
-    }
-
-    fn handle_planet_destroyed(&mut self, planet_id: ID) {
-        self.galaxy.remove_planet(planet_id);
-
-        let handle = self.planets.remove(&planet_id);
-        if let Some(planet_handle) = handle {
-            planet_handle.thread_handle.join().unwrap_or_else(|e| {
-                log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
-            });
-        }
-
-        let explorers_to_remove = self.get_explorers_on_planet(planet_id);
-        for explorer_id in explorers_to_remove {
-            // Unwrap is safe since the explorer cannot be already removed (the ID comes from the planet)
-            let handle = self.explorers.remove(&explorer_id).unwrap();
-            handle.thread_handle.join().unwrap_or_else(|e| {
-                log::error!("Failed to join thread for destroyed explorer {explorer_id}: {e:?}");
-            });
-        }
-    }
-
-    fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
-        self.explorers.iter()
-            .filter(|(_, handle)| handle.current_planet == planet_id)
-            .map(|(&explorer_id, _)| explorer_id)
-            .collect()
     }
 
     #[allow(clippy::cast_precision_loss)] // f32 is precise enough for our needs

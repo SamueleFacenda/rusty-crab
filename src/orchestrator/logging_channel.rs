@@ -12,6 +12,8 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use crate::orchestrator::BagContent;
 
 /// Woo AOP logging channel for orchestrator would be awesome
+/// These are wrappers around crossbeam channels that log send and receive events
+/// using the common logging infrastructure.
 
 const ORCHESTRATOR_PARTICIPANT: Option<Participant> = Some(Participant {
     actor_type: Orchestrator,
@@ -79,7 +81,7 @@ impl<T: std::fmt::Debug, A: ActorMarker> LoggingReceiver<T, A> {
             msg
         })
     }
-    
+
     pub fn try_recv(&self, id: ID) -> Result<T, crossbeam_channel::TryRecvError> {
         self.receiver.try_recv().map(|msg| {
             // Log only successful receives
@@ -87,7 +89,7 @@ impl<T: std::fmt::Debug, A: ActorMarker> LoggingReceiver<T, A> {
             msg
         })
     }
-    
+
     pub fn recv_timeout(&self, timeout_ms: u64, id: ID) -> Result<T, crossbeam_channel::RecvTimeoutError> {
         self.receiver.recv_timeout(Duration::from_millis(timeout_ms)).map(|msg| {
             // Log only successful receives
@@ -95,7 +97,7 @@ impl<T: std::fmt::Debug, A: ActorMarker> LoggingReceiver<T, A> {
             msg
         })
     }
-    
+
     fn log(&self, msg: &T, id: ID) {
         LogEvent::new(
             Some(Participant { actor_type: A::actor_type(), id }),
