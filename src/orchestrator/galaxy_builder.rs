@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use common_game::components::planet::Planet;
-use common_game::protocols::orchestrator_explorer::{ ExplorerToOrchestrator, OrchestratorToExplorer, };
+use common_game::protocols::orchestrator_explorer::{
+    ExplorerToOrchestrator, OrchestratorToExplorer,
+};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -15,7 +17,10 @@ pub(crate) struct GalaxyBuilder {
     circular: bool,
     n_planets: usize,
     explorers: Vec<Box<dyn ExplorerBuilder>>,
-    explorer_to_orchestrator: (Sender<ExplorerToOrchestrator<BagContent>>, Receiver<ExplorerToOrchestrator<BagContent>>),
+    explorer_to_orchestrator: (
+        Sender<ExplorerToOrchestrator<BagContent>>,
+        Receiver<ExplorerToOrchestrator<BagContent>>,
+    ),
     planet_to_orchestrator: (Sender<PlanetToOrchestrator>, Receiver<PlanetToOrchestrator>),
 }
 
@@ -48,7 +53,8 @@ pub(crate) struct GalaxyBuilderResult {
     pub planet_inits: HashMap<ID, PlanetInit>,
     pub explorer_inits: HashMap<ID, ExplorerInit>,
     pub planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
-    pub explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
+    pub explorer_to_orchestrator_rx:
+        crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
 }
 
 impl GalaxyBuilder {
@@ -70,6 +76,7 @@ impl GalaxyBuilder {
         }
     }
 
+    #[allow(dead_code)] // not currently used but still useful
     pub fn with_circular_topology(self) -> Self {
         GalaxyBuilder {
             circular: true,
@@ -178,12 +185,12 @@ impl GalaxyBuilder {
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_planet_ids(&self) -> Vec<ID> {
-        (0..self.n_planets).map(|i| i as ID).collect()
+        (1..=self.n_planets).map(|i| i as ID).collect()
     }
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_explorer_ids(&self) -> Vec<ID> {
-        (self.n_planets..(self.n_planets + self.explorers.len()))
+        (self.n_planets + 1..=(self.n_planets + self.explorers.len()))
             .map(|i| i as ID)
             .collect()
     }

@@ -79,6 +79,7 @@ impl Galaxy {
 mod test {
     use super::*;
 
+    #[allow(dead_code)] // used in some tests
     fn get_dummy_ids() -> Vec<ID> {
         vec![1, 2, 3, 4, 5]
     }

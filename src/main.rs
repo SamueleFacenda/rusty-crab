@@ -20,9 +20,10 @@ fn main() {
 
     let mut orchestrator = Orchestrator::new(
         OrchestratorMode::Auto,
-        7, // Provided number of planets
+        7,      // Provided number of planets
         vec![], // No explorers implemented yet
-    ).unwrap_or_else(|e| {
+    )
+    .unwrap_or_else(|e| {
         log::error!("Failed to create orchestrator: {e}");
         panic!("Failed to create orchestrator: {e}");
     });

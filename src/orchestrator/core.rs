@@ -1,14 +1,21 @@
 use std::thread;
 
 use common_game::components::planet::Planet;
-use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_explorer::{
+    ExplorerToOrchestratorKind, OrchestratorToExplorer,
+};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory, PlanetLoggingReceiver, PlanetLoggingSender};
-use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder, OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
-use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::communication_center::CommunicationCenter;
+use crate::orchestrator::{
+    ExplorerBuilder, ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
+};
+use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+use crate::orchestrator::{
+    ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
+    PlanetLoggingReceiver, PlanetLoggingSender,
+};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -20,6 +27,7 @@ pub(crate) struct Orchestrator {
     state: OrchestratorState,
 }
 
+#[allow(dead_code)] // only one at a time is used
 #[derive(Clone, Copy)]
 pub(crate) enum OrchestratorMode {
     Auto,
@@ -38,28 +46,44 @@ impl Orchestrator {
             .with_explorers(explorer_builders)
             .build()?;
 
-        let (planet_handles, planet_senders) = initial_galaxy.planet_inits.into_iter()
+        let (planet_handles, planet_senders) = initial_galaxy
+            .planet_inits
+            .into_iter()
             .map(|(id, planet_init)| {
                 (
-                    (id, PlanetHandle {
-                        thread_handle: Self::start_planet(planet_init.planet, id),
-                        tx_explorer: planet_init.explorer_to_planet_tx,
-                    }),
-                    (id, PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx))
+                    (
+                        id,
+                        PlanetHandle {
+                            thread_handle: Self::start_planet(planet_init.planet, id),
+                            tx_explorer: planet_init.explorer_to_planet_tx,
+                        },
+                    ),
+                    (
+                        id,
+                        PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx),
+                    ),
                 )
             })
             .unzip();
 
-        let (explorer_handles, explorer_senders) = initial_galaxy.explorer_inits.into_iter()
+        let (explorer_handles, explorer_senders) = initial_galaxy
+            .explorer_inits
+            .into_iter()
             .map(|(id, explorer_init)| {
                 (
-                    (id, ExplorerHandle {
-                        current_planet: explorer_init.initial_planet,
-                        thread_handle: Self::start_explorers(explorer_init.explorer, id),
-                        tx_planet: explorer_init.planet_to_explorer_tx,
-                        state: ExplorerState::Autonomous,
-                    }),
-                    (id, ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx))
+                    (
+                        id,
+                        ExplorerHandle {
+                            current_planet: explorer_init.initial_planet,
+                            thread_handle: Self::start_explorers(explorer_init.explorer, id),
+                            tx_planet: explorer_init.planet_to_explorer_tx,
+                            state: ExplorerState::Autonomous,
+                        },
+                    ),
+                    (
+                        id,
+                        ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx),
+                    ),
                 )
             })
             .unzip();
@@ -74,12 +98,14 @@ impl Orchestrator {
                 communication_center: CommunicationCenter::new(
                     explorer_senders,
                     planet_senders,
-                    PlanetChannelDemultiplexer::new(
-                        PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx)),
-                    ExplorerChannelDemultiplexer::new(
-                        ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx))
-                )
-            }
+                    PlanetChannelDemultiplexer::new(PlanetLoggingReceiver::new(
+                        initial_galaxy.planet_to_orchestrator_rx,
+                    )),
+                    ExplorerChannelDemultiplexer::new(ExplorerLoggingReceiver::new(
+                        initial_galaxy.explorer_to_orchestrator_rx,
+                    )),
+                ),
+            },
         })
     }
 

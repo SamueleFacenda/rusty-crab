@@ -36,15 +36,20 @@ impl PlanetFactory {
                 receiver,
                 explorer_receiver,
             )),
-            PlanetType::TheCompilerStrikesBack => Ok(Self::create_the_compiler_strikes_back_planet(
+            PlanetType::TheCompilerStrikesBack => {
+                Ok(Self::create_the_compiler_strikes_back_planet(
+                    id,
+                    sender,
+                    receiver,
+                    explorer_receiver,
+                ))
+            }
+            PlanetType::Carbonium => Ok(Self::create_carbonium_planet(
                 id,
                 sender,
                 receiver,
                 explorer_receiver,
             )),
-            PlanetType::Carbonium => {
-                Ok(Self::create_carbonium_planet(id, sender, receiver, explorer_receiver))
-            }
             PlanetType::OneMillionCrabs => {
                 Self::create_one_million_crabs_planet(id, sender, receiver, explorer_receiver)
             }
@@ -70,12 +75,7 @@ impl PlanetFactory {
         receiver: Receiver<OrchestratorToPlanet>,
         explorer_receiver: Receiver<ExplorerToPlanet>,
     ) -> Planet {
-        the_compiler_strikes_back::planet::create_planet(
-            receiver,
-            sender,
-            explorer_receiver,
-            id
-        )
+        the_compiler_strikes_back::planet::create_planet(receiver, sender, explorer_receiver, id)
     }
 
     fn create_panic_out_of_oxygen_planet(
@@ -114,12 +114,7 @@ impl PlanetFactory {
         receiver: Receiver<OrchestratorToPlanet>,
         explorer_receiver: Receiver<ExplorerToPlanet>,
     ) -> Planet {
-        carbonium::create_planet(
-            id,
-            receiver,
-            sender,
-            explorer_receiver,
-        )
+        carbonium::create_planet(id, receiver, sender, explorer_receiver)
     }
 
     fn create_one_million_crabs_planet(

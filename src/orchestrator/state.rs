@@ -1,13 +1,11 @@
-use std::thread;
-use std::collections::HashMap;
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
-use crossbeam_channel::{Sender};
+use crossbeam_channel::Sender;
+use std::collections::HashMap;
+use std::thread;
 
-use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender};
-use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
-use crate::orchestrator::communication_center::CommunicationCenter;
+use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
@@ -44,7 +42,7 @@ pub(crate) struct OrchestratorState {
     // List of planets
     pub planets: HashMap<ID, PlanetHandle>,
 
-    pub communication_center: CommunicationCenter
+    pub communication_center: CommunicationCenter,
 }
 
 impl OrchestratorState {
@@ -56,7 +54,8 @@ impl OrchestratorState {
             self.communication_center.planet_syn_ack(
                 planet_id,
                 OrchestratorToPlanet::KillPlanet,
-                PlanetToOrchestratorKind::AsteroidAck)?;
+                PlanetToOrchestratorKind::AsteroidAck,
+            )?;
 
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
@@ -75,7 +74,8 @@ impl OrchestratorState {
     }
 
     pub fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
-        self.explorers.iter()
+        self.explorers
+            .iter()
             .filter(|(_, handle)| handle.current_planet == planet_id)
             .map(|(&explorer_id, _)| explorer_id)
             .collect()
