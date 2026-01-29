@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use common_game::components::asteroid::Asteroid;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind, OrchestratorToExplorer};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator, PlanetToOrchestratorKind};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
 use crate::orchestrator::{BagContent, OrchestratorState};
@@ -22,7 +22,7 @@ impl AutoUpdateStrategy {
     }
 
     fn execute_cycle(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
-        self.explorers_not_passed = state.galaxy.get_planets().iter().copied().collect();
+        self.explorers_not_passed = state.explorers.keys().copied().collect();
 
         self.send_sunrays(state)?;
         self.send_asteroids(state)?;
@@ -64,7 +64,7 @@ impl AutoUpdateStrategy {
     }
 
     fn send_bag_content_requests(&self, state: &mut OrchestratorState) -> Result<(), String> {
-        for (id, explorer_handle) in &state.explorers {
+        for id in state.explorers.keys() {
             state.communication_center.send_to_explorer(*id, OrchestratorToExplorer::BagContentRequest)?;
         }
         Ok(())
@@ -81,7 +81,7 @@ impl AutoUpdateStrategy {
 
     fn process_explorer_message(&mut self, planet_id: ID, response: ExplorerToOrchestrator<BagContent>, state: &mut OrchestratorState) -> Result<(), String> {
         match response {
-            ExplorerToOrchestrator::BagContentResponse { explorer_id, bag_content } => {
+            ExplorerToOrchestrator::BagContentResponse { explorer_id: _explorer_id, bag_content } => {
                 log::info!("Received bag content from explorer {planet_id}: {bag_content:?}");
                 self.explorers_not_passed.remove(&planet_id);
                 Ok(())

@@ -1,6 +1,8 @@
 use std::thread;
 
 use common_game::components::planet::Planet;
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
 use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory, PlanetLoggingReceiver, PlanetLoggingSender};
@@ -84,9 +86,13 @@ impl Orchestrator {
     pub fn run(&mut self) -> Result<(), String> {
         let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
 
+        self.send_planet_ai_start()?;
+        self.send_explorer_ai_start()?;
+
         while !self.is_game_over() {
             update_strategy.update(&mut self.state)?;
             self.state.time += 1;
+            log::info!("--- Time step {} completed ---", self.state.time);
         }
         Ok(())
     }
@@ -112,6 +118,28 @@ impl Orchestrator {
                 log::error!("Explorer {id} thread terminated with error: {e}");
             });
         })
+    }
+
+    fn send_planet_ai_start(&mut self) -> Result<(), String> {
+        for planet_id in self.state.galaxy.get_planets() {
+            self.state.communication_center.planet_syn_ack(
+                planet_id,
+                OrchestratorToPlanet::StartPlanetAI,
+                PlanetToOrchestratorKind::StartPlanetAIResult,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn send_explorer_ai_start(&mut self) -> Result<(), String> {
+        for explorer_id in self.state.explorers.keys() {
+            self.state.communication_center.explorer_syn_ack(
+                *explorer_id,
+                OrchestratorToExplorer::StartExplorerAI,
+                ExplorerToOrchestratorKind::StartExplorerAIResult,
+            )?;
+        }
+        Ok(())
     }
 }
 

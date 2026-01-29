@@ -1,6 +1,6 @@
 use std::thread;
 use std::collections::HashMap;
-
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Sender};
@@ -48,11 +48,16 @@ pub(crate) struct OrchestratorState {
 }
 
 impl OrchestratorState {
-    pub fn handle_planet_destroyed(&mut self, planet_id: ID) {
+    pub fn handle_planet_destroyed(&mut self, planet_id: ID) -> Result<(), String> {
         self.galaxy.remove_planet(planet_id);
 
         let handle = self.planets.remove(&planet_id);
         if let Some(planet_handle) = handle {
+            self.communication_center.planet_syn_ack(
+                planet_id,
+                OrchestratorToPlanet::KillPlanet,
+                PlanetToOrchestratorKind::AsteroidAck)?;
+
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
             });
@@ -66,6 +71,7 @@ impl OrchestratorState {
                 log::error!("Failed to join thread for destroyed explorer {explorer_id}: {e:?}");
             });
         }
+        Ok(())
     }
 
     pub fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
