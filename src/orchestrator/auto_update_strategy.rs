@@ -1,11 +1,11 @@
 use std::collections::HashSet;
+
 use common_game::components::asteroid::Asteroid;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::utils::ID;
 
-use crate::app::AppConfig;
 use crate::orchestrator::{BagContent, OrchestratorState};
 use crate::orchestrator::probability::ProbabilityCalculator;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;

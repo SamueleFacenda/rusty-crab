@@ -5,8 +5,8 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Sender};
 
-use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender, ExplorerLoggingReceiver, PlanetLoggingReceiver};
-use crate::orchestrator::channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender};
+use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
@@ -37,7 +37,7 @@ pub(crate) struct OrchestratorState {
     // The behavior of the orchestrator is defined by turn-like units of time
     // Alternatively can be done real-time, but that's harder to implement
     pub time: u32,
-    
+
     pub galaxy: Galaxy,
 
     // List of explorers

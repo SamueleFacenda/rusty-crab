@@ -36,14 +36,14 @@ impl PlanetFactory {
                 receiver,
                 explorer_receiver,
             )),
-            PlanetType::TheCompilerStrikesBack => Self::create_the_compiler_strikes_back_planet(
+            PlanetType::TheCompilerStrikesBack => Ok(Self::create_the_compiler_strikes_back_planet(
                 id,
                 sender,
                 receiver,
                 explorer_receiver,
-            ),
+            )),
             PlanetType::Carbonium => {
-                Self::create_carbonium_planet(id, sender, receiver, explorer_receiver)
+                Ok(Self::create_carbonium_planet(id, sender, receiver, explorer_receiver))
             }
             PlanetType::OneMillionCrabs => {
                 Self::create_one_million_crabs_planet(id, sender, receiver, explorer_receiver)
@@ -63,23 +63,19 @@ impl PlanetFactory {
         }
     }
 
-    // Still uses 2.0.0
-    // Must stay commented until updated, otherwise creates troubles:
-    // package `common-game` is specified twice in the lockfile
     #[allow(clippy::needless_pass_by_value)]
     fn create_the_compiler_strikes_back_planet(
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
         explorer_receiver: Receiver<ExplorerToPlanet>,
-    ) -> Result<Planet, String> {
-        todo!()
-        // the_compiler_strikes_back::planet::create_planet(
-        //     receiver,
-        //     sender,
-        //     explorer_receiver,
-        //     id
-        // )
+    ) -> Planet {
+        the_compiler_strikes_back::planet::create_planet(
+            receiver,
+            sender,
+            explorer_receiver,
+            id
+        )
     }
 
     fn create_panic_out_of_oxygen_planet(
@@ -111,22 +107,19 @@ impl PlanetFactory {
         )
     }
 
-    // Logically works but requires ssh which I'm too lazy to set up and will just wait for them to adapt using the crate
     #[allow(clippy::needless_pass_by_value)]
     fn create_carbonium_planet(
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
         explorer_receiver: Receiver<ExplorerToPlanet>,
-    ) -> Result<Planet, String> {
-        todo!()
-        // carbonium::create_planet(
-        //     id,
-        //     receiver,
-        //     sender,
-        //     explorer_receiver,
-        //     rustrelli::ExplorerRequestLimit::None, // Can be changed to FairShare
-        // )
+    ) -> Planet {
+        carbonium::create_planet(
+            id,
+            receiver,
+            sender,
+            explorer_receiver,
+        )
     }
 
     fn create_one_million_crabs_planet(
@@ -252,9 +245,6 @@ mod tests {
 
         let planet =
             PlanetFactory::make_planet(PlanetType::Carbonium, 6, tx_planet, rx_orch, rx_explorer);
-
-        // Since Carbonium creation is not implemented, we expect an error
-        assert!(planet.is_err());
     }
 
     #[test]
@@ -267,8 +257,5 @@ mod tests {
             rx_orch,
             rx_explorer,
         );
-
-        // Since The Compiler Strikes Back creation is not implemented, we expect an error
-        assert!(planet.is_err());
     }
 }

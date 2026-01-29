@@ -1,12 +1,11 @@
+use std::collections::HashMap;
+
 use common_game::components::planet::Planet;
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
+use common_game::protocols::orchestrator_explorer::{ ExplorerToOrchestrator, OrchestratorToExplorer, };
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use std::collections::HashMap;
 
 use crate::orchestrator::{BagContent, ExplorerBuilder, Galaxy, PlanetFactory, PlanetType};
 

@@ -1,7 +1,6 @@
 use crate::orchestrator::auto_update_strategy::AutoUpdateStrategy;
 use crate::orchestrator::manual_update_strategy::ManualUpdateStrategy;
-use crate::orchestrator::core::OrchestratorMode;
-use crate::orchestrator::OrchestratorState;
+use crate::orchestrator::{OrchestratorMode, OrchestratorState};
 
 pub trait OrchestratorUpdateStrategy {
     fn update(&mut self, state: &mut OrchestratorState) -> Result<(), String>;

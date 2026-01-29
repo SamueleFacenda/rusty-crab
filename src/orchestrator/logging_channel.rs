@@ -1,14 +1,14 @@
+use std::marker::PhantomData;
+
 use common_game::utils::ID;
 use common_game::logging::ActorType::{Explorer, Orchestrator, Planet};
-use common_game::logging::Channel::{Debug, Info};
+use common_game::logging::Channel::Debug;
 use common_game::logging::EventType::{MessagePlanetToOrchestrator, MessageExplorerToOrchestrator, MessageOrchestratorToExplorer, MessageOrchestratorToPlanet};
 use common_game::logging::{EventType, LogEvent, Participant, Payload};
-
-use crossbeam_channel::{Sender, Receiver};
-use std::marker::PhantomData;
-use std::time::Duration;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
+use crossbeam_channel::{Sender, Receiver};
+
 use crate::orchestrator::BagContent;
 
 /// Woo AOP logging channel for orchestrator would be awesome

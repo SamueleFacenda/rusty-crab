@@ -1,5 +1,6 @@
-use common_game::utils::ID;
 use std::collections::{HashMap, HashSet};
+
+use common_game::utils::ID;
 
 /// Galaxy topology container, only manages the connections between planets.
 pub(crate) struct Galaxy {

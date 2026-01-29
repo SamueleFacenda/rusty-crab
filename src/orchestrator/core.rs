@@ -1,10 +1,11 @@
 use std::thread;
+
 use common_game::components::planet::Planet;
 use common_game::utils::ID;
 
 use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory, PlanetLoggingReceiver, PlanetLoggingSender};
 use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder, OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
-use crate::orchestrator::channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
