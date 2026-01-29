@@ -7,6 +7,7 @@ use crossbeam_channel::{Sender};
 
 use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender};
 use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+use crate::orchestrator::communication_center::CommunicationCenter;
 use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
@@ -19,7 +20,6 @@ pub enum ExplorerState {
 /// struct used to handle the list of planets.
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: PlanetLoggingSender,
     pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
 }
 
@@ -27,7 +27,6 @@ pub(crate) struct PlanetHandle {
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: ExplorerLoggingSender,
     pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
@@ -45,8 +44,7 @@ pub(crate) struct OrchestratorState {
     // List of planets
     pub planets: HashMap<ID, PlanetHandle>,
 
-    pub planets_rx: PlanetChannelDemultiplexer,
-    pub explorers_rx: ExplorerChannelDemultiplexer,
+    pub communication_center: CommunicationCenter
 }
 
 impl OrchestratorState {

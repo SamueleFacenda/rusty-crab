@@ -12,7 +12,7 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 
 /// The `RustyCrab` Planet AI, a defensive, reliable and versatile planet.
 pub struct RustyCrabPlanetAI {
-    // Alternatively can be named ust "AI" as in the docs
+    // Alternatively can be named just "AI" as in the docs
     //TODO!
 }
 

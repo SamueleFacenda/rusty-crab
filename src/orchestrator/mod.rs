@@ -12,8 +12,9 @@ mod auto_update_strategy;
 mod probability;
 mod manual_update_strategy;
 mod channel_demultiplexer;
+mod communication_center;
 
-pub(crate) use core::{Orchestrator,OrchestratorMode};
+pub(crate) use core::{Orchestrator, OrchestratorMode};
 pub(crate) use example_explorer::ExampleExplorer;
 pub(crate) use state::{OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder, ExplorerBuilderImpl};
