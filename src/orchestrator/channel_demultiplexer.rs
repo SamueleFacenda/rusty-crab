@@ -40,7 +40,7 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
                 self.buffers.entry(msg_id).or_insert_with(VecDeque::new).push_back(msg);
             }
         }
-        Err(format!("Timeout waiting for message from ID {}", id))
+        Err(format!("Timeout waiting for message from ID {id}"))
     }
 }
 

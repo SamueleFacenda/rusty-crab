@@ -12,7 +12,7 @@ pub struct OrchestratorUpdateFactory;
 impl OrchestratorUpdateFactory {
     pub fn get_strategy(mode: OrchestratorMode) -> Box<dyn OrchestratorUpdateStrategy> {
         match mode {
-            OrchestratorMode::Auto => Box::new(AutoUpdateStrategy {}),
+            OrchestratorMode::Auto => Box::new(AutoUpdateStrategy::new()),
             OrchestratorMode::Manual => Box::new(ManualUpdateStrategy {}),
         }
     }

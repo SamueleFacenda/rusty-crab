@@ -64,6 +64,14 @@ impl Galaxy {
             neighbors.remove(&id);
         }
     }
+
+    pub fn get_planet_neighbours(&self, planet_id: ID) -> Vec<ID> {
+        if let Some(neighbors) = self.connections.get(&planet_id) {
+            neighbors.iter().copied().collect()
+        } else {
+            vec![]
+        }
+    }
 }
 
 #[allow(clippy::wildcard_imports)] // It's just tests
