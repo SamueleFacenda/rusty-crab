@@ -26,39 +26,48 @@ pub struct ExplorerMarker;
 pub struct PlanetMarker;
 
 pub trait ActorMarker {
+    type SendMsg: std::fmt::Debug;
+    type RecvMsg: std::fmt::Debug;
     fn event_type_send() -> EventType;
     fn event_type_recv() -> EventType;
     fn actor_type() -> common_game::logging::ActorType;
+    fn get_id(msg: &Self::RecvMsg) -> ID;
 }
 
 impl ActorMarker for ExplorerMarker {
+    type SendMsg = OrchestratorToExplorer;
+    type RecvMsg = ExplorerToOrchestrator<BagContent>;
     fn event_type_send() -> EventType { MessageOrchestratorToExplorer }
     fn event_type_recv() -> EventType { MessageExplorerToOrchestrator }
     fn actor_type() -> common_game::logging::ActorType { Explorer }
+    fn get_id(msg: &Self::RecvMsg) -> ID { msg.explorer_id() }
 }
 
 impl ActorMarker for PlanetMarker {
+    type SendMsg = OrchestratorToPlanet;
+    type RecvMsg = PlanetToOrchestrator;
     fn event_type_send() -> EventType { MessageOrchestratorToPlanet }
     fn event_type_recv() -> EventType { MessagePlanetToOrchestrator }
     fn actor_type() -> common_game::logging::ActorType { Planet }
+    fn get_id(msg: &Self::RecvMsg) -> ID { msg.planet_id() }
 }
 
-pub struct LoggingSender<T, A: ActorMarker> {
-    sender: Sender<T>,
+pub struct LoggingSender<A: ActorMarker> {
+    sender: Sender<A::SendMsg>,
     _marker: PhantomData<A>,
 }
 
-pub struct LoggingReceiver<T, A: ActorMarker> {
-    receiver: Receiver<T>,
+pub struct LoggingReceiver<A: ActorMarker> {
+    receiver: Receiver<A::RecvMsg>,
     _marker: PhantomData<A>,
 }
 
-impl<T: std::fmt::Debug, A: ActorMarker> LoggingSender<T, A> {
-    pub fn new(sender: Sender<T>) -> Self {
+impl<A: ActorMarker> LoggingSender<A> {
+    pub fn new(sender: Sender<A::SendMsg>) -> Self {
         Self { sender, _marker: PhantomData }
     }
 
-    pub fn send(&self, msg: T, id: ID) -> Result<(), crossbeam_channel::SendError<T>> {
+    pub fn send(&self, msg: A::SendMsg, id: ID) -> Result<(), crossbeam_channel::SendError<A::SendMsg>> {
         LogEvent::new(ORCHESTRATOR_PARTICIPANT,
                       Some(Participant { actor_type: A::actor_type(), id }),
                       A::event_type_send(),
@@ -69,36 +78,36 @@ impl<T: std::fmt::Debug, A: ActorMarker> LoggingSender<T, A> {
     }
 }
 
-impl<T: std::fmt::Debug, A: ActorMarker> LoggingReceiver<T, A> {
-    pub fn new(receiver: Receiver<T>) -> Self {
+impl<A: ActorMarker> LoggingReceiver<A> {
+    pub fn new(receiver: Receiver<A::RecvMsg>) -> Self {
         Self { receiver, _marker: PhantomData }
     }
 
-    pub fn recv(&self, id: ID) -> Result<T, crossbeam_channel::RecvError> {
+    pub fn recv(&self) -> Result<A::RecvMsg, crossbeam_channel::RecvError> {
         self.receiver.recv().map(|msg| {
             // Log only successful receives
-            self.log(&msg, id);
+            self.log(&msg, A::get_id(&msg));
             msg
         })
     }
 
-    pub fn try_recv(&self, id: ID) -> Result<T, crossbeam_channel::TryRecvError> {
+    pub fn try_recv(&self) -> Result<A::RecvMsg, crossbeam_channel::TryRecvError> {
         self.receiver.try_recv().map(|msg| {
             // Log only successful receives
-            self.log(&msg, id);
+            self.log(&msg, A::get_id(&msg));
             msg
         })
     }
 
-    pub fn recv_timeout(&self, timeout_ms: u64, id: ID) -> Result<T, crossbeam_channel::RecvTimeoutError> {
-        self.receiver.recv_timeout(Duration::from_millis(timeout_ms)).map(|msg| {
+    pub fn recv_timeout(&self, timeout: std::time::Duration) -> Result<A::RecvMsg, crossbeam_channel::RecvTimeoutError> {
+        self.receiver.recv_timeout(timeout).map(|msg| {
             // Log only successful receives
-            self.log(&msg, id);
+            self.log(&msg, A::get_id(&msg));
             msg
         })
     }
 
-    fn log(&self, msg: &T, id: ID) {
+    fn log(&self, msg: &A::RecvMsg, id: ID) {
         LogEvent::new(
             Some(Participant { actor_type: A::actor_type(), id }),
             ORCHESTRATOR_PARTICIPANT,
@@ -110,7 +119,7 @@ impl<T: std::fmt::Debug, A: ActorMarker> LoggingReceiver<T, A> {
 }
 
 // Type aliases for convenience
-pub type ExplorerLoggingSender = LoggingSender<OrchestratorToExplorer, ExplorerMarker>;
-pub type PlanetLoggingSender = LoggingSender<OrchestratorToPlanet, PlanetMarker>;
-pub type ExplorerLoggingReceiver = LoggingReceiver<ExplorerToOrchestrator<BagContent>, ExplorerMarker>;
-pub type PlanetLoggingReceiver = LoggingReceiver<PlanetToOrchestrator, PlanetMarker>;
+pub type ExplorerLoggingSender = LoggingSender<ExplorerMarker>;
+pub type PlanetLoggingSender = LoggingSender<PlanetMarker>;
+pub type ExplorerLoggingReceiver = LoggingReceiver<ExplorerMarker>;
+pub type PlanetLoggingReceiver = LoggingReceiver<PlanetMarker>;

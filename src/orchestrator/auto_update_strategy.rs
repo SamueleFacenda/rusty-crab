@@ -54,7 +54,7 @@ impl AutoUpdateStrategy {
             .send(msg, planet_id)
             .map_err(|e| e.to_string())?;
         state.planets_rx
-            .recv_timeout(AppConfig::get().max_wait_time_ms, planet_id)
+            .recv_timeout(AppConfig::get().max_wait_time_ms)
             .map(|r| if r.planet_id() == planet_id {
                 Ok(r)
             } else {
