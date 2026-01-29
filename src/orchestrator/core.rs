@@ -1,20 +1,10 @@
-use std::collections::HashMap;
 use std::thread;
-use std::time::Duration;
-use common_game::components::asteroid::Asteroid;
 use common_game::components::planet::Planet;
-use common_game::components::sunray::Sunray;
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
-use crossbeam_channel::{Sender};
 
-use crate::app::AppConfig;
 use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory, PlanetLoggingReceiver, PlanetLoggingSender};
 use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder, OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
+use crate::orchestrator::channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -79,15 +69,17 @@ impl Orchestrator {
                 galaxy: initial_galaxy.galaxy,
                 planets,
                 explorers,
-                planets_rx: PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx),
-                explorers_rx: ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx),
+                planets_rx: PlanetChannelDemultiplexer::new(
+                    PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx)),
+                explorers_rx: ExplorerChannelDemultiplexer::new(
+                    ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx)),
             }
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
         let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-        
+
         while !self.is_game_over() {
             update_strategy.update(&mut self.state)?;
             self.state.time += 1;

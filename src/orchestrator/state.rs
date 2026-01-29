@@ -6,6 +6,7 @@ use common_game::utils::ID;
 use crossbeam_channel::{Sender};
 
 use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender, ExplorerLoggingReceiver, PlanetLoggingReceiver};
+use crate::orchestrator::channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
@@ -44,8 +45,8 @@ pub(crate) struct OrchestratorState {
     // List of planets
     pub planets: HashMap<ID, PlanetHandle>,
 
-    pub planets_rx: PlanetLoggingReceiver,
-    pub explorers_rx: ExplorerLoggingReceiver,
+    pub planets_rx: PlanetChannelDemultiplexer,
+    pub explorers_rx: ExplorerChannelDemultiplexer,
 }
 
 impl OrchestratorState {

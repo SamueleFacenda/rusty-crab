@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use common_game::utils::ID;
 use crate::app::AppConfig;
-use crate::orchestrator::logging_channel::{ActorMarker, LoggingReceiver};
+use crate::orchestrator::logging_channel::{ActorMarker, ExplorerMarker, LoggingReceiver, PlanetMarker};
 
 /// This wrapper around a channel receiver divides the stream per sender (planet and explorer IDs).
 pub(crate) struct ChannelDemultiplexer<A: ActorMarker> {
@@ -43,4 +43,8 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
         Err(format!("Timeout waiting for message from ID {}", id))
     }
 }
+
+// Convenience type aliases
+pub type PlanetChannelDemultiplexer = ChannelDemultiplexer<PlanetMarker>;
+pub type ExplorerChannelDemultiplexer = ChannelDemultiplexer<ExplorerMarker>;
 
