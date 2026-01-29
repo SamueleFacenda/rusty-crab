@@ -33,6 +33,10 @@ pub(crate) struct ExplorerHandle {
 
 /// Struct that holds the state of the orchestrator, with some basic methods to manipulate it.
 pub(crate) struct OrchestratorState {
+    // The behavior of the orchestrator is defined by turn-like units of time
+    // Alternatively can be done real-time, but that's harder to implement
+    pub time: u32,
+    
     pub galaxy: Galaxy,
 
     // List of explorers
