@@ -11,11 +11,6 @@ impl Orchestrator {
             map: BTreeMap::new(),
         }
     }
-
-    pub fn get_topology(&self) -> Vec<(u32, u32)> {
-        // Placeholder implementation
-        vec![]
-    }
 }
 
 #[derive(Resource)]

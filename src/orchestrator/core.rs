@@ -142,6 +142,10 @@ impl Orchestrator {
     pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
         &mut self.state.gui_events_buffer
     }
+    
+    pub fn get_topology(&self) -> Vec<(ID, ID)> {
+        self.state.galaxy.get_topology()
+    }
 
     pub fn process_commands(&mut self) -> Result<(), String> {
         let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
