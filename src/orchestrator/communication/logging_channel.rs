@@ -210,5 +210,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn recv_message() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+
+        let id = 1;
+        let msg = ExplorerToOrchestrator::StartExplorerAIResult {
+            explorer_id: id,
+        };
+        tx.send(msg).unwrap();
+        let received = logging_receiver.recv().unwrap();
+        match received {
+            ExplorerToOrchestrator::StartExplorerAIResult {..} => {},
+            other => unreachable!()
+        }
+    }
 
 }
