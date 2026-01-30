@@ -4,7 +4,7 @@ use common_game::utils::ID;
 use crossbeam_channel::Sender;
 use std::collections::HashMap;
 use std::thread;
-
+use crate::gui::GuiEventBuffer;
 use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::galaxy::Galaxy;
 
@@ -43,6 +43,8 @@ pub(crate) struct OrchestratorState {
     pub planets: HashMap<ID, PlanetHandle>,
 
     pub communication_center: CommunicationCenter,
+    
+    pub gui_events_buffer: GuiEventBuffer,
 }
 
 impl OrchestratorState {

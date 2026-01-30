@@ -33,7 +33,8 @@ config_fields! {
     asteroid_probability: f32 = 0.01,
     sunray_probability: f32 =0.1,
     initial_asteroid_probability: f32 = 0.01,
-    max_wait_time_ms: u64 = 5000,
+    max_wait_time_ms: u64 = 2000,
+    game_tick_seconds: f32 = 0.5,
 }
 
 #[derive(Parser, Debug)]

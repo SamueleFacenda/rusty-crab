@@ -8,6 +8,7 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::utils::ID;
 
 use crate::explorers::ExplorerBuilder;
+use crate::gui::GuiEventBuffer;
 use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
@@ -106,26 +107,40 @@ impl Orchestrator {
                         initial_galaxy.explorer_to_orchestrator_rx,
                     )),
                 ),
+                gui_events_buffer: GuiEventBuffer::new(),
             },
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-
-        self.send_planet_ai_start()?;
-        self.send_explorer_ai_start()?;
+        self.manual_init()?;
 
         while !self.is_game_over() {
-            update_strategy.update(&mut self.state)?;
-            self.state.time += 1;
-            log::info!("--- Time step {} completed ---", self.state.time);
+            self.manual_step()?;
         }
         Ok(())
     }
+    
+    pub fn manual_init(&mut self) -> Result<(), String> {
+        self.send_planet_ai_start()?;
+        self.send_explorer_ai_start()?;
+        Ok(())
+    }
+    
+    pub fn manual_step(&mut self) -> Result<(), String> {
+        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(OrchestratorMode::Manual);
+        update_strategy.update(&mut self.state)?;
+        self.state.time += 1;
+        log::info!("--- Time step {} completed ---", self.state.time);
+        Ok(())
+    }
 
-    fn is_game_over(&self) -> bool {
+    pub fn is_game_over(&self) -> bool {
         self.state.galaxy.get_planets().is_empty()
+    }
+    
+    pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
+        &mut self.state.gui_events_buffer
     }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
