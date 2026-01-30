@@ -84,6 +84,7 @@ mod tests {
 
     #[test]
     fn receive_with_more_ids() {
+        // This tests also tests message queueing
         let (tx, mut mux) = make_mux();
         tx.send(msg(2)).unwrap();
         tx.send(msg(2)).unwrap();
@@ -98,6 +99,14 @@ mod tests {
         assert_eq!(received.explorer_id(), 2);
         let received = mux.recv_from(2).unwrap();
         assert_eq!(received.explorer_id(), 2);
+    }
+
+    #[test]
+    fn receive_missing_id() {
+        let (tx, mut mux) = make_mux();
+
+        let result = mux.recv_from(67);
+        assert!(result.is_err());
     }
 
 }
