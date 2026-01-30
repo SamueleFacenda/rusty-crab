@@ -1,6 +1,7 @@
 mod app;
 mod explorers;
 mod orchestrator;
+mod gui;
 
 use crate::explorers::ExplorerBuilder;
 use orchestrator::{Orchestrator, OrchestratorMode};

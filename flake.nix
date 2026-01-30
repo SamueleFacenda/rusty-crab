@@ -28,7 +28,12 @@
           src = pkgs.lib.cleanSource ./.;
           inherit version;
 
-          buildInputs = with pkgs; [ ];
+          nativeBuildInputs = with pkgs; [ pkg-config ];
+          buildInputs = with pkgs; [ 
+            wayland 
+            alsa-lib
+            systemd
+          ];
           
           cargoTestFlags = [ "--workspace" ];
         };
