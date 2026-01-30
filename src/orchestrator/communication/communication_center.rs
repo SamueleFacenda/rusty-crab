@@ -7,10 +7,8 @@ use common_game::protocols::orchestrator_planet::{
 use common_game::utils::ID;
 use std::collections::HashMap;
 
-use crate::orchestrator::{
-    BagContent, ExplorerChannelDemultiplexer, ExplorerLoggingSender, PlanetChannelDemultiplexer,
-    PlanetLoggingSender,
-};
+use crate::orchestrator::BagContent;
+use super::{ExplorerChannelDemultiplexer, ExplorerLoggingSender, PlanetChannelDemultiplexer, PlanetLoggingSender};
 
 /// Like a control tower, this struct provides utilities and logic handling for communication
 pub(crate) struct CommunicationCenter {

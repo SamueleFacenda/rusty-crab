@@ -1,5 +1,6 @@
-use crate::orchestrator::auto_update_strategy::AutoUpdateStrategy;
-use crate::orchestrator::manual_update_strategy::ManualUpdateStrategy;
+mod auto_update_strategy;
+mod manual_update_strategy;
+
 use crate::orchestrator::{OrchestratorMode, OrchestratorState};
 
 pub trait OrchestratorUpdateStrategy {
@@ -11,8 +12,8 @@ pub struct OrchestratorUpdateFactory;
 impl OrchestratorUpdateFactory {
     pub fn get_strategy(mode: OrchestratorMode) -> Box<dyn OrchestratorUpdateStrategy> {
         match mode {
-            OrchestratorMode::Auto => Box::new(AutoUpdateStrategy::new()),
-            OrchestratorMode::Manual => Box::new(ManualUpdateStrategy {}),
+            OrchestratorMode::Auto => Box::new(auto_update_strategy::AutoUpdateStrategy::new()),
+            OrchestratorMode::Manual => Box::new(manual_update_strategy::ManualUpdateStrategy {}),
         }
     }
 }

@@ -7,7 +7,7 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::communication_center::CommunicationCenter;
+use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::{
     ExplorerBuilder, ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
 };
