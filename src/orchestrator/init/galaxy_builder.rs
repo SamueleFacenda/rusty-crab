@@ -9,7 +9,8 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
-use crate::orchestrator::{BagContent, ExplorerBuilder, Galaxy, PlanetFactory, PlanetType};
+use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
+use crate::explorers::{BagContent, ExplorerBuilder};
 
 /// This struct creates and initializes all the galaxy entities, with the help of the corresponding factories/builders.
 pub(crate) struct GalaxyBuilder {
@@ -104,7 +105,7 @@ impl GalaxyBuilder {
         }
         let galaxy = self.get_galaxy()?;
         let planet_inits = self.get_planets_init()?;
-        let explorer_inits = self.get_explorer_init();
+        let explorer_inits = self.get_explorers_init();
 
         Ok(GalaxyBuilderResult {
             galaxy,
@@ -124,16 +125,15 @@ impl GalaxyBuilder {
         }
     }
 
-    fn get_explorer_init(&mut self) -> HashMap<ID, ExplorerInit> {
-        let explorers = std::mem::take(&mut self.explorers);
+    fn get_explorers_init(&mut self) -> HashMap<ID, ExplorerInit> {
         let mut handles = HashMap::new();
         let explorer_ids = self.get_explorer_ids();
-        for (explorer, id) in explorers.into_iter().zip(explorer_ids) {
+        for (explorer, id) in self.explorers.drain(..).zip(explorer_ids) {
             let orch_to_ex_channel = unbounded();
             let plan_to_ex_channel = unbounded();
             let explorer = explorer
                 .with_id(id)
-                .with_current_planet(0) // all explorers start at planet 0
+                .with_current_planet(1) // all explorers start at first planet
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
                 .with_planet_rx(plan_to_ex_channel.1);
@@ -141,7 +141,7 @@ impl GalaxyBuilder {
                 id,
                 ExplorerInit {
                     explorer,
-                    initial_planet: 0, // all explorers start at planet 0
+                    initial_planet: 1, // the first planet is always ID 1
                     orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                     planet_to_explorer_tx: plan_to_ex_channel.0,
                 },

@@ -55,7 +55,7 @@ pub(crate) struct ExplorerBuilderImpl<T: Explorer> {
 }
 
 impl<T: Explorer> ExplorerBuilderImpl<T> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         ExplorerBuilderImpl {
             rx_orchestrator: None,
             tx_orchestrator: None,

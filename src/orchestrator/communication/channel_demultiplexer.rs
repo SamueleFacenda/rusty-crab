@@ -36,7 +36,7 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
             let msg = self
                 .receiver
                 .recv_timeout(timeout)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| format!("Error waiting for message from ID {id}: {e}"))?;
             let msg_id = A::get_id(&msg);
 
             if msg_id == id {

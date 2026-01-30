@@ -8,9 +8,9 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::probability::ProbabilityCalculator;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
-use crate::orchestrator::{BagContent, OrchestratorState};
+use crate::orchestrator::{ProbabilityCalculator, OrchestratorState};
+use crate::explorers::BagContent;
 
 pub(crate) struct AutoUpdateStrategy {
     explorers_not_passed: HashSet<ID>, // planets that have not passed the turn yet

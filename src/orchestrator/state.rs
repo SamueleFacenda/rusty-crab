@@ -54,7 +54,7 @@ impl OrchestratorState {
             self.communication_center.planet_syn_ack(
                 planet_id,
                 OrchestratorToPlanet::KillPlanet,
-                PlanetToOrchestratorKind::AsteroidAck,
+                PlanetToOrchestratorKind::KillPlanetResult,
             )?;
 
             planet_handle.thread_handle.join().unwrap_or_else(|e| {

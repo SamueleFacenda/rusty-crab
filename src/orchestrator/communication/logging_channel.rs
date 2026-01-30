@@ -17,7 +17,7 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::orchestrator::BagContent;
+use crate::explorers::BagContent;
 
 const ORCHESTRATOR_PARTICIPANT: Option<Participant> = Some(Participant {
     actor_type: Orchestrator,

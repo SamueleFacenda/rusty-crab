@@ -5,7 +5,7 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
-use crate::orchestrator::{BagContent, Explorer};
+use crate::explorers::{BagContent, Explorer};
 
 #[allow(dead_code)]
 pub struct ExampleExplorer {

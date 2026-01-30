@@ -7,9 +7,10 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
+use crate::explorers::ExplorerBuilder;
 use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::{
-    ExplorerBuilder, ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
+    ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
 };
 use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
@@ -138,6 +139,7 @@ impl Orchestrator {
     fn start_explorers(explorer: Box<dyn ExplorerBuilder>, id: ID) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let mut explorer_instance = explorer.build().unwrap_or_else(|e| {
+                log::error!("Failed to build explorer {id}: {e}");
                 panic!("Failed to build explorer {id}: {e}");
             });
             explorer_instance.run().unwrap_or_else(|e| {
