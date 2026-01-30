@@ -30,7 +30,7 @@ impl OrchestratorCommunicator {
         }
     }
 
-    fn recv(&self) -> Result<OrchestratorToExplorer, String> {
+    pub fn recv(&self) -> Result<OrchestratorToExplorer, String> {
         self.orchestrator_rx.recv()
             .map_err(|e| e.to_string())
     }
@@ -56,6 +56,13 @@ impl OrchestratorCommunicator {
         Ok(sender)
     }
 
+    pub fn send_current_planet_ack(&self, planet_id: ID) -> Result<(), String> {
+        self.orchestrator_tx.send(ExplorerToOrchestrator::CurrentPlanetResult {
+            explorer_id: self.explorer_id,
+            planet_id,
+        })
+    }
+    
     pub fn send_reset_ack(&self) -> Result<(), String> {
         self.orchestrator_tx.send(ExplorerToOrchestrator::ResetExplorerAIResult {
             explorer_id: self.explorer_id,
@@ -107,6 +114,12 @@ impl OrchestratorCommunicator {
         self.orchestrator_tx.send(ExplorerToOrchestrator::CombineResourceResponse {
             explorer_id: self.explorer_id,
             generated: res,
+        })
+    }
+    
+    pub fn send_kill_ack(&self) -> Result<(), String> {
+        self.orchestrator_tx.send(ExplorerToOrchestrator::KillExplorerResult {
+            explorer_id: self.explorer_id,
         })
     }
 
