@@ -79,7 +79,9 @@ impl Explorer for ExampleExplorer {
             }
         }
     }
+}
 
+impl ExampleExplorer {
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
         Ok(())
     }

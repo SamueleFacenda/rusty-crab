@@ -22,7 +22,6 @@ pub trait Explorer {
         Self: Sized;
 
     fn run(&mut self) -> Result<(), String>;
-    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String>;
 }
 
 pub(crate) trait ExplorerBuilder: Send {
