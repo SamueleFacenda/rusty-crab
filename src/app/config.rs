@@ -30,8 +30,10 @@ macro_rules! config_fields {
 
 // Add your configuration fields here with their default values
 config_fields! {
-    asteroid_probability: f64 = 0.1,
-    sunray_probability: f64 =0.05,
+    asteroid_probability: f32 = 0.01,
+    sunray_probability: f32 =0.1,
+    initial_asteroid_probability: f32 = 0.01,
+    max_wait_time_ms: u64 = 5000,
 }
 
 #[derive(Parser, Debug)]
@@ -39,7 +41,7 @@ config_fields! {
 pub struct CliArgs {
     /// Path to the config file
     #[arg(short, long, default_value = "config.toml")]
-    pub layout: String,
+    pub config: String,
     /// Log level (error, warn, info, debug, trace, off)
     #[arg(long, default_value = "info")]
     pub log_level: String,
@@ -54,11 +56,12 @@ impl AppConfig {
     pub fn init() {
         let args = CliArgs::parse();
         let settings = Config::builder()
-            .add_source(File::with_name(&args.layout).required(false))
+            .add_source(File::with_name(&args.config).required(false))
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
             .build()
             .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
-        CONFIG.set(AppConfig::from_settings(&settings, args))
+        CONFIG
+            .set(AppConfig::from_settings(&settings, args))
             .expect("AppConfig can only be initialized once");
     }
 
