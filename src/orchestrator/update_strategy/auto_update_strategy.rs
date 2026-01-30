@@ -40,6 +40,7 @@ impl AutoUpdateStrategy {
     fn send_asteroids(&self, state: &mut OrchestratorState) -> Result<(), String> {
         for planet_id in state.galaxy.get_planets() {
             if rand::random::<f32>() < ProbabilityCalculator::get_asteroid_probability(state.time) {
+                state.gui_events_buffer.asteroid_sent(planet_id);
                 let rocket = state
                     .communication_center
                     .planet_req_ack(
@@ -50,7 +51,7 @@ impl AutoUpdateStrategy {
                     .into_asteroid_ack()
                     .unwrap()
                     .1; // Unwrap is safe due to expected kind
-
+                
                 if rocket.is_none() {
                     state.handle_planet_destroyed(planet_id)?;
                 }
@@ -63,11 +64,13 @@ impl AutoUpdateStrategy {
     fn send_sunrays(&self, state: &mut OrchestratorState) -> Result<(), String> {
         for planet_id in state.galaxy.get_planets() {
             if rand::random::<f32>() < ProbabilityCalculator::get_sunray_probability(state.time) {
+                state.gui_events_buffer.sunray_sent(planet_id);
                 state.communication_center.planet_req_ack(
                     planet_id,
                     OrchestratorToPlanet::Sunray(Sunray::default()),
                     PlanetToOrchestratorKind::SunrayAck,
                 )?;
+                state.gui_events_buffer.sunray_received(planet_id);
             }
         }
         Ok(())
@@ -181,6 +184,7 @@ impl AutoUpdateStrategy {
             .get_mut(&explorer_id)
             .unwrap()
             .current_planet = dst_planet_id;
+        state.gui_events_buffer.explorer_moved(explorer_id, dst_planet_id);
 
         Ok(())
     }

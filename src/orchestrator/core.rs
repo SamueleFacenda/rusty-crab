@@ -142,6 +142,14 @@ impl Orchestrator {
     pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
         &mut self.state.gui_events_buffer
     }
+    
+    pub fn set_mode_auto(&mut self) {
+        self.mode = OrchestratorMode::Auto;
+    }
+    
+    pub fn set_mode_manual(&mut self) {
+        self.mode = OrchestratorMode::Manual;
+    }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
         thread::spawn(move || {
