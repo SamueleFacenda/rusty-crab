@@ -62,8 +62,9 @@ impl OrchestratorState {
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
             });
+            self.communication_center.remove_planet(planet_id);
+            self.gui_events_buffer.planet_destroyed(planet_id);
         }
-        self.gui_events_buffer.planet_destroyed(planet_id);
 
         let explorers_to_remove = self.get_explorers_on_planet(planet_id);
         for explorer_id in explorers_to_remove {
@@ -72,6 +73,7 @@ impl OrchestratorState {
             handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for destroyed explorer {explorer_id}: {e:?}");
             });
+            self.communication_center.remove_explorer(explorer_id); // This disconnects the explorer
         }
         Ok(())
     }

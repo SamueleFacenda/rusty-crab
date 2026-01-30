@@ -38,6 +38,14 @@ impl CommunicationCenter {
             explorers_rx,
         }
     }
+    
+    pub fn remove_explorer(&mut self, explorer_id: ID) {
+        self.to_explorers.remove(&explorer_id);
+    }
+    
+    pub fn remove_planet(&mut self, planet_id: ID) {
+        self.to_planets.remove(&planet_id);
+    }
 
     pub fn send_to_planet(&self, planet_id: ID, msg: OrchestratorToPlanet) -> Result<(), String> {
         self.to_planets[&planet_id]
