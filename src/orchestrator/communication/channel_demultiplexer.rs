@@ -82,4 +82,22 @@ mod tests {
         // Unwrap panics if there is no message
     }
 
+    #[test]
+    fn receive_with_more_ids() {
+        let (tx, mut mux) = make_mux();
+        tx.send(msg(2)).unwrap();
+        tx.send(msg(2)).unwrap();
+        tx.send(msg(1)).unwrap();
+        tx.send(msg(2)).unwrap();
+
+        let received = mux.recv_from(1).unwrap();
+        assert_eq!(received.explorer_id(), 1);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+    }
+
 }
