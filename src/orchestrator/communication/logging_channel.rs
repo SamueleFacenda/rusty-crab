@@ -1,4 +1,4 @@
-//! Woo AOP logging channel for orchestrator would be awesome
+//! Woo AOP logging channel for orchestrator would be awesome.
 //! These are wrappers around crossbeam channels that log send and receive events
 //! using the common logging infrastructure.
 use std::marker::PhantomData;

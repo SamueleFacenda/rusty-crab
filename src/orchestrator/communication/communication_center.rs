@@ -7,8 +7,11 @@ use common_game::protocols::orchestrator_planet::{
 use common_game::utils::ID;
 use std::collections::HashMap;
 
+use super::{
+    ExplorerChannelDemultiplexer, ExplorerLoggingSender, PlanetChannelDemultiplexer,
+    PlanetLoggingSender,
+};
 use crate::explorers::BagContent;
-use super::{ExplorerChannelDemultiplexer, ExplorerLoggingSender, PlanetChannelDemultiplexer, PlanetLoggingSender};
 
 /// Like a control tower, this struct provides utilities and logic handling for communication
 pub(crate) struct CommunicationCenter {
@@ -56,7 +59,7 @@ impl CommunicationCenter {
             .map_err(|e| e.to_string())
     }
 
-    pub fn planet_syn_ack(
+    pub fn planet_req_ack(
         &mut self,
         planet_id: ID,
         msg: OrchestratorToPlanet,
@@ -74,7 +77,7 @@ impl CommunicationCenter {
         })? // Flatten the Result<Result<...>>
     }
 
-    pub fn explorer_syn_ack(
+    pub fn explorer_req_ack(
         &mut self,
         explorer_id: ID,
         msg: OrchestratorToExplorer,

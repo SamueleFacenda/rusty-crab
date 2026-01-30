@@ -1,3 +1,6 @@
+//! Factory for creating different types of planets.
+//! Hides the complexity of all the different APIs behind a simple interface.
+
 use common_game::components::planet::Planet;
 use common_game::components::resource::BasicResourceType::Carbon;
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};

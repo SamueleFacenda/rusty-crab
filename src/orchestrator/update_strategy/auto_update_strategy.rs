@@ -8,9 +8,9 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
-use crate::orchestrator::{ProbabilityCalculator, OrchestratorState};
 use crate::explorers::BagContent;
+use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
+use crate::orchestrator::{OrchestratorState, ProbabilityCalculator};
 
 pub(crate) struct AutoUpdateStrategy {
     explorers_not_passed: HashSet<ID>, // planets that have not passed the turn yet
@@ -42,7 +42,7 @@ impl AutoUpdateStrategy {
             if rand::random::<f32>() < ProbabilityCalculator::get_asteroid_probability(state.time) {
                 let rocket = state
                     .communication_center
-                    .planet_syn_ack(
+                    .planet_req_ack(
                         planet_id,
                         OrchestratorToPlanet::Asteroid(Asteroid::default()),
                         PlanetToOrchestratorKind::AsteroidAck,
@@ -63,7 +63,7 @@ impl AutoUpdateStrategy {
     fn send_sunrays(&self, state: &mut OrchestratorState) -> Result<(), String> {
         for planet_id in state.galaxy.get_planets() {
             if rand::random::<f32>() < ProbabilityCalculator::get_sunray_probability(state.time) {
-                state.communication_center.planet_syn_ack(
+                state.communication_center.planet_req_ack(
                     planet_id,
                     OrchestratorToPlanet::Sunray(Sunray::default()),
                     PlanetToOrchestratorKind::SunrayAck,
@@ -194,7 +194,7 @@ impl AutoUpdateStrategy {
     ) -> Result<(), String> {
         let moved_planet_id = state
             .communication_center
-            .explorer_syn_ack(
+            .explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::MoveToPlanet {
                     sender_to_new_planet: None,
@@ -224,7 +224,7 @@ impl AutoUpdateStrategy {
         let new_sender = state.explorers[&explorer_id].tx_planet.clone();
         let (_, accepted_explorer_id, res) = state
             .communication_center
-            .planet_syn_ack(
+            .planet_req_ack(
                 dst_planet_id,
                 OrchestratorToPlanet::IncomingExplorerRequest {
                     explorer_id,
@@ -259,7 +259,7 @@ impl AutoUpdateStrategy {
     ) -> Result<(), String> {
         let (_, left_explorer_id, res) = state
             .communication_center
-            .planet_syn_ack(
+            .planet_req_ack(
                 current_planet_id,
                 OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id },
                 PlanetToOrchestratorKind::OutgoingExplorerResponse,
@@ -292,7 +292,7 @@ impl AutoUpdateStrategy {
         let sender_to_new_planet = Some(state.planets[&planet_id].tx_explorer.clone());
         let new_planet_id = state
             .communication_center
-            .explorer_syn_ack(
+            .explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::MoveToPlanet {
                     sender_to_new_planet: sender_to_new_planet.clone(),

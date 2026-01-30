@@ -2,10 +2,8 @@ use std::collections::{HashMap, VecDeque};
 
 use common_game::utils::ID;
 
+use super::logging_channel::{ActorMarker, ExplorerMarker, LoggingReceiver, PlanetMarker};
 use crate::app::AppConfig;
-use super::logging_channel::{
-    ActorMarker, ExplorerMarker, LoggingReceiver, PlanetMarker,
-};
 
 /// This wrapper around a channel receiver divides the stream per sender (planet and explorer IDs).
 pub(crate) struct ChannelDemultiplexer<A: ActorMarker> {

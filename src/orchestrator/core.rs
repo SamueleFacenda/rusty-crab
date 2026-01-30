@@ -9,10 +9,10 @@ use common_game::utils::ID;
 
 use crate::explorers::ExplorerBuilder;
 use crate::orchestrator::CommunicationCenter;
+use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
     ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
 };
-use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
     ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
     PlanetLoggingReceiver, PlanetLoggingSender,
@@ -150,7 +150,7 @@ impl Orchestrator {
 
     fn send_planet_ai_start(&mut self) -> Result<(), String> {
         for planet_id in self.state.galaxy.get_planets() {
-            self.state.communication_center.planet_syn_ack(
+            self.state.communication_center.planet_req_ack(
                 planet_id,
                 OrchestratorToPlanet::StartPlanetAI,
                 PlanetToOrchestratorKind::StartPlanetAIResult,
@@ -161,7 +161,7 @@ impl Orchestrator {
 
     fn send_explorer_ai_start(&mut self) -> Result<(), String> {
         for explorer_id in self.state.explorers.keys() {
-            self.state.communication_center.explorer_syn_ack(
+            self.state.communication_center.explorer_req_ack(
                 *explorer_id,
                 OrchestratorToExplorer::StartExplorerAI,
                 ExplorerToOrchestratorKind::StartExplorerAIResult,

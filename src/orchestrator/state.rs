@@ -51,7 +51,7 @@ impl OrchestratorState {
 
         let handle = self.planets.remove(&planet_id);
         if let Some(planet_handle) = handle {
-            self.communication_center.planet_syn_ack(
+            self.communication_center.planet_req_ack(
                 planet_id,
                 OrchestratorToPlanet::KillPlanet,
                 PlanetToOrchestratorKind::KillPlanetResult,

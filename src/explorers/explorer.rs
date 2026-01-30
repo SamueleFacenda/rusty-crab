@@ -5,6 +5,7 @@ use common_game::protocols::orchestrator_explorer::{
 #[derive(Debug)]
 pub struct BagContent;
 
+/// Trait defining the behavior of an Explorer,
 pub trait Explorer {
     fn new(
         id: common_game::utils::ID,

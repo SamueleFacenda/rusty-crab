@@ -1,7 +1,9 @@
-mod explorer;
+//! Definition of explorers traits and export of explorer builders.
+//! All the different explorers lives in a submodule.
+
 mod example;
+mod explorer;
 
+pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
-pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder, ExplorerBuilderImpl};
-
-pub(crate) type ExampleExplorerBuilder = ExplorerBuilderImpl<example::ExampleExplorer>;
+pub(crate) type ExampleExplorerBuilder = explorer::ExplorerBuilderImpl<example::ExampleExplorer>;

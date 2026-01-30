@@ -9,8 +9,8 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
-use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 use crate::explorers::{BagContent, ExplorerBuilder};
+use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 
 /// This struct creates and initializes all the galaxy entities, with the help of the corresponding factories/builders.
 pub(crate) struct GalaxyBuilder {
@@ -172,7 +172,7 @@ impl GalaxyBuilder {
         Ok(handles)
     }
 
-    /// Create the planet instance based on its type
+    /// Create the planet instance based on its ID
     fn get_planet(
         id: ID,
         p_to_o_tx: Sender<PlanetToOrchestrator>,
