@@ -25,7 +25,7 @@ pub(crate) struct GalaxyBuilder {
     planet_to_orchestrator: (Sender<PlanetToOrchestrator>, Receiver<PlanetToOrchestrator>),
 }
 
-const PLANET_ORDER: [PlanetType; 7] = [
+pub const PLANET_ORDER: [PlanetType; 7] = [
     PlanetType::PanicOutOfOxygen,
     PlanetType::TheCompilerStrikesBack,
     PlanetType::Rustrelli,

@@ -76,6 +76,36 @@ impl CommunicationCenter {
             }
         })? // Flatten the Result<Result<...>>
     }
+    
+    /// Same as planet_req_ack but doesn't require &mut self. Doesn't buffer messages.
+    /// May lead to lost messages if another planet sends a message while waiting for the response.
+    pub fn riskier_planet_req_ack(
+        &self,
+        planet_id: ID,
+        msg: OrchestratorToPlanet,
+        expected: PlanetToOrchestratorKind,
+    ) -> Result<PlanetToOrchestrator, String> {
+        self.send_to_planet(planet_id, msg)?;
+        match self.planets_rx.recv_any()  {
+            Ok(res) => {
+                if res.planet_id() != planet_id {
+                    return Err(format!(
+                        "Expected response from planet {planet_id}, but got message from planet {}: {res:?}",
+                        res.planet_id()
+                    ));
+                }
+                if PlanetToOrchestratorKind::from(&res) != expected {
+                    return Err(format!(
+                        "Expected planet {planet_id} to respond with {expected:?}, but got {res:?}"
+                    ));
+                }
+                Ok(res)
+            }
+            Err(e) => Err(format!(
+                "Error receiving response from planet {planet_id}: {e}"
+            )),
+        }
+    }
 
     pub fn explorer_req_ack(
         &mut self,

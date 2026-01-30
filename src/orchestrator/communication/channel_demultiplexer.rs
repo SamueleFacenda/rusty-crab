@@ -46,6 +46,15 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
         }
         Err(format!("Timeout waiting for message from ID {id}"))
     }
+    
+    /// Doesn't require mut, just receives the next available message from any sender.
+    pub fn recv_any(&self) -> Result<A::RecvMsg, String> {
+        let timeout = std::time::Duration::from_millis(AppConfig::get().max_wait_time_ms);
+        
+        self.receiver
+            .recv_timeout(timeout)
+            .map_err(|e| format!("Error waiting for message: {e}"))
+    }
 }
 
 // Convenience type aliases

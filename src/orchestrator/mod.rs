@@ -13,7 +13,7 @@ pub(crate) use communication::{
 };
 pub(crate) use core::{Orchestrator, OrchestratorMode};
 pub(crate) use galaxy::Galaxy;
-pub(crate) use init::{GalaxyBuilder, PlanetFactory, PlanetType};
+pub(crate) use init::{GalaxyBuilder, PlanetFactory, PlanetType, PLANET_ORDER};
 pub(crate) use probability::ProbabilityCalculator;
 pub(crate) use state::{ExplorerHandle, ExplorerState, OrchestratorState, PlanetHandle};
 pub(crate) use update_strategy::OrchestratorUpdateFactory;

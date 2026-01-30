@@ -1,6 +1,6 @@
 use std::thread;
 
-use common_game::components::planet::Planet;
+use common_game::components::planet::{DummyPlanetState, Planet};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestratorKind, OrchestratorToExplorer,
 };
@@ -141,7 +141,7 @@ impl Orchestrator {
     pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
         &mut self.state.gui_events_buffer
     }
-    
+
     pub fn get_topology(&self) -> Vec<(ID, ID)> {
         self.state.galaxy.get_topology()
     }
@@ -198,6 +198,19 @@ impl Orchestrator {
             )?;
         }
         Ok(())
+    }
+
+    /// Get the state of a planet by its ID (to be used only in non-concurrent contexts)
+    pub fn get_planet_state(&self, planet_id: ID) -> Option<Result<DummyPlanetState, String>> {
+        if !self.state.planets.contains_key(&planet_id) {
+            return None;
+        }
+
+        Some(self.state.communication_center.riskier_planet_req_ack(
+            planet_id,
+            OrchestratorToPlanet::InternalStateRequest,
+            PlanetToOrchestratorKind::InternalStateResponse)
+            .map(|res| res.into_internal_state_response().unwrap().1)) // Unwrap safe due to the expected kind
     }
 }
 
