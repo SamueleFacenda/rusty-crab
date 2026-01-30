@@ -87,7 +87,6 @@ impl<A: ActorMarker> LoggingSender<A> {
     pub fn send(
         &self,
         msg: A::SendMsg,
-        id: ID,
     ) -> Result<(), String> {
         LogEvent::new(
             Some(Participant {
@@ -96,7 +95,7 @@ impl<A: ActorMarker> LoggingSender<A> {
             }),
             Some(Participant {
                 actor_type: A::actor_type(),
-                id,
+                id: self.other_id,
             }),
             A::event_type_send(),
             Debug,
@@ -118,30 +117,31 @@ impl<A: ActorMarker> LoggingReceiver<A> {
         }
     }
 
-    #[allow(dead_code)] // kept for completeness
-    pub fn recv(&self) -> Result<A::RecvMsg, String> {
-        self.receiver
-            .recv()
-            .inspect(|msg| self.log(msg)) // Log only successful receives
-            .map_err(|e| e.to_string())
+    pub fn set_other_id(&mut self, other_id: ID) {
+        self.other_id = other_id;
     }
 
     #[allow(dead_code)] // kept for completeness
-    pub fn try_recv(&self) -> Result<A::RecvMsg, String> {
+    pub fn recv(&self) -> Result<A::RecvMsg, crossbeam_channel::RecvError> {
+        self.receiver
+            .recv()
+            .inspect(|msg| self.log(msg)) // Log only successful receives
+    }
+
+    #[allow(dead_code)] // kept for completeness
+    pub fn try_recv(&self) -> Result<A::RecvMsg, crossbeam_channel::TryRecvError> {
         self.receiver
             .try_recv()
             .inspect(|msg| self.log(msg)) // Log only successful receives
-            .map_err(|e| e.to_string())
     }
 
     pub fn recv_timeout(
         &self,
         timeout: std::time::Duration,
-    ) -> Result<A::RecvMsg, String> {
+    ) -> Result<A::RecvMsg, crossbeam_channel::RecvTimeoutError > {
         self.receiver
             .recv_timeout(timeout)
             .inspect(|msg| self.log(msg)) // Log only successful receives
-            .map_err(|e| e.to_string())
     }
 
     fn log(&self, msg: &A::RecvMsg) {
