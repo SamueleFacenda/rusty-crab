@@ -1,5 +1,6 @@
-use common_game::utils::ID;
 use std::collections::{HashMap, HashSet};
+
+use common_game::utils::ID;
 
 /// Galaxy topology container, only manages the connections between planets.
 pub(crate) struct Galaxy {
@@ -64,12 +65,21 @@ impl Galaxy {
             neighbors.remove(&id);
         }
     }
+
+    pub fn get_planet_neighbours(&self, planet_id: ID) -> Vec<ID> {
+        if let Some(neighbors) = self.connections.get(&planet_id) {
+            neighbors.iter().copied().collect()
+        } else {
+            vec![]
+        }
+    }
 }
 
 #[allow(clippy::wildcard_imports)] // It's just tests
 mod test {
     use super::*;
 
+    #[allow(dead_code)] // used in some tests
     fn get_dummy_ids() -> Vec<ID> {
         vec![1, 2, 3, 4, 5]
     }

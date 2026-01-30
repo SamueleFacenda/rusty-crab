@@ -1,11 +1,11 @@
-use std::thread;
-use std::collections::HashMap;
-
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
-use crossbeam_channel::{Sender};
+use crossbeam_channel::Sender;
+use std::collections::HashMap;
+use std::thread;
 
-use crate::orchestrator::{ExplorerLoggingSender, PlanetLoggingSender, ExplorerLoggingReceiver, PlanetLoggingReceiver};
+use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
@@ -18,7 +18,6 @@ pub enum ExplorerState {
 /// struct used to handle the list of planets.
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: PlanetLoggingSender,
     pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
 }
 
@@ -26,7 +25,6 @@ pub(crate) struct PlanetHandle {
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx: ExplorerLoggingSender,
     pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
     pub state: ExplorerState,
 }
@@ -36,7 +34,7 @@ pub(crate) struct OrchestratorState {
     // The behavior of the orchestrator is defined by turn-like units of time
     // Alternatively can be done real-time, but that's harder to implement
     pub time: u32,
-    
+
     pub galaxy: Galaxy,
 
     // List of explorers
@@ -44,16 +42,21 @@ pub(crate) struct OrchestratorState {
     // List of planets
     pub planets: HashMap<ID, PlanetHandle>,
 
-    pub planets_rx: PlanetLoggingReceiver,
-    pub explorers_rx: ExplorerLoggingReceiver,
+    pub communication_center: CommunicationCenter,
 }
 
 impl OrchestratorState {
-    pub fn handle_planet_destroyed(&mut self, planet_id: ID) {
+    pub fn handle_planet_destroyed(&mut self, planet_id: ID) -> Result<(), String> {
         self.galaxy.remove_planet(planet_id);
 
         let handle = self.planets.remove(&planet_id);
         if let Some(planet_handle) = handle {
+            self.communication_center.planet_req_ack(
+                planet_id,
+                OrchestratorToPlanet::KillPlanet,
+                PlanetToOrchestratorKind::KillPlanetResult,
+            )?;
+
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for destroyed planet {planet_id}: {e:?}");
             });
@@ -67,10 +70,12 @@ impl OrchestratorState {
                 log::error!("Failed to join thread for destroyed explorer {explorer_id}: {e:?}");
             });
         }
+        Ok(())
     }
 
     pub fn get_explorers_on_planet(&self, planet_id: ID) -> Vec<ID> {
-        self.explorers.iter()
+        self.explorers
+            .iter()
             .filter(|(_, handle)| handle.current_planet == planet_id)
             .map(|(&explorer_id, _)| explorer_id)
             .collect()

@@ -17,6 +17,10 @@ use common_game::protocols::{orchestrator_planet, planet_explorer};
 ///     rx_from_expl,
 ///     0u32);
 /// ```
+///
+/// # Panics
+/// Panics if the planet creation fails. This should not happen when using the common crate.
+#[must_use]
 pub fn create_planet(
     rx_orchestrator: crossbeam_channel::Receiver<orchestrator_planet::OrchestratorToPlanet>,
     tx_orchestrator: crossbeam_channel::Sender<orchestrator_planet::PlanetToOrchestrator>,

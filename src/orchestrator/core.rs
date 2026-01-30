@@ -1,20 +1,22 @@
-use std::collections::HashMap;
 use std::thread;
-use std::time::Duration;
-use common_game::components::asteroid::Asteroid;
-use common_game::components::planet::Planet;
-use common_game::components::sunray::Sunray;
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
-use common_game::utils::ID;
-use crossbeam_channel::{Sender};
 
-use crate::app::AppConfig;
-use crate::orchestrator::{ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory, PlanetLoggingReceiver, PlanetLoggingSender};
-use crate::orchestrator::{ExplorerBuilder, GalaxyBuilder, OrchestratorState, ExplorerHandle, PlanetHandle, ExplorerState};
+use common_game::components::planet::Planet;
+use common_game::protocols::orchestrator_explorer::{
+    ExplorerToOrchestratorKind, OrchestratorToExplorer,
+};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
+use common_game::utils::ID;
+
+use crate::explorers::ExplorerBuilder;
+use crate::orchestrator::CommunicationCenter;
+use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+use crate::orchestrator::{
+    ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
+};
+use crate::orchestrator::{
+    ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
+    PlanetLoggingReceiver, PlanetLoggingSender,
+};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -26,6 +28,7 @@ pub(crate) struct Orchestrator {
     state: OrchestratorState,
 }
 
+#[allow(dead_code)] // only one at a time is used
 #[derive(Clone, Copy)]
 pub(crate) enum OrchestratorMode {
     Auto,
@@ -44,53 +47,79 @@ impl Orchestrator {
             .with_explorers(explorer_builders)
             .build()?;
 
-        let planets = initial_galaxy.planet_inits.into_iter()
+        let (planet_handles, planet_senders) = initial_galaxy
+            .planet_inits
+            .into_iter()
             .map(|(id, planet_init)| {
                 (
-                    id,
-                    PlanetHandle {
-                        thread_handle: Self::start_planet(planet_init.planet, id),
-                        tx: PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx),
-                        tx_explorer: planet_init.explorer_to_planet_tx,
-                    },
+                    (
+                        id,
+                        PlanetHandle {
+                            thread_handle: Self::start_planet(planet_init.planet, id),
+                            tx_explorer: planet_init.explorer_to_planet_tx,
+                        },
+                    ),
+                    (
+                        id,
+                        PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx),
+                    ),
                 )
             })
-            .collect();
+            .unzip();
 
-        let explorers = initial_galaxy.explorer_inits.into_iter()
+        let (explorer_handles, explorer_senders) = initial_galaxy
+            .explorer_inits
+            .into_iter()
             .map(|(id, explorer_init)| {
                 (
-                    id,
-                    ExplorerHandle {
-                        current_planet: explorer_init.initial_planet,
-                        thread_handle: Self::start_explorers(explorer_init.explorer, id),
-                        tx: ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx),
-                        tx_planet: explorer_init.planet_to_explorer_tx,
-                        state: ExplorerState::Autonomous,
-                    },
+                    (
+                        id,
+                        ExplorerHandle {
+                            current_planet: explorer_init.initial_planet,
+                            thread_handle: Self::start_explorers(explorer_init.explorer, id),
+                            tx_planet: explorer_init.planet_to_explorer_tx,
+                            state: ExplorerState::Autonomous,
+                        },
+                    ),
+                    (
+                        id,
+                        ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx),
+                    ),
                 )
             })
-            .collect();
+            .unzip();
 
         Ok(Orchestrator {
             mode,
             state: OrchestratorState {
                 time: 0,
                 galaxy: initial_galaxy.galaxy,
-                planets,
-                explorers,
-                planets_rx: PlanetLoggingReceiver::new(initial_galaxy.planet_to_orchestrator_rx),
-                explorers_rx: ExplorerLoggingReceiver::new(initial_galaxy.explorer_to_orchestrator_rx),
-            }
+                planets: planet_handles,
+                explorers: explorer_handles,
+                communication_center: CommunicationCenter::new(
+                    explorer_senders,
+                    planet_senders,
+                    PlanetChannelDemultiplexer::new(PlanetLoggingReceiver::new(
+                        initial_galaxy.planet_to_orchestrator_rx,
+                    )),
+                    ExplorerChannelDemultiplexer::new(ExplorerLoggingReceiver::new(
+                        initial_galaxy.explorer_to_orchestrator_rx,
+                    )),
+                ),
+            },
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
         let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-        
+
+        self.send_planet_ai_start()?;
+        self.send_explorer_ai_start()?;
+
         while !self.is_game_over() {
             update_strategy.update(&mut self.state)?;
             self.state.time += 1;
+            log::info!("--- Time step {} completed ---", self.state.time);
         }
         Ok(())
     }
@@ -110,12 +139,35 @@ impl Orchestrator {
     fn start_explorers(explorer: Box<dyn ExplorerBuilder>, id: ID) -> thread::JoinHandle<()> {
         thread::spawn(move || {
             let mut explorer_instance = explorer.build().unwrap_or_else(|e| {
+                log::error!("Failed to build explorer {id}: {e}");
                 panic!("Failed to build explorer {id}: {e}");
             });
             explorer_instance.run().unwrap_or_else(|e| {
                 log::error!("Explorer {id} thread terminated with error: {e}");
             });
         })
+    }
+
+    fn send_planet_ai_start(&mut self) -> Result<(), String> {
+        for planet_id in self.state.galaxy.get_planets() {
+            self.state.communication_center.planet_req_ack(
+                planet_id,
+                OrchestratorToPlanet::StartPlanetAI,
+                PlanetToOrchestratorKind::StartPlanetAIResult,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn send_explorer_ai_start(&mut self) -> Result<(), String> {
+        for explorer_id in self.state.explorers.keys() {
+            self.state.communication_center.explorer_req_ack(
+                *explorer_id,
+                OrchestratorToExplorer::StartExplorerAI,
+                ExplorerToOrchestratorKind::StartExplorerAIResult,
+            )?;
+        }
+        Ok(())
     }
 }
 

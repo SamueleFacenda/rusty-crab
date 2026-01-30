@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use common_game::components::planet::Planet;
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
@@ -6,9 +8,9 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use std::collections::HashMap;
 
-use crate::orchestrator::{BagContent, ExplorerBuilder, Galaxy, PlanetFactory, PlanetType};
+use crate::explorers::{BagContent, ExplorerBuilder};
+use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 
 /// This struct creates and initializes all the galaxy entities, with the help of the corresponding factories/builders.
 pub(crate) struct GalaxyBuilder {
@@ -16,7 +18,10 @@ pub(crate) struct GalaxyBuilder {
     circular: bool,
     n_planets: usize,
     explorers: Vec<Box<dyn ExplorerBuilder>>,
-    explorer_to_orchestrator: (Sender<ExplorerToOrchestrator<BagContent>>, Receiver<ExplorerToOrchestrator<BagContent>>),
+    explorer_to_orchestrator: (
+        Sender<ExplorerToOrchestrator<BagContent>>,
+        Receiver<ExplorerToOrchestrator<BagContent>>,
+    ),
     planet_to_orchestrator: (Sender<PlanetToOrchestrator>, Receiver<PlanetToOrchestrator>),
 }
 
@@ -49,7 +54,8 @@ pub(crate) struct GalaxyBuilderResult {
     pub planet_inits: HashMap<ID, PlanetInit>,
     pub explorer_inits: HashMap<ID, ExplorerInit>,
     pub planet_to_orchestrator_rx: crossbeam_channel::Receiver<PlanetToOrchestrator>,
-    pub explorer_to_orchestrator_rx: crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
+    pub explorer_to_orchestrator_rx:
+        crossbeam_channel::Receiver<ExplorerToOrchestrator<BagContent>>,
 }
 
 impl GalaxyBuilder {
@@ -71,6 +77,7 @@ impl GalaxyBuilder {
         }
     }
 
+    #[allow(dead_code)] // not currently used but still useful
     pub fn with_circular_topology(self) -> Self {
         GalaxyBuilder {
             circular: true,
@@ -98,7 +105,7 @@ impl GalaxyBuilder {
         }
         let galaxy = self.get_galaxy()?;
         let planet_inits = self.get_planets_init()?;
-        let explorer_inits = self.get_explorer_init();
+        let explorer_inits = self.get_explorers_init();
 
         Ok(GalaxyBuilderResult {
             galaxy,
@@ -118,16 +125,15 @@ impl GalaxyBuilder {
         }
     }
 
-    fn get_explorer_init(&mut self) -> HashMap<ID, ExplorerInit> {
-        let explorers = std::mem::take(&mut self.explorers);
+    fn get_explorers_init(&mut self) -> HashMap<ID, ExplorerInit> {
         let mut handles = HashMap::new();
         let explorer_ids = self.get_explorer_ids();
-        for (explorer, id) in explorers.into_iter().zip(explorer_ids) {
+        for (explorer, id) in self.explorers.drain(..).zip(explorer_ids) {
             let orch_to_ex_channel = unbounded();
             let plan_to_ex_channel = unbounded();
             let explorer = explorer
                 .with_id(id)
-                .with_current_planet(0) // all explorers start at planet 0
+                .with_current_planet(1) // all explorers start at first planet
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
                 .with_planet_rx(plan_to_ex_channel.1);
@@ -135,7 +141,7 @@ impl GalaxyBuilder {
                 id,
                 ExplorerInit {
                     explorer,
-                    initial_planet: 0, // all explorers start at planet 0
+                    initial_planet: 1, // the first planet is always ID 1
                     orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                     planet_to_explorer_tx: plan_to_ex_channel.0,
                 },
@@ -166,7 +172,7 @@ impl GalaxyBuilder {
         Ok(handles)
     }
 
-    /// Create the planet instance based on its type
+    /// Create the planet instance based on its ID
     fn get_planet(
         id: ID,
         p_to_o_tx: Sender<PlanetToOrchestrator>,
@@ -179,12 +185,12 @@ impl GalaxyBuilder {
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_planet_ids(&self) -> Vec<ID> {
-        (0..self.n_planets).map(|i| i as ID).collect()
+        (1..=self.n_planets).map(|i| i as ID).collect()
     }
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_explorer_ids(&self) -> Vec<ID> {
-        (self.n_planets..(self.n_planets + self.explorers.len()))
+        (self.n_planets + 1..=(self.n_planets + self.explorers.len()))
             .map(|i| i as ID)
             .collect()
     }

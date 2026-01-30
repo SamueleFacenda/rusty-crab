@@ -1,7 +1,9 @@
 mod app;
+mod explorers;
 mod orchestrator;
 
-use orchestrator::Orchestrator;
+use crate::explorers::ExplorerBuilder;
+use orchestrator::{Orchestrator, OrchestratorMode};
 
 fn init() {
     app::AppConfig::init();
@@ -18,6 +20,19 @@ fn init_tests() {
 fn main() {
     init();
 
-    let mut orchestrator = Orchestrator::default();
-    orchestrator.run();
+    let explorers: Vec<Box<dyn ExplorerBuilder>> =
+        vec![Box::new(explorers::ExampleExplorerBuilder::new())];
+
+    let mut orchestrator = Orchestrator::new(
+        OrchestratorMode::Auto,
+        7,         // Provided number of planets
+        explorers, // No explorers implemented yet
+    )
+    .unwrap_or_else(|e| {
+        log::error!("Failed to create orchestrator: {e}");
+        panic!("Failed to create orchestrator: {e}");
+    });
+    orchestrator.run().unwrap_or_else(|e| {
+        log::error!("Orchestrator terminated with error: {e}");
+    });
 }
