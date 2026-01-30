@@ -3,6 +3,8 @@ mod explorers;
 mod orchestrator;
 mod gui;
 
+pub(crate) use gui::{assets, events, game};
+
 use crate::explorers::ExplorerBuilder;
 use orchestrator::{Orchestrator, OrchestratorMode};
 

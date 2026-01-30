@@ -8,7 +8,7 @@ use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum PlanetType {
     PanicOutOfOxygen,
     TheCompilerStrikesBack,
