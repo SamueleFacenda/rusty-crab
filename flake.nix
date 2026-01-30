@@ -33,6 +33,8 @@
             wayland 
             alsa-lib
             systemd
+            libxkbcommon
+            vulkan-loader
           ];
           
           cargoTestFlags = [ "--workspace" ];
@@ -45,13 +47,10 @@
               allowBuiltinFetchGit = true;
             };
           });
-          rustycrab-nodeps = pkgs.rustPlatform.buildRustPackage (buildArgs // {
-            cargoHash = pkgs.lib.fakeHash;
-          });
         };
         devShells = {
           default = pkgs.mkShell {
-            inputsFrom = [ self.packages.${system}.rustycrab-nodeps ];
+            inputsFrom = [ self.packages.${system}.rustycrab ];
             packages = with pkgs; [
               rust-toolchain 
               evcxr 
@@ -63,6 +62,7 @@
             ];
             RUST_BACKTRACE = 1;
             RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libxkbcommon pkgs.vulkan-loader];
           };
         };
       }

@@ -268,6 +268,6 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy {
     }
 
     fn process_commands(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
-        todo!()
+        Ok(()) // TODO
     }
 }

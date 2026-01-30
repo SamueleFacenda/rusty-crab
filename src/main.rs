@@ -5,12 +5,15 @@ mod gui;
 
 pub(crate) use gui::{assets, events, game};
 
-use crate::explorers::ExplorerBuilder;
+use crate::explorers::{ExplorerBuilder, ExplorerFactory};
 use orchestrator::{Orchestrator, OrchestratorMode};
+use crate::gui::run_gui;
 
 fn init() {
     app::AppConfig::init();
-    app::setup_logger().expect("Failed to initialize logger");
+    if !app::AppConfig::get().show_gui { // GUI has its own logger setup
+        app::setup_logger().expect("Failed to initialize logger");
+    }
 }
 
 // Runs before tests are run
@@ -23,12 +26,22 @@ fn init_tests() {
 fn main() {
     init();
 
-    let explorers: Vec<Box<dyn ExplorerBuilder>> = vec![];
-    //    vec![Box::new(explorers::ExampleExplorerBuilder::new())];
+    let config = app::AppConfig::get();
+
+    if config.show_gui {
+        run_gui().unwrap_or_else(|e| {
+            log::error!("GUI terminated with error: {e}");
+        });
+        return;
+    }
+
+    let explorers = config.explorers.iter()
+        .map(ExplorerFactory::make_from_name)
+        .collect();
 
     let mut orchestrator = Orchestrator::new(
         OrchestratorMode::Auto,
-        7,         // Provided number of planets
+        config.number_of_planets,
         explorers, // No explorers implemented yet
     )
     .unwrap_or_else(|e| {

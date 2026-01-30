@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::window::{WindowMode, WindowPlugin};
 
 use crate::app::AppConfig;
-use crate::explorers::{ExplorerBuilder, ExampleExplorerBuilder};
+use crate::explorers::ExplorerFactory;
 use crate::gui::events::PlanetDespawn;
 use crate::gui::{assets, galaxy, ui};
 use crate::orchestrator::{Orchestrator, OrchestratorMode};
@@ -16,13 +16,15 @@ use crate::gui::types::{OrchestratorEvent, OrchestratorResource, GalaxySnapshot,
 pub struct GameTimer(pub Timer);
 
 fn setup_orchestrator(mut commands: Commands) {
+    let config = AppConfig::get();
 
-    let explorers: Vec<Box<dyn ExplorerBuilder>> =
-        vec![Box::new(ExampleExplorerBuilder::new())];
+    let explorers = config.explorers.iter()
+        .map(ExplorerFactory::make_from_name)
+        .collect();
 
     let mut orchestrator = Orchestrator::new(
-        OrchestratorMode::Auto,
-        7, // Standard number of planets
+        OrchestratorMode::Manual,
+        config.number_of_planets,
         explorers,
     )
         .unwrap_or_else(|e| {
@@ -37,13 +39,12 @@ fn setup_orchestrator(mut commands: Commands) {
 
     let lookup = orchestrator.get_planets_info();
     let topology = orchestrator.get_topology();
-    let planet_num = lookup.iter().count();
 
     commands.insert_resource(OrchestratorResource { orchestrator });
 
     commands.insert_resource(GalaxySnapshot {
         edges: topology,
-        planet_num,
+        planet_num: config.number_of_planets,
         planet_states: lookup,
     });
 
@@ -122,7 +123,10 @@ pub(crate) fn run_gui() -> Result<(), String>{
                         ..Default::default()
                     }),
                     ..Default::default()
-                }),
+                }).set(AssetPlugin {
+                     file_path: "src/gui/omc-gui/assets".to_string(),
+                     ..default()
+                 }),
         ))
         .add_systems(PreStartup, assets::load_assets)
         .add_systems(Startup, (setup_orchestrator, galaxy::setup.after(setup_orchestrator), ui::draw_game_options_menu))
