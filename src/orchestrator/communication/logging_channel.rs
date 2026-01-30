@@ -184,4 +184,31 @@ mod tests {
         }
     }
 
+    #[test]
+    fn recv_timeout_from_empty() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+        assert!(logging_receiver.recv_timeout(Duration::from_millis(5000)).is_err());
+    }
+
+    #[test]
+    fn recv_timeout_message() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+
+        let id = 1;
+        let msg = ExplorerToOrchestrator::StartExplorerAIResult {
+            explorer_id: id,
+        };
+        tx.send(msg).unwrap();
+        let received = logging_receiver.recv_timeout(
+            Duration::from_millis(5000)
+        ).unwrap();
+        match received {
+            ExplorerToOrchestrator::StartExplorerAIResult {..} => {},
+            other => unreachable!()
+        }
+    }
+
+
 }
