@@ -8,23 +8,25 @@ use crate::orchestrator::OrchestratorState;
 use crate::orchestrator::update_strategy::auto_update_strategy::AutoUpdateStrategy;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 
-pub(crate) struct ManualUpdateStrategy;
+pub(crate) struct ManualUpdateStrategy<'a> {
+    state: &'a mut OrchestratorState
+}
 
-impl ManualUpdateStrategy {
-
-    pub(crate) fn new() -> Self {
-        Self {}
+impl ManualUpdateStrategy<'_> {
+    pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> {
+        ManualUpdateStrategy {
+            state
+        }
     }
 
     fn basic_resource_discovery(
-        &self,
+        &mut self,
         explorer_id: ID,
-        state: &mut OrchestratorState
     ) -> Result<(), String> {
-        check_explorer_id(&explorer_id, state)?;
+        self.check_explorer_id(&explorer_id)?;
 
         let (explorer_id, basic_resources) =
-            state.communication_center.explorer_req_ack(
+            self.state.communication_center.explorer_req_ack(
             explorer_id,
             OrchestratorToExplorer::SupportedResourceRequest,
             ExplorerToOrchestratorKind::SupportedResourceResult
@@ -41,14 +43,13 @@ impl ManualUpdateStrategy {
     }
 
     fn combination_resource_discovery(
-        &self,
+        &mut self,
         explorer_id: ID,
-        state: &mut OrchestratorState
     ) -> Result<(), String> {
-        check_explorer_id(&explorer_id, state)?;
+        self.check_explorer_id(&explorer_id)?;
 
         let (_, _) =
-            state.communication_center.explorer_req_ack(
+            self.state.communication_center.explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::SupportedCombinationRequest,
                 ExplorerToOrchestratorKind::SupportedCombinationResult
@@ -59,15 +60,14 @@ impl ManualUpdateStrategy {
     }
 
     fn basic_resource_generation(
-        &self,
+        &mut self,
         explorer_id: ID,
         resource: BasicResourceType,
-        state: &mut OrchestratorState
     ) -> Result<(), String> {
-        check_explorer_id(&explorer_id, state)?;
+        self.check_explorer_id(&explorer_id)?;
 
         let (exp_id, result) =
-            state.communication_center.explorer_req_ack(
+            self.state.communication_center.explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::GenerateResourceRequest { to_generate: resource },
                 ExplorerToOrchestratorKind::GenerateResourceResponse
@@ -84,15 +84,14 @@ impl ManualUpdateStrategy {
     }
 
     fn resource_combination(
-        &self,
+        &mut self,
         explorer_id: ID,
-        complex: ComplexResourceType,
-        state: &mut OrchestratorState
+        complex: ComplexResourceType
     ) -> Result<(), String> {
-        check_explorer_id(&explorer_id, state)?;
+        self.check_explorer_id(&explorer_id)?;
 
         let (exp_id, result) =
-            state.communication_center.explorer_req_ack(
+            self.state.communication_center.explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::CombineResourceRequest { to_generate: complex },
                 ExplorerToOrchestratorKind::CombineResourceResponse
@@ -109,18 +108,17 @@ impl ManualUpdateStrategy {
     }
 
     fn handle_travel_request(
-        &self,
+        &mut self,
         explorer_id: ID,
         dst_planet_id: ID,
-        state: &mut OrchestratorState,
     ) -> Result<(), String> {
-        check_planet_id(&dst_planet_id, state)?;
-        check_explorer_id(&explorer_id, state)?;
+        self.check_planet_id(&dst_planet_id)?;
+        self.check_explorer_id(&explorer_id)?;
 
-        let current_planet_id = state.explorers[&explorer_id].current_planet;
+        let current_planet_id = self.state.explorers[&explorer_id].current_planet;
 
         // Communicate invalid travel if planets are not connected
-        if !state
+        if !self.state
             .galaxy
             .are_planets_connected(current_planet_id, dst_planet_id)
         {
@@ -130,12 +128,12 @@ impl ManualUpdateStrategy {
             ));
         }
 
-        self.notify_planet_incoming_explorer(explorer_id, dst_planet_id, state)?;
-        self.notify_planet_explorer_left(explorer_id, current_planet_id, state)?;
-        self.notify_explorer_successful_movement(explorer_id, dst_planet_id, state)?;
+        self.notify_planet_incoming_explorer(explorer_id, dst_planet_id)?;
+        self.notify_planet_explorer_left(explorer_id, current_planet_id)?;
+        self.notify_explorer_successful_movement(explorer_id, dst_planet_id)?;
 
         // Update internal state
-        state
+        self.state
             .explorers
             .get_mut(&explorer_id)
             .unwrap()  // It is checked above that the explorer exists
@@ -144,15 +142,13 @@ impl ManualUpdateStrategy {
         Ok(())
     }
 
-    #[allow(clippy::unused_self)] // these are better as instance methods
     fn notify_planet_incoming_explorer(
-        &self,
+        &mut self,
         explorer_id: ID,
         dst_planet_id: ID,
-        state: &mut OrchestratorState,
     ) -> Result<(), String> {
-        let new_sender = state.explorers[&explorer_id].tx_planet.clone();
-        let (_, accepted_explorer_id, res) = state
+        let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
+        let (_, accepted_explorer_id, res) = self.state
             .communication_center
             .planet_req_ack(
                 dst_planet_id,
@@ -180,14 +176,12 @@ impl ManualUpdateStrategy {
         Ok(())
     }
 
-    #[allow(clippy::unused_self)] // these are better as instance methods
     fn notify_planet_explorer_left(
-        &self,
+        &mut self,
         explorer_id: ID,
         current_planet_id: ID,
-        state: &mut OrchestratorState,
     ) -> Result<(), String> {
-        let (_, left_explorer_id, res) = state
+        let (_, left_explorer_id, res) = self.state
             .communication_center
             .planet_req_ack(
                 current_planet_id,
@@ -212,15 +206,13 @@ impl ManualUpdateStrategy {
         Ok(())
     }
 
-    #[allow(clippy::unused_self)] // these are better as instance methods
     fn notify_explorer_successful_movement(
-        &self,
+        &mut self,
         explorer_id: ID,
         planet_id: ID,
-        state: &mut OrchestratorState,
     ) -> Result<(), String> {
-        let sender_to_new_planet = Some(state.planets[&planet_id].tx_explorer.clone());
-        let new_planet_id = state
+        let sender_to_new_planet = Some(self.state.planets[&planet_id].tx_explorer.clone());
+        let new_planet_id = self.state
             .communication_center
             .explorer_req_ack(
                 explorer_id,
@@ -241,33 +233,33 @@ impl ManualUpdateStrategy {
         }
         Ok(())
     }
-}
 
-fn check_planet_id(id: &ID, state: &OrchestratorState) -> Result<(), String> {
-    if !state.planets.contains_key(&id){
-        return Err(format!(
-            "Planet with ID: {id} does not exist."
-        ))
-    }
-    Ok(())
-}
-
-fn check_explorer_id(id: &ID, state: &OrchestratorState) -> Result<(), String> {
-    if !state.explorers.contains_key(&id){
-        return Err(format!(
-            "Explorer with ID: {id} does not exist."
-        ));
-    }
-    Ok(())
-}
-
-impl OrchestratorUpdateStrategy for ManualUpdateStrategy {
-    fn update(&mut self, _state: &mut OrchestratorState) -> Result<(), String> {
-        // In manual mode, we do not perform any automatic updates.
+    fn check_planet_id(&self, id: &ID) -> Result<(), String> {
+        if !self.state.planets.contains_key(&id){
+            return Err(format!(
+                "Planet with ID: {id} does not exist."
+            ))
+        }
         Ok(())
     }
 
-    fn process_commands(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
+    fn check_explorer_id(&self, id: &ID) -> Result<(), String> {
+        if !self.state.explorers.contains_key(&id){
+            return Err(format!(
+                "Explorer with ID: {id} does not exist."
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
+    fn update(&mut self) -> Result<(), String> {
+        log::info!("Update called in manual mode. No automatic actions taken.");
+        Ok(())
+    }
+
+    fn process_commands(&mut self) -> Result<(), String> {
         Ok(()) // TODO
     }
 }

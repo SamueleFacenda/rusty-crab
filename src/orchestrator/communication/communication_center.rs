@@ -40,7 +40,7 @@ impl CommunicationCenter {
     }
 
     pub fn send_to_planet(
-        &mut self,
+        &self,
         planet_id: ID,
         msg: OrchestratorToPlanet,
     ) -> Result<(), String> {
@@ -50,7 +50,7 @@ impl CommunicationCenter {
     }
 
     pub fn send_to_explorer(
-        &mut self,
+        &self,
         explorer_id: ID,
         msg: OrchestratorToExplorer,
     ) -> Result<(), String> {

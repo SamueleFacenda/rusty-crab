@@ -128,8 +128,7 @@ impl Orchestrator {
     }
 
     pub fn manual_step(&mut self) -> Result<(), String> {
-        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-        update_strategy.update(&mut self.state)?;
+        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).update()?;
         self.state.time += 1;
         log::info!("--- Time step {} completed ---", self.state.time);
         Ok(())
@@ -148,8 +147,7 @@ impl Orchestrator {
     }
 
     pub fn process_commands(&mut self) -> Result<(), String> {
-        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-        update_strategy.process_commands(&mut self.state)
+        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
     }
 
     pub fn set_mode_auto(&mut self) {
