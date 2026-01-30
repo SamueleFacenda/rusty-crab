@@ -137,7 +137,7 @@ impl<A: ActorMarker> LoggingReceiver<A> {
     ) -> Result<A::RecvMsg, crossbeam_channel::RecvTimeoutError> {
         self.receiver
             .recv_timeout(timeout)
-            .inspect(|msg| Self::log(msg, A::get_id(msg))) // Log only successful receives )
+            .inspect(|msg| Self::log(msg, A::get_id(msg))) // Log only successful receives
     }
 
     fn log(msg: &A::RecvMsg, id: ID) {

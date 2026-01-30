@@ -13,7 +13,7 @@ use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 use crate::orchestrator::{OrchestratorState, ProbabilityCalculator};
 
 pub(crate) struct AutoUpdateStrategy {
-    explorers_not_passed: HashSet<ID>, // planets that have not passed the turn yet
+    explorers_not_passed: HashSet<ID>, // explorers that have not passed the turn yet
 }
 
 impl AutoUpdateStrategy {
