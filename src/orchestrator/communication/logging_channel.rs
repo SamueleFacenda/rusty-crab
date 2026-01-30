@@ -161,6 +161,7 @@ pub type PlanetLoggingSender = LoggingSender<PlanetMarker>;
 pub type ExplorerLoggingReceiver = LoggingReceiver<ExplorerMarker>;
 pub type PlanetLoggingReceiver = LoggingReceiver<PlanetMarker>;
 
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
@@ -188,7 +189,7 @@ mod tests {
     fn recv_timeout_from_empty() {
         let (tx, rx) = unbounded();
         let logging_receiver = ExplorerLoggingReceiver::new(rx);
-        assert!(logging_receiver.recv_timeout(Duration::from_millis(5000)).is_err());
+        assert!(logging_receiver.recv_timeout(Duration::from_millis(2000)).is_err());
     }
 
     #[test]
@@ -226,5 +227,4 @@ mod tests {
             other => unreachable!()
         }
     }
-
 }

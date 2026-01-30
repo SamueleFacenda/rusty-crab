@@ -51,3 +51,35 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
 // Convenience type aliases
 pub type PlanetChannelDemultiplexer = ChannelDemultiplexer<PlanetMarker>;
 pub type ExplorerChannelDemultiplexer = ChannelDemultiplexer<ExplorerMarker>;
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossbeam_channel::unbounded;
+    use crate::explorers::BagContent;
+    use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator;
+
+    fn msg(id: ID) -> ExplorerToOrchestrator<BagContent> {
+        ExplorerToOrchestrator::StartExplorerAIResult { explorer_id: id }
+    }
+
+    fn make_mux() -> (
+        crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
+        ExplorerChannelDemultiplexer,
+    ) {
+        let (tx, rx) = unbounded();
+        let logging_rx = LoggingReceiver::<ExplorerMarker>::new(rx);
+        let demux = ExplorerChannelDemultiplexer::new(logging_rx);
+        (tx, demux)
+    }
+
+    #[test]
+    fn receive_with_id() {
+        let (tx, mut mux) = make_mux();
+        tx.send(msg(1)).unwrap();
+        let received = mux.recv_from(1).unwrap();
+        // Unwrap panics if there is no message
+    }
+
+}
