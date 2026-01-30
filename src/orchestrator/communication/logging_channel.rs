@@ -160,3 +160,28 @@ pub type ExplorerLoggingSender = LoggingSender<ExplorerMarker>;
 pub type PlanetLoggingSender = LoggingSender<PlanetMarker>;
 pub type ExplorerLoggingReceiver = LoggingReceiver<ExplorerMarker>;
 pub type PlanetLoggingReceiver = LoggingReceiver<PlanetMarker>;
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Debug;
+    use super::*;
+    use crossbeam_channel::unbounded;
+    use std::time::Duration;
+
+    #[test]
+    fn send_message() {
+        let (tx, rx) = unbounded();
+        let logging_sender = ExplorerLoggingSender::new(tx);
+
+        let msg = OrchestratorToExplorer::StartExplorerAI;
+        let id = 1;
+
+        logging_sender.send(msg, id).unwrap();
+        let received = rx.recv().unwrap();//Unwrap tests if the message is there
+        match received {
+            OrchestratorToExplorer::StartExplorerAI => {},
+            other => unreachable!()
+        }
+    }
+
+}
