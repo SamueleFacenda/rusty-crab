@@ -54,7 +54,7 @@
             packages = with pkgs; [
               rust-toolchain 
               evcxr 
-              rustfmt
+              (rustfmt.override { asNightly = true; })
               clippy
               (python3.withPackages (ps: with ps; [
 
