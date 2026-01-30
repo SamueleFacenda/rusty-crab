@@ -1,5 +1,5 @@
 use common_game::utils::ID;
-use crate::gui::game::OrchestratorEvent;
+use crate::gui::types::OrchestratorEvent;
 
 pub struct GuiEventBuffer {
     buffer: Vec<OrchestratorEvent>

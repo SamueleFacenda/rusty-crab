@@ -321,4 +321,9 @@ impl OrchestratorUpdateStrategy for AutoUpdateStrategy {
     fn update(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
         self.execute_cycle(state)
     }
+
+    fn process_commands(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
+        log::warn!("AutoUpdateStrategy does not process commands");
+        Ok(())
+    }
 }

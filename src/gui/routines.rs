@@ -1,100 +1,21 @@
-use std::collections::BTreeMap;
+//! Adapted from OneMillionCrab GUI functions.
 
 use bevy::prelude::*;
+use bevy::window::{WindowMode, WindowPlugin};
 
 use crate::app::AppConfig;
 use crate::explorers::{ExplorerBuilder, ExampleExplorerBuilder};
 use crate::gui::events::PlanetDespawn;
-use crate::orchestrator::{Orchestrator, OrchestratorMode, PlanetType};
+use crate::gui::{assets, galaxy, ui};
+use crate::orchestrator::{Orchestrator, OrchestratorMode};
 
-pub struct OrchestratorProxy {
-    pub gui_messages: Vec<OrchestratorEvent>,
-}
-
-impl Orchestrator {
-    pub fn get_planets_info(&self) -> PlanetInfoMap {
-        // Placeholder implementation
-        PlanetInfoMap {
-            map: BTreeMap::new(),
-        }
-    }
-
-    pub fn get_topology(&self) -> Vec<(u32, u32)> {
-        // Placeholder implementation
-        vec![]
-    }
-}
-
-#[derive(Resource)]
-pub struct OrchestratorResource {
-    pub orchestrator: Orchestrator,
-}
-
-#[derive(Resource, PartialEq, Eq)]
-pub enum GameState {
-    WaitingStart,
-    Playing,
-    Paused,
-}
-
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum Status {
-    Running,
-    Paused,
-    Dead,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct PlanetInfo{
-    pub status: Status,
-    pub energy_cells: Vec<bool>,
-    pub charged_cells_count: usize,
-    pub rocket: bool,
-    pub name: PlanetType,
-}
-
-#[derive(Clone)]
-pub struct PlanetInfoMap{
-    map: BTreeMap<u32, PlanetInfo>
-}
-
-impl PlanetInfoMap {
-    pub fn iter(&self) -> impl Iterator<Item = (&u32, &PlanetInfo)> {
-        self.map.iter()
-    }
-
-    pub(crate) fn get_info(&self, id: u32) -> Option<PlanetInfo> {
-        self.map.get(&id).cloned()
-    }
-}
-
-#[derive(Resource, Clone)]
-pub struct GalaxySnapshot {
-    pub edges: Vec<(u32, u32)>,
-    pub planet_num: usize,
-    pub planet_states: PlanetInfoMap,
-}
-
-pub struct SelectedPlanet {
-    pub id: u32,
-    pub name: PlanetType,
-}
-
-#[derive(Resource)]
-pub struct PlanetClickRes {
-    pub planet: Option<SelectedPlanet>,
-}
+use crate::gui::types::{OrchestratorEvent, OrchestratorResource, GalaxySnapshot, PlanetClickRes, GameState};
 
 
-pub enum OrchestratorEvent {
-    PlanetDestroyed { planet_id: u32 },
-    SunraySent { planet_id: u32 },
-    SunrayReceived { planet_id: u32 },
-    AsteroidSent { planet_id: u32 },
-    ExplorerMoved { origin: u32, destination: u32 }
-}
+#[derive(Resource, Deref, DerefMut)]
+pub struct GameTimer(pub Timer);
 
-pub fn setup_orchestrator(mut commands: Commands) {
+fn setup_orchestrator(mut commands: Commands) {
 
     let explorers: Vec<Box<dyn ExplorerBuilder>> =
         vec![Box::new(ExampleExplorerBuilder::new())];
@@ -116,7 +37,7 @@ pub fn setup_orchestrator(mut commands: Commands) {
 
     let lookup = orchestrator.get_planets_info();
     let topology = orchestrator.get_topology();
-    let planet_num = lookup.map.len();
+    let planet_num = lookup.iter().count();
 
     commands.insert_resource(OrchestratorResource { orchestrator });
 
@@ -136,10 +57,7 @@ pub fn setup_orchestrator(mut commands: Commands) {
     commands.insert_resource(PlanetClickRes { planet: None });
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct GameTimer(pub Timer);
-
-pub fn game_loop(
+fn game_loop(
     mut commands: Commands,
     mut orchestrator: ResMut<OrchestratorResource>,
     mut timer: ResMut<GameTimer>,
@@ -150,7 +68,6 @@ pub fn game_loop(
         timer.tick(time.delta());
 
         if timer.is_finished() {
-            println!("ENTERED TIMER");
             let events = orchestrator.orchestrator.get_gui_events_buffer().drain_events();
 
             for ev in events {
@@ -182,12 +99,38 @@ pub fn game_loop(
                 log::error!("Failed to advance orchestrator step: {}", e);
                 commands.insert_resource(GameState::Paused);
             }
-            // let _ = orchestrator.orchestrator.handle_game_messages();
 
-            println!("EXITING TIMER");
+            if let Err(e) = orchestrator.orchestrator.process_commands() {
+                log::error!("Failed to process orchestrator commands: {}", e);
+                commands.insert_resource(GameState::Paused);
+            }
+
             timer.reset();
         }
     }
+}
+
+pub(crate) fn run_gui() -> Result<(), String>{
+    App::new()
+        .add_plugins((
+            // Full screen
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        resizable: false,
+                        mode: WindowMode::BorderlessFullscreen(MonitorSelection::Index(0)),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+        ))
+        .add_systems(PreStartup, assets::load_assets)
+        .add_systems(Startup, (setup_orchestrator, galaxy::setup.after(setup_orchestrator), ui::draw_game_options_menu))
+        .add_systems(Update, (ui::button_hover, ui::menu_action, ui::draw_selection_menu.after(setup_orchestrator)))
+        .add_systems(FixedUpdate, (game_loop, galaxy::draw_topology))
+        .add_observer(galaxy::destroy_link)
+        .run();
+    Ok(())
 }
 
 

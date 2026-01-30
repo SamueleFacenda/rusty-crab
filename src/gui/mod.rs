@@ -10,43 +10,21 @@ pub mod ui;
 #[path = "omc-gui/src/galaxy.rs"]
 pub mod galaxy;
 
-
 #[path = "omc-gui/src/assets.rs"]
 pub mod assets;
 
 #[path = "omc-gui/src/events.rs"]
 pub mod events;
 
-pub mod game;
+pub mod routines;
 
 mod event_buffer;
+mod types;
+
 pub(crate) use event_buffer::GuiEventBuffer;
+pub(crate) use routines::run_gui;
 
-
-// Adapted from OneMillionCrabs GUI
-use bevy::prelude::*;
-use bevy::window::{WindowMode, WindowPlugin};
-
-pub(crate) fn run_gui() -> Result<(), String>{
-    let mut app = App::new();
-    app
-        .add_plugins((
-            // Full screen
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        resizable: false,
-                        mode: WindowMode::BorderlessFullscreen(MonitorSelection::Index(0)),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-        ))
-        .add_systems(PreStartup, assets::load_assets)
-        .add_systems(Startup, (game::setup_orchestrator, galaxy::setup.after(game::setup_orchestrator), ui::draw_game_options_menu))
-        .add_systems(Update, (ui::button_hover, ui::menu_action, ui::draw_selection_menu.after(game::setup_orchestrator)))
-        .add_systems(FixedUpdate, (game::game_loop, galaxy::draw_topology))
-        .add_observer(galaxy::destroy_link);
-    app.run();
-    Ok(())
+// Re-export game-related types for omc-gui imports
+pub(crate) mod game {
+    pub use super::types::{GalaxySnapshot, OrchestratorResource, PlanetClickRes, SelectedPlanet, GameState};
 }

@@ -5,6 +5,7 @@ use crate::orchestrator::{OrchestratorMode, OrchestratorState};
 
 pub trait OrchestratorUpdateStrategy {
     fn update(&mut self, state: &mut OrchestratorState) -> Result<(), String>;
+    fn process_commands(&mut self, state: &mut OrchestratorState) -> Result<(), String>;
 }
 
 pub struct OrchestratorUpdateFactory;

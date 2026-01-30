@@ -23,8 +23,8 @@ fn init_tests() {
 fn main() {
     init();
 
-    let explorers: Vec<Box<dyn ExplorerBuilder>> =
-        vec![Box::new(explorers::ExampleExplorerBuilder::new())];
+    let explorers: Vec<Box<dyn ExplorerBuilder>> = vec![];
+    //    vec![Box::new(explorers::ExampleExplorerBuilder::new())];
 
     let mut orchestrator = Orchestrator::new(
         OrchestratorMode::Auto,

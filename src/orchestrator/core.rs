@@ -120,15 +120,15 @@ impl Orchestrator {
         }
         Ok(())
     }
-    
+
     pub fn manual_init(&mut self) -> Result<(), String> {
         self.send_planet_ai_start()?;
         self.send_explorer_ai_start()?;
         Ok(())
     }
-    
+
     pub fn manual_step(&mut self) -> Result<(), String> {
-        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(OrchestratorMode::Manual);
+        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
         update_strategy.update(&mut self.state)?;
         self.state.time += 1;
         log::info!("--- Time step {} completed ---", self.state.time);
@@ -138,15 +138,20 @@ impl Orchestrator {
     pub fn is_game_over(&self) -> bool {
         self.state.galaxy.get_planets().is_empty()
     }
-    
+
     pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
         &mut self.state.gui_events_buffer
     }
-    
+
+    pub fn process_commands(&mut self) -> Result<(), String> {
+        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
+        update_strategy.process_commands(&mut self.state)
+    }
+
     pub fn set_mode_auto(&mut self) {
         self.mode = OrchestratorMode::Auto;
     }
-    
+
     pub fn set_mode_manual(&mut self) {
         self.mode = OrchestratorMode::Manual;
     }

@@ -266,4 +266,8 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy {
         // In manual mode, we do not perform any automatic updates.
         Ok(())
     }
+
+    fn process_commands(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
+        todo!()
+    }
 }
