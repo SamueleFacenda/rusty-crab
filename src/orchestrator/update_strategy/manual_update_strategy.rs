@@ -9,14 +9,12 @@ use crate::orchestrator::update_strategy::auto_update_strategy::AutoUpdateStrate
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 
 pub(crate) struct ManualUpdateStrategy<'a> {
-    state: &'a mut OrchestratorState
+    state: &'a mut OrchestratorState,
 }
 
 impl ManualUpdateStrategy<'_> {
     pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> {
-        ManualUpdateStrategy {
-            state
-        }
+        ManualUpdateStrategy { state }
     }
 
     fn basic_resource_discovery(

@@ -1,17 +1,18 @@
 mod app;
 mod explorers;
-mod orchestrator;
 mod gui;
+mod orchestrator;
 
 pub(crate) use gui::{assets, events, game};
 
 use crate::explorers::{ExplorerBuilder, ExplorerFactory};
-use orchestrator::{Orchestrator, OrchestratorMode};
 use crate::gui::run_gui;
+use orchestrator::{Orchestrator, OrchestratorMode};
 
 fn init() {
     app::AppConfig::init();
-    if !app::AppConfig::get().show_gui { // GUI has its own logger setup
+    if !app::AppConfig::get().show_gui {
+        // GUI has its own logger setup
         app::setup_logger().expect("Failed to initialize logger");
     }
 }
@@ -35,7 +36,9 @@ fn main() {
         return;
     }
 
-    let explorers = config.explorers.iter()
+    let explorers = config
+        .explorers
+        .iter()
         .map(ExplorerFactory::make_from_name)
         .collect();
 

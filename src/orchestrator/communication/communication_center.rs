@@ -39,11 +39,7 @@ impl CommunicationCenter {
         }
     }
 
-    pub fn send_to_planet(
-        &self,
-        planet_id: ID,
-        msg: OrchestratorToPlanet,
-    ) -> Result<(), String> {
+    pub fn send_to_planet(&self, planet_id: ID, msg: OrchestratorToPlanet) -> Result<(), String> {
         self.to_planets[&planet_id]
             .send(msg, planet_id)
             .map_err(|e| e.to_string())
@@ -76,7 +72,7 @@ impl CommunicationCenter {
             }
         })? // Flatten the Result<Result<...>>
     }
-    
+
     /// Same as planet_req_ack but doesn't require &mut self. Doesn't buffer messages.
     /// May lead to lost messages if another planet sends a message while waiting for the response.
     pub fn riskier_planet_req_ack(
@@ -86,7 +82,7 @@ impl CommunicationCenter {
         expected: PlanetToOrchestratorKind,
     ) -> Result<PlanetToOrchestrator, String> {
         self.send_to_planet(planet_id, msg)?;
-        match self.planets_rx.recv_any()  {
+        match self.planets_rx.recv_any() {
             Ok(res) => {
                 if res.planet_id() != planet_id {
                     return Err(format!(

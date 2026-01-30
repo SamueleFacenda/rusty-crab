@@ -206,11 +206,16 @@ impl Orchestrator {
             return None;
         }
 
-        Some(self.state.communication_center.riskier_planet_req_ack(
-            planet_id,
-            OrchestratorToPlanet::InternalStateRequest,
-            PlanetToOrchestratorKind::InternalStateResponse)
-            .map(|res| res.into_internal_state_response().unwrap().1)) // Unwrap safe due to the expected kind
+        Some(
+            self.state
+                .communication_center
+                .riskier_planet_req_ack(
+                    planet_id,
+                    OrchestratorToPlanet::InternalStateRequest,
+                    PlanetToOrchestratorKind::InternalStateResponse,
+                )
+                .map(|res| res.into_internal_state_response().unwrap().1),
+        ) // Unwrap safe due to the expected kind
     }
 }
 

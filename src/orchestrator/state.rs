@@ -1,12 +1,12 @@
+use crate::gui::GuiEventBuffer;
+use crate::orchestrator::CommunicationCenter;
+use crate::orchestrator::galaxy::Galaxy;
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::Sender;
 use std::collections::HashMap;
 use std::thread;
-use crate::gui::GuiEventBuffer;
-use crate::orchestrator::CommunicationCenter;
-use crate::orchestrator::galaxy::Galaxy;
 
 pub enum ExplorerState {
     Autonomous,

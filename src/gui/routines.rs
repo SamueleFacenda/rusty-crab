@@ -9,8 +9,9 @@ use crate::gui::events::PlanetDespawn;
 use crate::gui::{assets, galaxy, ui};
 use crate::orchestrator::{Orchestrator, OrchestratorMode};
 
-use crate::gui::types::{OrchestratorEvent, OrchestratorResource, GalaxySnapshot, PlanetClickRes, GameState};
-
+use crate::gui::types::{
+    GalaxySnapshot, GameState, OrchestratorEvent, OrchestratorResource, PlanetClickRes,
+};
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct GameTimer(pub Timer);
@@ -18,7 +19,9 @@ pub struct GameTimer(pub Timer);
 fn setup_orchestrator(mut commands: Commands) {
     let config = AppConfig::get();
 
-    let explorers = config.explorers.iter()
+    let explorers = config
+        .explorers
+        .iter()
         .map(ExplorerFactory::make_from_name)
         .collect();
 
@@ -27,10 +30,10 @@ fn setup_orchestrator(mut commands: Commands) {
         config.number_of_planets,
         explorers,
     )
-        .unwrap_or_else(|e| {
-            log::error!("Failed to create orchestrator: {e}");
-            panic!("Failed to create orchestrator: {e}");
-        });
+    .unwrap_or_else(|e| {
+        log::error!("Failed to create orchestrator: {e}");
+        panic!("Failed to create orchestrator: {e}");
+    });
 
     orchestrator.manual_init().unwrap_or_else(|e| {
         log::error!("Failed to initialize orchestrator: {}", e);
@@ -69,7 +72,10 @@ fn game_loop(
         timer.tick(time.delta());
 
         if timer.is_finished() {
-            let events = orchestrator.orchestrator.get_gui_events_buffer().drain_events();
+            let events = orchestrator
+                .orchestrator
+                .get_gui_events_buffer()
+                .drain_events();
 
             for ev in events {
                 match ev {
@@ -111,7 +117,7 @@ fn game_loop(
     }
 }
 
-pub(crate) fn run_gui() -> Result<(), String>{
+pub(crate) fn run_gui() -> Result<(), String> {
     App::new()
         .add_plugins((
             // Full screen
@@ -123,18 +129,31 @@ pub(crate) fn run_gui() -> Result<(), String>{
                         ..Default::default()
                     }),
                     ..Default::default()
-                }).set(AssetPlugin {
-                     file_path: "src/gui/omc-gui/assets".to_string(),
-                     ..default()
-                 }),
+                })
+                .set(AssetPlugin {
+                    file_path: "src/gui/omc-gui/assets".to_string(),
+                    ..default()
+                }),
         ))
         .add_systems(PreStartup, assets::load_assets)
-        .add_systems(Startup, (setup_orchestrator, galaxy::setup.after(setup_orchestrator), ui::draw_game_options_menu))
-        .add_systems(Update, (ui::button_hover, ui::menu_action, ui::draw_selection_menu.after(setup_orchestrator)))
+        .add_systems(
+            Startup,
+            (
+                setup_orchestrator,
+                galaxy::setup.after(setup_orchestrator),
+                ui::draw_game_options_menu,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                ui::button_hover,
+                ui::menu_action,
+                ui::draw_selection_menu.after(setup_orchestrator),
+            ),
+        )
         .add_systems(FixedUpdate, (game_loop, galaxy::draw_topology))
         .add_observer(galaxy::destroy_link)
         .run();
     Ok(())
 }
-
-

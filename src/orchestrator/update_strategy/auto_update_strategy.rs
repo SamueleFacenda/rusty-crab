@@ -40,9 +40,12 @@ impl AutoUpdateStrategy<'_> {
 
     fn send_asteroids(&mut self) -> Result<(), String> {
         for planet_id in self.state.galaxy.get_planets() {
-            if rand::random::<f32>() < ProbabilityCalculator::get_asteroid_probability(self.state.time) {
+            if rand::random::<f32>()
+                < ProbabilityCalculator::get_asteroid_probability(self.state.time)
+            {
                 self.state.gui_events_buffer.asteroid_sent(planet_id);
-                let rocket = self.state
+                let rocket = self
+                    .state
                     .communication_center
                     .planet_req_ack(
                         planet_id,
@@ -63,7 +66,9 @@ impl AutoUpdateStrategy<'_> {
 
     fn send_sunrays(&mut self) -> Result<(), String> {
         for planet_id in self.state.galaxy.get_planets() {
-            if rand::random::<f32>() < ProbabilityCalculator::get_sunray_probability(self.state.time) {
+            if rand::random::<f32>()
+                < ProbabilityCalculator::get_sunray_probability(self.state.time)
+            {
                 self.state.gui_events_buffer.sunray_sent(planet_id);
                 self.state.communication_center.planet_req_ack(
                     planet_id,
@@ -93,7 +98,10 @@ impl AutoUpdateStrategy<'_> {
             .copied()
             .collect::<Vec<ID>>()
         {
-            let res = self.state.communication_center.recv_from_explorer(explorer_id)?;
+            let res = self
+                .state
+                .communication_center
+                .recv_from_explorer(explorer_id)?;
             self.process_explorer_message(explorer_id, res)?;
         }
         Ok(())
@@ -162,7 +170,8 @@ impl AutoUpdateStrategy<'_> {
         }
 
         // Communicate invalid travel if planets are not connected
-        if !self.state
+        if !self
+            .state
             .galaxy
             .are_planets_connected(current_planet_id, dst_planet_id)
         {
@@ -179,7 +188,9 @@ impl AutoUpdateStrategy<'_> {
             .get_mut(&explorer_id)
             .unwrap()
             .current_planet = dst_planet_id;
-        self.state.gui_events_buffer.explorer_moved(explorer_id, dst_planet_id);
+        self.state
+            .gui_events_buffer
+            .explorer_moved(explorer_id, dst_planet_id);
 
         Ok(())
     }
@@ -189,7 +200,8 @@ impl AutoUpdateStrategy<'_> {
         explorer_id: ID,
         current_planet_id: ID,
     ) -> Result<(), String> {
-        let moved_planet_id = self.state
+        let moved_planet_id = self
+            .state
             .communication_center
             .explorer_req_ack(
                 explorer_id,
@@ -217,7 +229,8 @@ impl AutoUpdateStrategy<'_> {
         dst_planet_id: ID,
     ) -> Result<(), String> {
         let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
-        let (_, accepted_explorer_id, res) = self.state
+        let (_, accepted_explorer_id, res) = self
+            .state
             .communication_center
             .planet_req_ack(
                 dst_planet_id,
@@ -250,7 +263,8 @@ impl AutoUpdateStrategy<'_> {
         explorer_id: ID,
         current_planet_id: ID,
     ) -> Result<(), String> {
-        let (_, left_explorer_id, res) = self.state
+        let (_, left_explorer_id, res) = self
+            .state
             .communication_center
             .planet_req_ack(
                 current_planet_id,
@@ -281,7 +295,8 @@ impl AutoUpdateStrategy<'_> {
         planet_id: ID,
     ) -> Result<(), String> {
         let sender_to_new_planet = Some(self.state.planets[&planet_id].tx_explorer.clone());
-        let new_planet_id = self.state
+        let new_planet_id = self
+            .state
             .communication_center
             .explorer_req_ack(
                 explorer_id,
