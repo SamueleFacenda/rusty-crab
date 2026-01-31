@@ -38,6 +38,7 @@ config_fields! {
     number_of_planets: usize = 7,
     explorers: Vec<String> = vec![],
     show_gui: bool = false,
+    explorer_probability_estimator_sensitivity: f32 = 0.1,
 }
 
 #[derive(Parser, Debug)]
