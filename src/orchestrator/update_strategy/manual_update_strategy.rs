@@ -29,7 +29,7 @@ impl ManualUpdateStrategy {
             ExplorerToOrchestratorKind::SupportedResourceResult
         )?
             .into_supported_resource_result()
-            .unwrap();
+            .unwrap(); // Unwrap is safe due to expected kind
 
         if basic_resources.is_empty() {
             return Err(format!(
@@ -53,7 +53,7 @@ impl ManualUpdateStrategy {
                 ExplorerToOrchestratorKind::SupportedCombinationResult
             )?
                 .into_supported_combination_result()
-                .unwrap();
+                .unwrap(); // Unwrap is safe due to expected kind
         Ok(())
     }
 
@@ -72,7 +72,7 @@ impl ManualUpdateStrategy {
                 ExplorerToOrchestratorKind::GenerateResourceResponse
             )?
                 .into_generate_resource_response()
-                .unwrap();
+                .unwrap(); // Unwrap is safe due to expected kind
 
         // if result.is_err() {
         //     return Err(format!(
@@ -97,7 +97,7 @@ impl ManualUpdateStrategy {
                 ExplorerToOrchestratorKind::CombineResourceResponse
             )?
                 .into_combine_resource_response()
-                .unwrap();
+                .unwrap(); // Unwrap is safe due to expected kind
 
         // if result.is_err() {
         //     return Err(format!(
@@ -110,20 +110,13 @@ impl ManualUpdateStrategy {
     fn handle_travel_request(
         &self,
         explorer_id: ID,
-        current_planet_id: ID,
         dst_planet_id: ID,
         state: &mut OrchestratorState,
     ) -> Result<(), String> {
-        check_planet_id(&current_planet_id, state)?;
         check_planet_id(&dst_planet_id, state)?;
         check_explorer_id(&explorer_id, state)?;
 
-        if current_planet_id != state.explorers[&explorer_id].current_planet {
-            return Err(format!(
-                "Explorer {explorer_id} requested travel from planet {current_planet_id}, but is currently on planet {}",
-                state.explorers[&explorer_id].current_planet
-            ));
-        }
+        let current_planet_id = state.explorers[&explorer_id].current_planet;
 
         // Communicate invalid travel if planets are not connected
         if !state
@@ -144,7 +137,7 @@ impl ManualUpdateStrategy {
         state
             .explorers
             .get_mut(&explorer_id)
-            .unwrap()
+            .unwrap()  // It is checked above that the explorer exists
             .current_planet = dst_planet_id;
 
         Ok(())
