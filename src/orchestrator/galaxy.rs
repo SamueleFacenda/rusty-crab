@@ -76,6 +76,7 @@ impl Galaxy {
 }
 
 #[allow(clippy::wildcard_imports)] // It's just tests
+#[cfg(test)]
 mod test {
     use super::*;
 
