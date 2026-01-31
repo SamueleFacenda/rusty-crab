@@ -8,7 +8,7 @@ use crate::app::AppConfig;
 use super::{PlanetLoggingSender, PlanetLoggingReceiver };
 
 /// Like a control tower, this struct provides utilities and logic handling for communication
-pub(super) struct PlanetsCommunicator {
+pub(crate) struct PlanetsCommunicator {
     to_planets: HashMap<ID, PlanetLoggingSender>,
     planets_rx: PlanetLoggingReceiver,
     explorer_id: ID,

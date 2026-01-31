@@ -1,10 +1,7 @@
 mod explorer;
-mod logging_channel;
-mod orchestrator_communicator;
-mod planets_communicator;
+mod communication;
 
-pub(self) use logging_channel::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
-pub(self) use orchestrator_communicator::OrchestratorCommunicator;
-pub(self) use planets_communicator::PlanetsCommunicator;
+pub(self) use communication::{OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
+    PlanetsCommunicator, PlanetLoggingReceiver, PlanetLoggingSender};
 
 pub(crate) use explorer::HardwareAcceleratedExplorer;

@@ -6,9 +6,8 @@ use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::explorers::{BagContent, Explorer};
-use crate::explorers::hardware_accelerated::logging_channel::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
-use crate::explorers::hardware_accelerated::orchestrator_communicator::OrchestratorCommunicator;
-use crate::explorers::hardware_accelerated::planets_communicator::PlanetsCommunicator;
+use crate::explorers::hardware_accelerated::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
+use crate::explorers::hardware_accelerated::{OrchestratorCommunicator, PlanetsCommunicator};
 
 pub struct HardwareAcceleratedExplorer {
     id: ID,
@@ -79,11 +78,11 @@ impl HardwareAcceleratedExplorer {
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<bool, String> {
         match msg {
             OrchestratorToExplorer::ResetExplorerAI => {
-                // Handle reset explorer AI
+                // TODO Handle reset explorer AI
                 self.orchestrator_communicator.send_reset_ack()?
             }
             OrchestratorToExplorer::StopExplorerAI => {
-                // Handle stop explorer AI
+                // TODO Handle stop explorer AI
                 self.orchestrator_communicator.send_stop_ack()?
             }
             OrchestratorToExplorer::KillExplorer => {
@@ -116,13 +115,11 @@ impl HardwareAcceleratedExplorer {
                 //     combination_result.map(|_|()).map_err(|(e, _, _)| e)
                 // )?;
             }
-
             OrchestratorToExplorer::BagContentRequest => {
                 // TODO do the round choices
                 // TODO send bag content
                 self.orchestrator_communicator.send_bag_content_ack(BagContent{})?;
             }
-
             _ => return Err(format!("Unexpected message type: {:?}", msg)),
         }
         Ok(true)

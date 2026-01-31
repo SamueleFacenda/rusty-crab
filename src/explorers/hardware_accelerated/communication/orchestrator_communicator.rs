@@ -11,7 +11,7 @@ use super::{OrchestratorLoggingSender, OrchestratorLoggingReceiver };
 use crate::explorers::BagContent;
 
 /// API for communication between an explorer and the orchestrator
-pub(super) struct OrchestratorCommunicator {
+pub(crate) struct OrchestratorCommunicator {
     orchestrator_tx: OrchestratorLoggingSender,
     orchestrator_rx: OrchestratorLoggingReceiver,
     explorer_id: ID,
@@ -62,7 +62,7 @@ impl OrchestratorCommunicator {
             planet_id,
         })
     }
-    
+
     pub fn send_reset_ack(&self) -> Result<(), String> {
         self.orchestrator_tx.send(ExplorerToOrchestrator::ResetExplorerAIResult {
             explorer_id: self.explorer_id,
@@ -116,7 +116,7 @@ impl OrchestratorCommunicator {
             generated: res,
         })
     }
-    
+
     pub fn send_kill_ack(&self) -> Result<(), String> {
         self.orchestrator_tx.send(ExplorerToOrchestrator::KillExplorerResult {
             explorer_id: self.explorer_id,
