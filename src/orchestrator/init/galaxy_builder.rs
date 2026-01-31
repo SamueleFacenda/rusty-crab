@@ -195,3 +195,27 @@ impl GalaxyBuilder {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Debug;
+    use super::*;
+    use crossbeam_channel::unbounded;
+    use std::time::Duration;
+
+    #[test]
+    fn test_galaxy_build() {
+        let good_gb = GalaxyBuilder::new()
+            .with_fully_connected_topology()
+            .with_n_planets(5)
+            .build();
+        let bad_gb = GalaxyBuilder::new()
+            .with_fully_connected_topology()
+            .with_circular_topology()
+            .with_n_planets(5)
+            .build();
+
+        assert!(good_gb.is_ok());
+        assert!(!bad_gb.is_ok());
+    }
+}
