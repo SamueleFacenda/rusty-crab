@@ -13,7 +13,7 @@ impl OrchestratorUpdateFactory {
     pub fn get_strategy(mode: OrchestratorMode) -> Box<dyn OrchestratorUpdateStrategy> {
         match mode {
             OrchestratorMode::Auto => Box::new(auto_update_strategy::AutoUpdateStrategy::new()),
-            OrchestratorMode::Manual => Box::new(manual_update_strategy::ManualUpdateStrategy {}),
+            OrchestratorMode::Manual => Box::new(manual_update_strategy::ManualUpdateStrategy::new()),
         }
     }
 }

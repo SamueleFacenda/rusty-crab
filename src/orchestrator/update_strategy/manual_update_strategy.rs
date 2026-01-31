@@ -5,14 +5,15 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::protocols::planet_explorer::PlanetToExplorerKind::SupportedResourceResponse;
 use common_game::utils::ID;
 use crate::orchestrator::OrchestratorState;
+use crate::orchestrator::update_strategy::auto_update_strategy::AutoUpdateStrategy;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 
 pub(crate) struct ManualUpdateStrategy;
 
 impl ManualUpdateStrategy {
-    fn update(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
-        // In manual mode, we do not perform any automatic updates.
-        Ok(())
+
+    pub(crate) fn new() -> Self {
+        Self {}
     }
 
     fn basic_resource_discovery(
@@ -258,4 +259,11 @@ fn check_explorer_id(id: &ID, state: &OrchestratorState) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+impl OrchestratorUpdateStrategy for ManualUpdateStrategy {
+    fn update(&mut self, _state: &mut OrchestratorState) -> Result<(), String> {
+        // In manual mode, we do not perform any automatic updates.
+        Ok(())
+    }
 }
