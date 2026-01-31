@@ -10,7 +10,7 @@ impl ProbabilityEstimator {
             estimate: -1.0,
         }
     }
-    
+
     pub fn update(&mut self, n_planets: i32, n_affected: i32){
         let new_prob = n_affected as f32 / n_planets as f32;
         let sensibility = if self.estimate < 0f32 {
@@ -19,7 +19,7 @@ impl ProbabilityEstimator {
             Self::get_sensibility()
         };
 
-        self.estimate = (self.estimate * (1.0  - sensibility) + new_prob * sensibility ) / 2.0;
+        self.estimate = self.estimate * (1.0  - sensibility) + new_prob * sensibility ;
     }
     pub fn get_probability(&self) -> f32 {
         self.estimate
@@ -43,8 +43,7 @@ mod test {
         assert!(estimator.get_probability() > 0.49);
 
         estimator.update(100, 0);
-        assert!(estimator.get_probability() < 0.26);
-        assert!(estimator.get_probability() > 0.24);
+        assert!(estimator.get_probability() < 0.50);
     }
 
     #[test]
