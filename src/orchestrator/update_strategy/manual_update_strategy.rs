@@ -46,7 +46,7 @@ impl ManualUpdateStrategy {
     ) -> Result<(), String> {
         check_explorer_id(&explorer_id, state)?;
 
-        let (explorer_id, comb_list) =
+        let (_, _) =
             state.communication_center.explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::SupportedCombinationRequest,
@@ -56,6 +56,35 @@ impl ManualUpdateStrategy {
                 .unwrap();
         Ok(())
     }
+
+    fn basic_resource_generation(
+        &self,
+        explorer_id: ID,
+        resource: BasicResourceType,
+        state: &mut OrchestratorState
+    ) -> Result<(), String> {
+        check_explorer_id(&explorer_id, state)?;
+
+        let (ex_id, result) =
+            state.communication_center.explorer_req_ack(
+                explorer_id,
+                OrchestratorToExplorer::GenerateResourceRequest { to_generate: resource },
+                ExplorerToOrchestratorKind::GenerateResourceResponse
+            )?
+                .into_generate_resource_response()
+                .unwrap();
+
+        // if result.is_err() {
+        //     return Err(format!(
+        //         "Basic resource from explorer {explorer_id} request has not been generated"
+        //     ));
+        // }
+        Ok(())
+    }
+    
+    
+
+
 
 
 
