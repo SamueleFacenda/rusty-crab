@@ -203,7 +203,7 @@ mod tests {
         };
         tx.send(msg).unwrap();
         let received = logging_receiver.recv_timeout(
-            Duration::from_millis(5000)
+            Duration::from_millis(1000)
         ).unwrap();
         match received {
             ExplorerToOrchestrator::StartExplorerAIResult {..} => {},
