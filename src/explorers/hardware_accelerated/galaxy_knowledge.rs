@@ -120,7 +120,7 @@ impl GalaxyKnowledge {
 
     /// From 0 to 1, based on already available rockets and charged cells.
     /// Planets that would resist longer without help are considered more reliable.
-    pub fn get_planet_reliability(&self, id: ID) -> f32 {
+    pub fn get_planet_reliability(&self, id: &ID) -> f32 {
         let planet_knowledge = match self.planets_knowledge.get(&id) {
             Some(pk) => pk,
             None => return 0.0,
@@ -137,6 +137,22 @@ impl GalaxyKnowledge {
             out += (planet_knowledge.n_charged_cells as f32) / (self.max_charged_cells_per_planet as f32) * 0.3;
         }
         return out;
+    }
+
+    pub fn get_n_planets(&self) -> usize {
+        self.connections.len()
+    }
+
+    pub fn get_planet_neighbours(&self, planet_id: ID) -> Option<&HashSet<ID>> {
+        if let Some(neighbors) = self.connections.get(&planet_id) {
+            Some(neighbors)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_planet_ids(&self) -> Vec<ID> {
+        self.connections.keys().cloned().collect()
     }
 }
 
@@ -161,8 +177,8 @@ mod test {
     #[test]
     fn test_planet_reliability() {
         let gk = get_dummy_knowledge();
-        let r1 = gk.get_planet_reliability(1);
-        let r2 = gk.get_planet_reliability(2);
+        let r1 = gk.get_planet_reliability(&1);
+        let r2 = gk.get_planet_reliability(&2);
         assert!(r2 > r1);
     }
 

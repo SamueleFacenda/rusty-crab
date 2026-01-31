@@ -8,16 +8,24 @@ use crossbeam_channel::{Receiver, Sender};
 use crate::explorers::{BagContent, Explorer};
 use crate::explorers::hardware_accelerated::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
 use crate::explorers::hardware_accelerated::{OrchestratorCommunicator, PlanetsCommunicator};
+use crate::explorers::hardware_accelerated::GalaxyKnowledge;
+use crate::explorers::hardware_accelerated::probability_estimator::ProbabilityEstimator;
+use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
+
+// DTO for the explorer's state
+pub(super) struct ExplorerState {
+    pub bag: Bag,
+    pub knowledge: Option<GalaxyKnowledge>,
+    pub current_planet: ID,
+    pub asteroid_probability_estimator: ProbabilityEstimator,
+    pub sunray_probability_estimator: ProbabilityEstimator,
+}
 
 pub struct HardwareAcceleratedExplorer {
     id: ID,
-    current_planet_id: ID,
+    
+    state: ExplorerState,
 
-    // Resources
-    bag: Bag,
-
-    // Information collection
-    knowledge: ExplorerKnowledge,
     orchestrator_communicator: OrchestratorCommunicator,
     planets_communicator: PlanetsCommunicator,
 }
@@ -39,7 +47,13 @@ impl Explorer for HardwareAcceleratedExplorer {
     ) -> Self {
         HardwareAcceleratedExplorer {
             id,
-            current_planet_id: current_planet,
+            state: ExplorerState {
+                bag: Bag {},
+                knowledge: None,
+                current_planet,
+                asteroid_probability_estimator: ProbabilityEstimator::new(),
+                sunray_probability_estimator: ProbabilityEstimator::new(),
+            },
             orchestrator_communicator: OrchestratorCommunicator::new(
                 OrchestratorLoggingSender::new(tx_orchestrator, id),
                 OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0), // Orchestrator has ID 0
@@ -49,8 +63,6 @@ impl Explorer for HardwareAcceleratedExplorer {
                 PlanetLoggingReceiver::new(rx_planet, id, 1), // First planet has ID 1
                 id
             ),
-            bag: Bag {},
-            knowledge: ExplorerKnowledge {},
         }
     }
 
@@ -73,7 +85,6 @@ impl HardwareAcceleratedExplorer {
         Ok(())
     }
 
-
     /// Returns Ok(true) if the explorer should continue running
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<bool, String> {
         match msg {
@@ -90,18 +101,18 @@ impl HardwareAcceleratedExplorer {
                 return Ok(false);
             }
             OrchestratorToExplorer::CurrentPlanetRequest => {
-                self.orchestrator_communicator.send_current_planet_ack(self.current_planet_id)?
+                self.orchestrator_communicator.send_current_planet_ack(self.state.current_planet)?
             }
             OrchestratorToExplorer::SupportedResourceRequest => {
-                let resources = self.planets_communicator.basic_resource_discovery(self.current_planet_id)?;
+                let resources = self.planets_communicator.basic_resource_discovery(self.state.current_planet)?;
                 self.orchestrator_communicator.send_supported_resources_ack(resources)?;
             }
             OrchestratorToExplorer::SupportedCombinationRequest => {
-                let combinations = self.planets_communicator.combination_rules_discovery(self.current_planet_id)?;
+                let combinations = self.planets_communicator.combination_rules_discovery(self.state.current_planet)?;
                 self.orchestrator_communicator.send_combination_rules_ack(combinations)?;
             }
             OrchestratorToExplorer::GenerateResourceRequest { to_generate } => {
-                let generated = self.planets_communicator.generate_basic_resource(self.current_planet_id, to_generate)?;
+                let generated = self.planets_communicator.generate_basic_resource(self.state.current_planet, to_generate)?;
                 // TODO store generated resource in bag
                 self.orchestrator_communicator.send_generation_ack(
                     generated.ok_or("Cannot create resource".to_string()).map(|_|())
@@ -116,7 +127,11 @@ impl HardwareAcceleratedExplorer {
                 // )?;
             }
             OrchestratorToExplorer::BagContentRequest => {
-                // TODO do the round choices
+                RoundExecutor::new(
+                    &mut self.planets_communicator,
+                    &self.orchestrator_communicator,
+                    &mut self.state
+                ).execute_round()?;
                 // TODO send bag content
                 self.orchestrator_communicator.send_bag_content_ack(BagContent{})?;
             }

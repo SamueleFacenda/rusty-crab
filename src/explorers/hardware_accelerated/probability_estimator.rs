@@ -11,7 +11,7 @@ impl ProbabilityEstimator {
         }
     }
 
-    pub fn update(&mut self, n_planets: i32, n_affected: i32){
+    pub fn update(&mut self, n_planets: u32, n_affected: u32){
         let new_prob = n_affected as f32 / n_planets as f32;
         let sensibility = if self.estimate < 0f32 {
             1.0
