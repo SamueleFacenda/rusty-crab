@@ -1,6 +1,8 @@
 use std::fmt::format;
-use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::components::resource::BasicResourceType;
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
+use common_game::protocols::planet_explorer::PlanetToExplorerKind::SupportedResourceResponse;
 use common_game::utils::ID;
 use crate::orchestrator::OrchestratorState;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
@@ -10,6 +12,30 @@ pub(crate) struct ManualUpdateStrategy;
 impl ManualUpdateStrategy {
     fn update(&mut self, state: &mut OrchestratorState) -> Result<(), String> {
         // In manual mode, we do not perform any automatic updates.
+        Ok(())
+    }
+
+    fn basic_resource_discovery(
+        &self,
+        explorer_id: ID,
+        state: &mut OrchestratorState
+    ) -> Result<(), String> {
+        check_explorer_id(&explorer_id, state)?;
+
+        let (explorer_id, basic_resources) =
+            state.communication_center.explorer_req_ack(
+            explorer_id,
+            OrchestratorToExplorer::SupportedResourceRequest,
+            ExplorerToOrchestratorKind::SupportedResourceResult
+        )?
+            .into_supported_resource_result()
+            .unwrap();
+
+        if basic_resources.is_empty() {
+            return Err(format!(
+                "A SupportedResourceRequest from explorer {explorer_id} returned that a planet produces no basic resource"
+            ));
+        }
         Ok(())
     }
 
