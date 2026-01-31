@@ -6,9 +6,7 @@ use common_game::utils::ID;
 struct PlanetKnowledge {
     basic_resources: HashSet<BasicResourceType>,
     complex_resources: HashSet<ComplexResourceType>,
-    has_rocket: bool,
     n_charged_cells: u32,
-    has_charged_cells_limit: bool, // limited to one
 }
 
 impl PlanetKnowledge {
@@ -16,9 +14,7 @@ impl PlanetKnowledge {
         PlanetKnowledge {
             basic_resources: HashSet::new(),
             complex_resources: HashSet::new(),
-            has_rocket: false,
             n_charged_cells: 0,
-            has_charged_cells_limit: false,
         }
     }
 }
@@ -66,22 +62,10 @@ impl GalaxyKnowledge {
         }
     }
 
-    pub fn set_has_rocket(&mut self, id: ID, rocket: bool) {
-        if let Some(planet_knowledge) = self.planets_knowledge.get_mut(&id) {
-            planet_knowledge.has_rocket = rocket;
-        }
-    }
-
     pub fn set_n_charged_cells(&mut self, id: ID, n: u32) {
         if let Some(planet_knowledge) = self.planets_knowledge.get_mut(&id) {
             planet_knowledge.n_charged_cells = n;
             self.max_charged_cells_per_planet = self.max_charged_cells_per_planet.max(n);
-        }
-    }
-
-    pub fn set_has_charged_cells_limit(&mut self, id: ID, limited: bool) {
-        if let Some(planet_knowledge) = self.planets_knowledge.get_mut(&id) {
-            planet_knowledge.has_charged_cells_limit = limited;
         }
     }
 
@@ -91,19 +75,13 @@ impl GalaxyKnowledge {
 
     /// This is a deterministic lower bound estimate of sunrays received
     pub fn estimate_sunrays_received(&self, new_state: &GalaxyKnowledge) -> u32 {
-        self.count_comparison_predicate(new_state, |old, new| {
-            new.has_rocket && !old.has_rocket ||
-            new.n_charged_cells > old.n_charged_cells
-        })
+        self.count_comparison_predicate(new_state, |old, new| new.n_charged_cells > old.n_charged_cells)
     }
 
     /// This is a deterministic lower bound estimate of asteroids received (assumes no cells were used for building)
     /// Maybe it's not reliable in a multi-explorer scenario
     pub fn estimate_asteroids_received(&self, new_state: &GalaxyKnowledge) -> u32 {
-        self.count_comparison_predicate(new_state, |old, new| {
-            (!new.has_rocket && old.has_rocket) ||
-            (new.n_charged_cells < old.n_charged_cells)
-        })
+        self.count_comparison_predicate(new_state, |old, new| new.n_charged_cells < old.n_charged_cells)
     }
 
     fn count_comparison_predicate(&self, b: &GalaxyKnowledge, pred: impl Fn(&PlanetKnowledge, &PlanetKnowledge) -> bool) -> u32 {
@@ -118,25 +96,15 @@ impl GalaxyKnowledge {
         count
     }
 
-    /// From 0 to 1, based on already available rockets and charged cells.
+    /// From 0 to 1, based on already available charged cells.
     /// Planets that would resist longer without help are considered more reliable.
     pub fn get_planet_reliability(&self, id: &ID) -> f32 {
         let planet_knowledge = match self.planets_knowledge.get(&id) {
             Some(pk) => pk,
             None => return 0.0,
         };
-        let mut out = 0.0;
-        if planet_knowledge.has_rocket {
-            out += 0.5;
-        }
-        if planet_knowledge.n_charged_cells > 0 {
-            out += 0.1;
-        }
-        if !planet_knowledge.has_charged_cells_limit {
-            out += 0.1; // can get more charged cells
-            out += (planet_knowledge.n_charged_cells as f32) / (self.max_charged_cells_per_planet as f32) * 0.3;
-        }
-        return out;
+
+        planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32
     }
 
     pub fn get_n_planets(&self) -> usize {
@@ -165,12 +133,8 @@ mod test {
         gk.add_planet(1);
         gk.add_planet(2);
         gk.add_planets_connection(1, 2);
-        gk.set_has_rocket(1, false);
         gk.set_n_charged_cells(1, 2);
-        gk.set_has_charged_cells_limit(1, false);
-        gk.set_has_rocket(2, true);
         gk.set_n_charged_cells(2, 1);
-        gk.set_has_charged_cells_limit(2, true);
         gk
     }
 
@@ -179,26 +143,24 @@ mod test {
         let gk = get_dummy_knowledge();
         let r1 = gk.get_planet_reliability(&1);
         let r2 = gk.get_planet_reliability(&2);
-        assert!(r2 > r1);
+        assert!(r1 > r2);
     }
 
     #[test]
     fn test_estimate_sunrays_received() {
-        let mut old_gk = get_dummy_knowledge();
+        let old_gk = get_dummy_knowledge();
         let mut new_gk = get_dummy_knowledge();
-        new_gk.set_has_rocket(1, true); // planet 1 got a rocket
-        new_gk.set_n_charged_cells(2, 2); // planet 2 got more charged cells
+        new_gk.set_n_charged_cells(2, 2); // planet has 2 charged cells
         let sunrays = old_gk.estimate_sunrays_received(&new_gk);
-        assert_eq!(sunrays, 2);
+        assert_eq!(sunrays, 1);
     }
 
     #[test]
     fn test_estimate_asteroids_received() {
-        let mut old_gk = get_dummy_knowledge();
+        let old_gk = get_dummy_knowledge();
         let mut new_gk = get_dummy_knowledge();
-        new_gk.set_has_rocket(2, false); // planet 2 lost its rocket
         new_gk.set_n_charged_cells(1, 1); // planet 1 lost a charged cell
         let asteroids = old_gk.estimate_asteroids_received(&new_gk);
-        assert_eq!(asteroids, 2);
+        assert_eq!(asteroids, 1);
     }
 }
