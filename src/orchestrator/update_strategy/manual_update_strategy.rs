@@ -39,6 +39,26 @@ impl ManualUpdateStrategy {
         Ok(())
     }
 
+    fn combination_resource_discovery(
+        &self,
+        explorer_id: ID,
+        state: &mut OrchestratorState
+    ) -> Result<(), String> {
+        check_explorer_id(&explorer_id, state)?;
+
+        let (explorer_id, comb_list) =
+            state.communication_center.explorer_req_ack(
+                explorer_id,
+                OrchestratorToExplorer::SupportedCombinationRequest,
+                ExplorerToOrchestratorKind::SupportedCombinationResult
+            )?
+                .into_supported_combination_result()
+                .unwrap();
+        Ok(())
+    }
+
+
+
     fn handle_travel_request(
         &self,
         explorer_id: ID,
