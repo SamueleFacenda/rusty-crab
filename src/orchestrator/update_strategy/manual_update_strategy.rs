@@ -1,5 +1,5 @@
 use std::fmt::format;
-use common_game::components::resource::BasicResourceType;
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::PlanetToExplorerKind::SupportedResourceResponse;
@@ -65,7 +65,7 @@ impl ManualUpdateStrategy {
     ) -> Result<(), String> {
         check_explorer_id(&explorer_id, state)?;
 
-        let (ex_id, result) =
+        let (exp_id, result) =
             state.communication_center.explorer_req_ack(
                 explorer_id,
                 OrchestratorToExplorer::GenerateResourceRequest { to_generate: resource },
@@ -76,17 +76,36 @@ impl ManualUpdateStrategy {
 
         // if result.is_err() {
         //     return Err(format!(
-        //         "Basic resource from explorer {explorer_id} request has not been generated"
+        //         "Basic resource from explorer {exp_id} request has not been generated"
         //     ));
         // }
         Ok(())
     }
-    
-    
 
+    fn resource_combination(
+        &self,
+        explorer_id: ID,
+        complex: ComplexResourceType,
+        state: &mut OrchestratorState
+    ) -> Result<(), String> {
+        check_explorer_id(&explorer_id, state)?;
 
+        let (exp_id, result) =
+            state.communication_center.explorer_req_ack(
+                explorer_id,
+                OrchestratorToExplorer::CombineResourceRequest { to_generate: complex },
+                ExplorerToOrchestratorKind::CombineResourceResponse
+            )?
+                .into_combine_resource_response()
+                .unwrap();
 
-
+        // if result.is_err() {
+        //     return Err(format!(
+        //         "Basic resource from explorer {exp_id} request has not been generated"
+        //     ));
+        // }
+        Ok(())
+    }
 
     fn handle_travel_request(
         &self,
@@ -228,12 +247,6 @@ impl ManualUpdateStrategy {
         }
         Ok(())
     }
-
-
-
-
-
-
 }
 
 fn check_planet_id(id: &ID, state: &OrchestratorState) -> Result<(), String> {
