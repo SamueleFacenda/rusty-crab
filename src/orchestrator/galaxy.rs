@@ -76,6 +76,7 @@ impl Galaxy {
 }
 
 #[allow(clippy::wildcard_imports)] // It's just tests
+#[cfg(test)]
 mod test {
     use super::*;
 
@@ -112,7 +113,8 @@ mod test {
     #[test]
     fn test_circular_connections() {
         let galaxy = Galaxy::make_circular(&get_dummy_ids()).unwrap();
-        let planets = galaxy.get_planets();
+        let mut planets = galaxy.get_planets();
+        planets.sort();
         let num_planets = planets.len();
 
         for i in 0..num_planets {
@@ -121,7 +123,7 @@ mod test {
             let prev_planet = planets[(i + num_planets - 1) % num_planets];
 
             assert!(galaxy.are_planets_connected(planet, next_planet));
-            assert!(galaxy.are_planets_connected(planet, next_planet));
+            assert!(galaxy.are_planets_connected(planet, prev_planet));
         }
     }
 

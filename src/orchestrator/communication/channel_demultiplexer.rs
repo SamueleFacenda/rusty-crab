@@ -51,3 +51,62 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
 // Convenience type aliases
 pub type PlanetChannelDemultiplexer = ChannelDemultiplexer<PlanetMarker>;
 pub type ExplorerChannelDemultiplexer = ChannelDemultiplexer<ExplorerMarker>;
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossbeam_channel::unbounded;
+    use crate::explorers::BagContent;
+    use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator;
+
+    fn msg(id: ID) -> ExplorerToOrchestrator<BagContent> {
+        ExplorerToOrchestrator::StartExplorerAIResult { explorer_id: id }
+    }
+
+    fn make_mux() -> (
+        crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
+        ExplorerChannelDemultiplexer,
+    ) {
+        let (tx, rx) = unbounded();
+        let logging_rx = LoggingReceiver::<ExplorerMarker>::new(rx);
+        let demux = ExplorerChannelDemultiplexer::new(logging_rx);
+        (tx, demux)
+    }
+
+    #[test]
+    fn receive_with_id() {
+        let (tx, mut mux) = make_mux();
+        tx.send(msg(1)).unwrap();
+        let received = mux.recv_from(1).unwrap();
+        // Unwrap panics if there is no message
+    }
+
+    #[test]
+    fn receive_with_more_ids() {
+        // This tests also tests message queueing
+        let (tx, mut mux) = make_mux();
+        tx.send(msg(2)).unwrap();
+        tx.send(msg(2)).unwrap();
+        tx.send(msg(1)).unwrap();
+        tx.send(msg(2)).unwrap();
+
+        let received = mux.recv_from(1).unwrap();
+        assert_eq!(received.explorer_id(), 1);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+        let received = mux.recv_from(2).unwrap();
+        assert_eq!(received.explorer_id(), 2);
+    }
+
+    #[test]
+    fn receive_missing_id() {
+        let (tx, mut mux) = make_mux();
+
+        let result = mux.recv_from(67);
+        assert!(result.is_err());
+    }
+
+}

@@ -137,7 +137,7 @@ impl<A: ActorMarker> LoggingReceiver<A> {
     ) -> Result<A::RecvMsg, crossbeam_channel::RecvTimeoutError> {
         self.receiver
             .recv_timeout(timeout)
-            .inspect(|msg| Self::log(msg, A::get_id(msg))) // Log only successful receives )
+            .inspect(|msg| Self::log(msg, A::get_id(msg))) // Log only successful receives
     }
 
     fn log(msg: &A::RecvMsg, id: ID) {
@@ -160,3 +160,71 @@ pub type ExplorerLoggingSender = LoggingSender<ExplorerMarker>;
 pub type PlanetLoggingSender = LoggingSender<PlanetMarker>;
 pub type ExplorerLoggingReceiver = LoggingReceiver<ExplorerMarker>;
 pub type PlanetLoggingReceiver = LoggingReceiver<PlanetMarker>;
+
+
+#[cfg(test)]
+mod tests {
+    use std::fmt::Debug;
+    use super::*;
+    use crossbeam_channel::unbounded;
+    use std::time::Duration;
+
+    #[test]
+    fn send_message() {
+        let (tx, rx) = unbounded();
+        let logging_sender = ExplorerLoggingSender::new(tx);
+
+        let msg = OrchestratorToExplorer::StartExplorerAI;
+        let id = 1;
+
+        logging_sender.send(msg, id).unwrap();
+        let received = rx.recv().unwrap();//Unwrap tests if the message is there
+        match received {
+            OrchestratorToExplorer::StartExplorerAI => {},
+            other => unreachable!()
+        }
+    }
+
+    #[test]
+    fn recv_timeout_from_empty() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+        assert!(logging_receiver.recv_timeout(Duration::from_millis(2000)).is_err());
+    }
+
+    #[test]
+    fn recv_timeout_message() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+
+        let id = 1;
+        let msg = ExplorerToOrchestrator::StartExplorerAIResult {
+            explorer_id: id,
+        };
+        tx.send(msg).unwrap();
+        let received = logging_receiver.recv_timeout(
+            Duration::from_millis(1000)
+        ).unwrap();
+        match received {
+            ExplorerToOrchestrator::StartExplorerAIResult {..} => {},
+            other => unreachable!()
+        }
+    }
+
+    #[test]
+    fn recv_message() {
+        let (tx, rx) = unbounded();
+        let logging_receiver = ExplorerLoggingReceiver::new(rx);
+
+        let id = 1;
+        let msg = ExplorerToOrchestrator::StartExplorerAIResult {
+            explorer_id: id,
+        };
+        tx.send(msg).unwrap();
+        let received = logging_receiver.recv().unwrap();
+        match received {
+            ExplorerToOrchestrator::StartExplorerAIResult {..} => {},
+            other => unreachable!()
+        }
+    }
+}
