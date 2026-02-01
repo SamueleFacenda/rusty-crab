@@ -4,10 +4,10 @@ mod gui;
 mod orchestrator;
 
 pub(crate) use gui::{assets, events, game};
+use orchestrator::{Orchestrator, OrchestratorMode};
 
 use crate::explorers::{ExplorerBuilder, ExplorerFactory};
 use crate::gui::run_gui;
-use orchestrator::{Orchestrator, OrchestratorMode};
 
 fn init() {
     app::AppConfig::init();
@@ -20,9 +20,7 @@ fn init() {
 // Runs before tests are run
 #[cfg(test)]
 #[ctor::ctor]
-fn init_tests() {
-    init();
-}
+fn init_tests() { init(); }
 
 fn main() {
     init();
@@ -36,16 +34,12 @@ fn main() {
         return;
     }
 
-    let explorers = config
-        .explorers
-        .iter()
-        .map(ExplorerFactory::make_from_name)
-        .collect();
+    let explorers = config.explorers.iter().map(ExplorerFactory::make_from_name).collect();
 
     let mut orchestrator = Orchestrator::new(
         OrchestratorMode::Auto,
         config.number_of_planets,
-        explorers, // No explorers implemented yet
+        explorers // No explorers implemented yet
     )
     .unwrap_or_else(|e| {
         log::error!("Failed to create orchestrator: {e}");

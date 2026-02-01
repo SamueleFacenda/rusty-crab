@@ -26,7 +26,5 @@ pub(crate) use routines::run_gui;
 
 // Re-export game-related types for omc-gui imports
 pub(crate) mod game {
-    pub use super::types::{
-        GalaxySnapshot, GameState, OrchestratorResource, PlanetClickRes, SelectedPlanet,
-    };
+    pub use super::types::{GalaxySnapshot, GameState, OrchestratorResource, PlanetClickRes, SelectedPlanet};
 }

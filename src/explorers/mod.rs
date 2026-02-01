@@ -15,9 +15,7 @@ impl ExplorerFactory {
         match type_name.to_ascii_lowercase().as_str() {
             "example" => Box::new(ExampleExplorerBuilder::new()),
             _ => {
-                log::warn!(
-                    "Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer."
-                );
+                log::warn!("Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer.");
                 Box::new(ExampleExplorerBuilder::new())
             }
         }
