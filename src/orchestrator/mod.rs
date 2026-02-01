@@ -8,7 +8,7 @@ mod state;
 mod update_strategy;
 
 pub(crate) use communication::{
-    CommunicationCenter, ExplorerChannelDemultiplexer, ExplorerLoggingReceiver,
+    ExplorerChannelDemultiplexer, ExplorerLoggingReceiver,
     ExplorerLoggingSender, PlanetChannelDemultiplexer, PlanetLoggingReceiver, PlanetLoggingSender,
 };
 pub(crate) use core::{Orchestrator, OrchestratorMode};

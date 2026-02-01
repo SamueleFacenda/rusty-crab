@@ -24,7 +24,7 @@ impl ManualUpdateStrategy<'_> {
         self.check_explorer_id(&explorer_id)?;
 
         let (explorer_id, basic_resources) =
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
             explorer_id,
             OrchestratorToExplorer::SupportedResourceRequest,
             ExplorerToOrchestratorKind::SupportedResourceResult
@@ -47,7 +47,7 @@ impl ManualUpdateStrategy<'_> {
         self.check_explorer_id(&explorer_id)?;
 
         let (_, _) =
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
                 explorer_id,
                 OrchestratorToExplorer::SupportedCombinationRequest,
                 ExplorerToOrchestratorKind::SupportedCombinationResult
@@ -65,7 +65,7 @@ impl ManualUpdateStrategy<'_> {
         self.check_explorer_id(&explorer_id)?;
 
         let (exp_id, result) =
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
                 explorer_id,
                 OrchestratorToExplorer::GenerateResourceRequest { to_generate: resource },
                 ExplorerToOrchestratorKind::GenerateResourceResponse
@@ -89,7 +89,7 @@ impl ManualUpdateStrategy<'_> {
         self.check_explorer_id(&explorer_id)?;
 
         let (exp_id, result) =
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
                 explorer_id,
                 OrchestratorToExplorer::CombineResourceRequest { to_generate: complex },
                 ExplorerToOrchestratorKind::CombineResourceResponse
@@ -147,8 +147,8 @@ impl ManualUpdateStrategy<'_> {
     ) -> Result<(), String> {
         let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
         let (_, accepted_explorer_id, res) = self.state
-            .communication_center
-            .planet_req_ack(
+            .planets_communication_center
+            .req_ack(
                 dst_planet_id,
                 OrchestratorToPlanet::IncomingExplorerRequest {
                     explorer_id,
@@ -180,8 +180,8 @@ impl ManualUpdateStrategy<'_> {
         current_planet_id: ID,
     ) -> Result<(), String> {
         let (_, left_explorer_id, res) = self.state
-            .communication_center
-            .planet_req_ack(
+            .planets_communication_center
+            .req_ack(
                 current_planet_id,
                 OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id },
                 PlanetToOrchestratorKind::OutgoingExplorerResponse,
@@ -211,8 +211,8 @@ impl ManualUpdateStrategy<'_> {
     ) -> Result<(), String> {
         let sender_to_new_planet = Some(self.state.planets[&planet_id].tx_explorer.clone());
         let new_planet_id = self.state
-            .communication_center
-            .explorer_req_ack(
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::MoveToPlanet {
                     sender_to_new_planet: sender_to_new_planet.clone(),

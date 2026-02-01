@@ -46,8 +46,8 @@ impl AutoUpdateStrategy<'_> {
                 self.state.gui_events_buffer.asteroid_sent(planet_id);
                 let rocket = self
                     .state
-                    .communication_center
-                    .planet_req_ack(
+                    .planets_communication_center
+                    .req_ack(
                         planet_id,
                         OrchestratorToPlanet::Asteroid(Asteroid::default()),
                         PlanetToOrchestratorKind::AsteroidAck,
@@ -70,7 +70,7 @@ impl AutoUpdateStrategy<'_> {
                 < ProbabilityCalculator::get_sunray_probability(self.state.time)
             {
                 self.state.gui_events_buffer.sunray_sent(planet_id);
-                self.state.communication_center.planet_req_ack(
+                self.state.planets_communication_center.req_ack(
                     planet_id,
                     OrchestratorToPlanet::Sunray(Sunray::default()),
                     PlanetToOrchestratorKind::SunrayAck,
@@ -84,8 +84,8 @@ impl AutoUpdateStrategy<'_> {
     fn send_bag_content_requests(&self) -> Result<(), String> {
         for id in self.state.explorers.keys() {
             self.state
-                .communication_center
-                .send_to_explorer(*id, OrchestratorToExplorer::BagContentRequest)?;
+                .explorers_communication_center
+                .send_to(*id, OrchestratorToExplorer::BagContentRequest)?;
         }
         Ok(())
     }
@@ -100,8 +100,8 @@ impl AutoUpdateStrategy<'_> {
         {
             let res = self
                 .state
-                .communication_center
-                .recv_from_explorer(explorer_id)?;
+                .explorers_communication_center
+                .recv_from(explorer_id)?;
             self.process_explorer_message(explorer_id, res)?;
         }
         Ok(())
@@ -150,7 +150,7 @@ impl AutoUpdateStrategy<'_> {
         }
 
         let neighbors = self.state.galaxy.get_planet_neighbours(current_planet_id);
-        self.state.communication_center.send_to_explorer(
+        self.state.explorers_communication_center.send_to(
             explorer_id,
             OrchestratorToExplorer::NeighborsResponse { neighbors },
         )
@@ -202,8 +202,8 @@ impl AutoUpdateStrategy<'_> {
     ) -> Result<(), String> {
         let moved_planet_id = self
             .state
-            .communication_center
-            .explorer_req_ack(
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::MoveToPlanet {
                     sender_to_new_planet: None,
@@ -231,8 +231,8 @@ impl AutoUpdateStrategy<'_> {
         let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
         let (_, accepted_explorer_id, res) = self
             .state
-            .communication_center
-            .planet_req_ack(
+            .planets_communication_center
+            .req_ack(
                 dst_planet_id,
                 OrchestratorToPlanet::IncomingExplorerRequest {
                     explorer_id,
@@ -265,8 +265,8 @@ impl AutoUpdateStrategy<'_> {
     ) -> Result<(), String> {
         let (_, left_explorer_id, res) = self
             .state
-            .communication_center
-            .planet_req_ack(
+            .planets_communication_center
+            .req_ack(
                 current_planet_id,
                 OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id },
                 PlanetToOrchestratorKind::OutgoingExplorerResponse,
@@ -297,8 +297,8 @@ impl AutoUpdateStrategy<'_> {
         let sender_to_new_planet = Some(self.state.planets[&planet_id].tx_explorer.clone());
         let new_planet_id = self
             .state
-            .communication_center
-            .explorer_req_ack(
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::MoveToPlanet {
                     sender_to_new_planet: sender_to_new_planet.clone(),

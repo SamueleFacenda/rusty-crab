@@ -9,7 +9,6 @@ use common_game::utils::ID;
 
 use crate::explorers::ExplorerBuilder;
 use crate::gui::GuiEventBuffer;
-use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
     ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
@@ -18,6 +17,7 @@ use crate::orchestrator::{
     ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
     PlanetLoggingReceiver, PlanetLoggingSender,
 };
+use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -97,12 +97,14 @@ impl Orchestrator {
                 galaxy: initial_galaxy.galaxy,
                 planets: planet_handles,
                 explorers: explorer_handles,
-                communication_center: CommunicationCenter::new(
-                    explorer_senders,
+                planets_communication_center: PlanetCommunicationCenter::new(
                     planet_senders,
                     PlanetChannelDemultiplexer::new(PlanetLoggingReceiver::new(
                         initial_galaxy.planet_to_orchestrator_rx,
                     )),
+                ),
+                explorers_communication_center: ExplorerCommunicationCenter::new(
+                    explorer_senders,
                     ExplorerChannelDemultiplexer::new(ExplorerLoggingReceiver::new(
                         initial_galaxy.explorer_to_orchestrator_rx,
                     )),
@@ -180,7 +182,7 @@ impl Orchestrator {
 
     fn send_planet_ai_start(&mut self) -> Result<(), String> {
         for planet_id in self.state.galaxy.get_planets() {
-            self.state.communication_center.planet_req_ack(
+            self.state.planets_communication_center.req_ack(
                 planet_id,
                 OrchestratorToPlanet::StartPlanetAI,
                 PlanetToOrchestratorKind::StartPlanetAIResult,
@@ -191,7 +193,7 @@ impl Orchestrator {
 
     fn send_explorer_ai_start(&mut self) -> Result<(), String> {
         for explorer_id in self.state.explorers.keys() {
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
                 *explorer_id,
                 OrchestratorToExplorer::StartExplorerAI,
                 ExplorerToOrchestratorKind::StartExplorerAIResult,
@@ -208,8 +210,8 @@ impl Orchestrator {
 
         Some(
             self.state
-                .communication_center
-                .riskier_planet_req_ack(
+                .planets_communication_center
+                .riskier_req_ack(
                     planet_id,
                     OrchestratorToPlanet::InternalStateRequest,
                     PlanetToOrchestratorKind::InternalStateResponse,

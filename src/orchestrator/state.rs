@@ -1,5 +1,4 @@
 use crate::gui::GuiEventBuffer;
-use crate::orchestrator::CommunicationCenter;
 use crate::orchestrator::galaxy::Galaxy;
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
@@ -8,6 +7,7 @@ use common_game::utils::ID;
 use crossbeam_channel::Sender;
 use std::collections::HashMap;
 use std::thread;
+use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 
 pub enum ExplorerState {
     Autonomous,
@@ -43,7 +43,8 @@ pub(crate) struct OrchestratorState {
     // List of planets
     pub planets: HashMap<ID, PlanetHandle>,
 
-    pub communication_center: CommunicationCenter,
+    pub planets_communication_center: PlanetCommunicationCenter,
+    pub explorers_communication_center: ExplorerCommunicationCenter,
 
     pub gui_events_buffer: GuiEventBuffer,
 }
@@ -64,7 +65,7 @@ impl OrchestratorState {
     fn kill_planet(&mut self, planet_id: ID) -> Result<(), String> {
         let handle = self.planets.remove(&planet_id);
         if let Some(planet_handle) = handle {
-            self.communication_center.planet_req_ack(
+            self.planets_communication_center.req_ack(
                 planet_id,
                 OrchestratorToPlanet::KillPlanet,
                 PlanetToOrchestratorKind::KillPlanetResult,
@@ -73,7 +74,7 @@ impl OrchestratorState {
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for killed planet {planet_id}: {e:?}");
             });
-            self.communication_center.remove_planet(planet_id);
+            self.planets_communication_center.remove(planet_id);
             self.gui_events_buffer.planet_destroyed(planet_id);
         }
         Ok(())
@@ -82,7 +83,7 @@ impl OrchestratorState {
     fn kill_explorer(&mut self, explorer_id: ID) -> Result<(), String> {
         let handle = self.explorers.remove(&explorer_id);
         if let Some(explorer_handle) = handle {
-            self.communication_center.explorer_req_ack(
+            self.explorers_communication_center.req_ack(
                 explorer_id,
                 OrchestratorToExplorer::KillExplorer,
                 ExplorerToOrchestratorKind::KillExplorerResult,
@@ -91,7 +92,7 @@ impl OrchestratorState {
             explorer_handle.thread_handle.join().unwrap_or_else(|e| {
                 log::error!("Failed to join thread for killed explorer {explorer_id}: {e:?}");
             });
-            self.communication_center.remove_explorer(explorer_id);
+            self.explorers_communication_center.remove(explorer_id);
         }
         Ok(())
     }
