@@ -8,7 +8,7 @@ sunray_probability = 0.1
 initial_asteroid_probability = 0.01
 
 # Timeout for messages acks
-max_wait_time_ms = 2000
+max_wait_time_ms = 200000
 
 # For gui, the delay between each update
 game_tick_seconds = 0.5
@@ -17,7 +17,7 @@ game_tick_seconds = 0.5
 number_of_planets = 7
 
 # List of explorers e.g. ["example", "example"]
-explorers = []
+explorers = ["hardware_accelerated"]
 
 # Wether to show the gui or not. This changes the orchestrator mode from auto to manual
-show_gui = true
+show_gui = false

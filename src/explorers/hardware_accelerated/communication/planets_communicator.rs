@@ -16,11 +16,12 @@ pub(crate) struct PlanetsCommunicator {
 
 impl PlanetsCommunicator {
     pub fn new(
+        to_planets: HashMap<ID, PlanetLoggingSender>,
         planets_rx: PlanetLoggingReceiver,
         explorer_id: ID,
     ) -> Self {
         PlanetsCommunicator {
-            to_planets: HashMap::new(),
+            to_planets,
             planets_rx,
             explorer_id,
         }

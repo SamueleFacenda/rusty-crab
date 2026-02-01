@@ -62,6 +62,12 @@ impl OrchestratorCommunicator {
             planet_id,
         })
     }
+    
+    pub fn send_start_ack(&self) -> Result<(), String> {
+        self.orchestrator_tx.send(ExplorerToOrchestrator::StartExplorerAIResult {
+            explorer_id: self.explorer_id,
+        })
+    }
 
     pub fn send_reset_ack(&self) -> Result<(), String> {
         self.orchestrator_tx.send(ExplorerToOrchestrator::ResetExplorerAIResult {

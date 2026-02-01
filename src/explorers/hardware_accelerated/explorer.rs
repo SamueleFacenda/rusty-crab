@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
@@ -23,7 +24,7 @@ pub(super) struct ExplorerState {
 
 pub struct HardwareAcceleratedExplorer {
     id: ID,
-    
+
     state: ExplorerState,
 
     orchestrator_communicator: OrchestratorCommunicator,
@@ -60,6 +61,10 @@ impl Explorer for HardwareAcceleratedExplorer {
                 id,
             ),
             planets_communicator: PlanetsCommunicator::new(
+                HashMap::from([(
+                    current_planet,
+                    PlanetLoggingSender::new(tx_orchestrator.clone(), id, current_planet),
+                )]))])
                 PlanetLoggingReceiver::new(rx_planet, id, 1), // First planet has ID 1
                 id
             ),
@@ -82,7 +87,7 @@ impl HardwareAcceleratedExplorer {
         if !msg.is_start_explorer_ai() {
             return Err(format!("Expected explorer AI start message, got {:?}", msg));
         }
-        Ok(())
+        self.orchestrator_communicator.send_start_ack()
     }
 
     /// Returns Ok(true) if the explorer should continue running
