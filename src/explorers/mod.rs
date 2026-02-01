@@ -3,6 +3,7 @@
 
 mod example;
 mod explorer;
+mod cetto;
 
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
