@@ -79,5 +79,6 @@ impl Explorer for ExampleExplorer {
 }
 
 impl ExampleExplorer {
+    #[allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value, clippy::unused_self)] // just a boilerplate example
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> { Ok(()) }
 }

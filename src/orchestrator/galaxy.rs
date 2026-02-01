@@ -70,8 +70,7 @@ impl Galaxy {
     pub fn get_topology(&self) -> Vec<(ID, ID)> {
         self.connections
             .iter()
-            .map(|(id, neigh_set)| neigh_set.iter().map(|n| (*id, *n)))
-            .flatten()
+            .flat_map(|(id, neigh_set)| neigh_set.iter().map(|n| (*id, *n)))
             .filter(|(a, b)| a < b) // avoid duplicates
             .collect()
     }

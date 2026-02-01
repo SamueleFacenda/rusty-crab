@@ -9,9 +9,8 @@ use crate::explorers::ExplorerBuilder;
 use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 use crate::orchestrator::{ExplorerChannelDemultiplexer, ExplorerHandle, ExplorerLoggingReceiver,
-                          ExplorerLoggingSender, ExplorerState, GalaxyBuilder, OrchestratorState,
-                          OrchestratorUpdateFactory, PlanetChannelDemultiplexer, PlanetHandle, PlanetLoggingReceiver,
-                          PlanetLoggingSender};
+                          ExplorerLoggingSender, GalaxyBuilder, OrchestratorState, OrchestratorUpdateFactory,
+                          PlanetChannelDemultiplexer, PlanetHandle, PlanetLoggingReceiver, PlanetLoggingSender};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -33,7 +32,7 @@ pub(crate) enum OrchestratorMode {
 impl Orchestrator {
     pub fn new(
         mode: OrchestratorMode,
-        n_planets: usize,
+        n_planets: u32,
         explorer_builders: Vec<Box<dyn ExplorerBuilder>>
     ) -> Result<Self, String> {
         let initial_galaxy = GalaxyBuilder::new()
@@ -64,8 +63,7 @@ impl Orchestrator {
                     (id, ExplorerHandle {
                         current_planet: explorer_init.initial_planet,
                         thread_handle: Self::start_explorers(explorer_init.explorer, id),
-                        tx_planet: explorer_init.planet_to_explorer_tx,
-                        state: ExplorerState::Autonomous
+                        tx_planet: explorer_init.planet_to_explorer_tx
                     }),
                     (id, ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx))
                 )
@@ -129,8 +127,10 @@ impl Orchestrator {
         OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
     }
 
+    #[allow(dead_code)] // implemented for future gui integrations
     pub fn set_mode_auto(&mut self) { self.mode = OrchestratorMode::Auto; }
 
+    #[allow(dead_code)] // implemented for future gui integrations
     pub fn set_mode_manual(&mut self) { self.mode = OrchestratorMode::Manual; }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
@@ -165,7 +165,7 @@ impl Orchestrator {
     }
 
     fn notify_planet_explorer_channel(&mut self) -> Result<(), String> {
-        for (explorer_id, explorer_handle) in self.state.explorers.iter() {
+        for (explorer_id, explorer_handle) in &self.state.explorers {
             let current_planet_id = explorer_handle.current_planet;
             let new_sender = explorer_handle.tx_planet.clone();
             self.state.planets_communication_center.notify_planet_incoming_explorer(

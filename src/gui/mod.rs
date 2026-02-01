@@ -1,4 +1,4 @@
-//! GUI module from the OneMillionCrabs group.
+//! GUI module from the `OneMillionCrabs` group.
 //! It's necessary to do like this because they do not export a lib (why would they?).
 //!
 //! ## Adapting to the orchestrator

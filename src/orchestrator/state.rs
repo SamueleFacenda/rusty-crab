@@ -11,13 +11,6 @@ use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 use crate::orchestrator::galaxy::Galaxy;
 
-pub enum ExplorerState {
-    Autonomous,
-    Manual,
-    Stopped,
-    Destroyed
-}
-
 /// struct used to handle the list of planets.
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
@@ -28,8 +21,7 @@ pub(crate) struct PlanetHandle {
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
-    pub state: ExplorerState
+    pub tx_planet: Sender<PlanetToExplorer> // Passed to planets to communicate with the explorer
 }
 
 /// Struct that holds the state of the orchestrator, with some basic methods to manipulate it.

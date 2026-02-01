@@ -24,10 +24,8 @@ pub struct PlanetMarker;
 
 pub trait ActorMarker {
     type SendMsg: std::fmt::Debug;
-    type RecvMsg: std::fmt::Debug;
-    type RecvMsgKind: std::fmt::Debug + PartialEq + for<'a> From<&'a Self::RecvMsg>
-    where
-        <Self as ActorMarker>::RecvMsg: 'static;
+    type RecvMsg: std::fmt::Debug + 'static; // 'static needed for kind::from(&msg)
+    type RecvMsgKind: std::fmt::Debug + PartialEq + for<'a> From<&'a Self::RecvMsg>; // Needed to use kind::from(&msg)
     fn event_type_send() -> EventType;
     fn event_type_recv() -> EventType;
     fn actor_type() -> common_game::logging::ActorType;

@@ -1,25 +1,20 @@
-use std::fmt::format;
-
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind,
-                                                    OrchestratorToExplorer};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
-use common_game::protocols::planet_explorer::PlanetToExplorerKind::SupportedResourceResponse;
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::utils::ID;
 
 use crate::orchestrator::OrchestratorState;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
-use crate::orchestrator::update_strategy::auto_update_strategy::AutoUpdateStrategy;
 
 pub(crate) struct ManualUpdateStrategy<'a> {
     state: &'a mut OrchestratorState
 }
 
+#[allow(dead_code)] // implemented for future gui integrations
 impl ManualUpdateStrategy<'_> {
     pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> { ManualUpdateStrategy { state } }
 
     fn basic_resource_discovery(&mut self, explorer_id: ID) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+        self.check_explorer_id(explorer_id)?;
 
         let (explorer_id, basic_resources) = self
             .state
@@ -42,9 +37,9 @@ impl ManualUpdateStrategy<'_> {
     }
 
     fn combination_resource_discovery(&mut self, explorer_id: ID) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+        self.check_explorer_id(explorer_id)?;
 
-        let (_, _) = self
+        let _ = self
             .state
             .explorers_communication_center
             .req_ack(
@@ -58,9 +53,9 @@ impl ManualUpdateStrategy<'_> {
     }
 
     fn basic_resource_generation(&mut self, explorer_id: ID, resource: BasicResourceType) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+        self.check_explorer_id(explorer_id)?;
 
-        let (exp_id, result) = self
+        let _ = self
             .state
             .explorers_communication_center
             .req_ack(
@@ -80,9 +75,9 @@ impl ManualUpdateStrategy<'_> {
     }
 
     fn resource_combination(&mut self, explorer_id: ID, complex: ComplexResourceType) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+        self.check_explorer_id(explorer_id)?;
 
-        let (exp_id, result) = self
+        let _ = self
             .state
             .explorers_communication_center
             .req_ack(
@@ -102,8 +97,8 @@ impl ManualUpdateStrategy<'_> {
     }
 
     fn handle_travel_request(&mut self, explorer_id: ID, dst_planet_id: ID) -> Result<(), String> {
-        self.check_planet_id(&dst_planet_id)?;
-        self.check_explorer_id(&explorer_id)?;
+        self.check_planet_id(dst_planet_id)?;
+        self.check_explorer_id(explorer_id)?;
 
         let current_planet_id = self.state.explorers[&explorer_id].current_planet;
 
@@ -135,14 +130,14 @@ impl ManualUpdateStrategy<'_> {
         Ok(())
     }
 
-    fn check_planet_id(&self, id: &ID) -> Result<(), String> {
+    fn check_planet_id(&self, id: ID) -> Result<(), String> {
         if !self.state.planets.contains_key(&id) {
             return Err(format!("Planet with ID: {id} does not exist."));
         }
         Ok(())
     }
 
-    fn check_explorer_id(&self, id: &ID) -> Result<(), String> {
+    fn check_explorer_id(&self, id: ID) -> Result<(), String> {
         if !self.state.explorers.contains_key(&id) {
             return Err(format!("Explorer with ID: {id} does not exist."));
         }

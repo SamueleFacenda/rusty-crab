@@ -1,4 +1,4 @@
-//! Adapted from OneMillionCrab GUI functions.
+//! Adapted from `OneMillionCrab` GUI functions.
 
 use bevy::prelude::*;
 use bevy::window::{WindowMode, WindowPlugin};
@@ -25,8 +25,8 @@ fn setup_orchestrator(mut commands: Commands) {
         });
 
     orchestrator.manual_init().unwrap_or_else(|e| {
-        log::error!("Failed to initialize orchestrator: {}", e);
-        panic!("Failed to initialize orchestrator: {}", e);
+        log::error!("Failed to initialize orchestrator: {e}");
+        panic!("Failed to initialize orchestrator: {e}");
     });
 
     let lookup = orchestrator.get_planets_info();
@@ -47,6 +47,7 @@ fn setup_orchestrator(mut commands: Commands) {
     commands.insert_resource(PlanetClickRes { planet: None });
 }
 
+#[allow(clippy::needless_pass_by_value)] // needed for Bevy system parameters
 fn game_loop(
     mut commands: Commands,
     mut orchestrator: ResMut<OrchestratorResource>,
@@ -64,34 +65,35 @@ fn game_loop(
                 match ev {
                     OrchestratorEvent::PlanetDestroyed { planet_id } => {
                         // handle the destruction of a planet
-                        println!("planet {} has died", planet_id);
+                        println!("planet {planet_id} has died");
                         commands.trigger(PlanetDespawn { planet_id });
                     }
                     OrchestratorEvent::SunrayReceived { planet_id } => {
-                        println!("planet {} got a sunray (UI update)", planet_id);
+                        println!("planet {planet_id} got a sunray (UI update)");
                         //charge up the planet!
                     }
                     OrchestratorEvent::SunraySent { planet_id } => {
-                        println!("planet {} should get a sunray", planet_id);
+                        println!("planet {planet_id} should get a sunray");
                         // TODO only log to screen, nothing changes in the GUI
                     }
                     OrchestratorEvent::AsteroidSent { planet_id } => {
-                        println!("planet {} should get an asteroid", planet_id);
+                        println!("planet {planet_id} should get an asteroid");
                         // TODO only log to screen, nothing changes in the GUI
                     }
-                    _ => {
-                        // TODO add the rest of the matches
+                    OrchestratorEvent::ExplorerMoved { origin, destination } => {
+                        println!("Explorer moved from {origin} to {destination}");
+                        // TODO update explorer position in the GUI
                     }
                 }
             }
 
             if let Err(e) = orchestrator.orchestrator.manual_step() {
-                log::error!("Failed to advance orchestrator step: {}", e);
+                log::error!("Failed to advance orchestrator step: {e}");
                 commands.insert_resource(GameState::Paused);
             }
 
             if let Err(e) = orchestrator.orchestrator.process_commands() {
-                log::error!("Failed to process orchestrator commands: {}", e);
+                log::error!("Failed to process orchestrator commands: {e}");
                 commands.insert_resource(GameState::Paused);
             }
 
@@ -100,7 +102,7 @@ fn game_loop(
     }
 }
 
-pub(crate) fn run_gui() -> Result<(), String> {
+pub(crate) fn run_gui() {
     App::new()
         .add_plugins((
             // Full screen
@@ -121,5 +123,4 @@ pub(crate) fn run_gui() -> Result<(), String> {
         .add_systems(FixedUpdate, (game_loop, galaxy::draw_topology))
         .add_observer(galaxy::destroy_link)
         .run();
-    Ok(())
 }

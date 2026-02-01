@@ -7,6 +7,7 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
+use crate::app::AppConfig;
 use crate::explorers::{BagContent, ExplorerBuilder};
 use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 
@@ -15,7 +16,7 @@ use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 pub(crate) struct GalaxyBuilder {
     fully_connected: bool,
     circular: bool,
-    n_planets: usize,
+    n_planets: u32,
     explorers: Vec<Box<dyn ExplorerBuilder>>,
     explorer_to_orchestrator:
         (Sender<ExplorerToOrchestrator<BagContent>>, Receiver<ExplorerToOrchestrator<BagContent>>),
@@ -71,7 +72,7 @@ impl GalaxyBuilder {
     #[allow(dead_code)] // not currently used but still useful
     pub fn with_circular_topology(self) -> Self { GalaxyBuilder { circular: true, ..self } }
 
-    pub fn with_n_planets(self, n: usize) -> Self { GalaxyBuilder { n_planets: n, ..self } }
+    pub fn with_n_planets(self, n: u32) -> Self { GalaxyBuilder { n_planets: n, ..self } }
 
     pub fn with_explorers(self, explorers: Vec<Box<dyn ExplorerBuilder>>) -> Self {
         GalaxyBuilder { explorers, ..self }
@@ -90,7 +91,7 @@ impl GalaxyBuilder {
 
         let galaxy = self.get_galaxy()?;
         let planet_inits = self.get_planets_init()?;
-        let explorer_inits = if let Some(first_planet_init) = &planet_inits.get(&1) {
+        let explorer_inits = if let Some(first_planet_init) = &planet_inits.get(&AppConfig::get().initial_planet_id) {
             self.get_explorers_init(&first_planet_init.explorer_to_planet_tx)
         } else {
             HashMap::new()
@@ -122,14 +123,14 @@ impl GalaxyBuilder {
             let plan_to_ex_channel = unbounded();
             let explorer = explorer
                 .with_id(id)
-                .with_current_planet(1) // all explorers start at first planet
+                .with_current_planet(AppConfig::get().initial_planet_id)
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
                 .with_planet_rx(plan_to_ex_channel.1)
                 .with_current_planet_tx(first_planet_sender.clone());
             handles.insert(id, ExplorerInit {
                 explorer,
-                initial_planet: 1, // the first planet is always ID 1
+                initial_planet: AppConfig::get().initial_planet_id,
                 orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                 planet_to_explorer_tx: plan_to_ex_channel.0
             });
@@ -172,7 +173,7 @@ impl GalaxyBuilder {
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_explorer_ids(&self) -> Vec<ID> {
-        (self.n_planets + 1..=(self.n_planets + self.explorers.len())).map(|i| i as ID).collect()
+        (self.n_planets as usize + 1..=(self.n_planets as usize + self.explorers.len())).map(|i| i as ID).collect()
     }
 }
 

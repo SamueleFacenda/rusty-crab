@@ -36,10 +36,11 @@ config_fields! {
     initial_asteroid_probability: f32 = 0.01,
     max_wait_time_ms: u64 = 2000,
     game_tick_seconds: f32 = 0.5,
-    number_of_planets: usize = 7,
+    number_of_planets: u32 = 7,
     explorers: Vec<String> = vec![],
     show_gui: bool = false,
     explorer_probability_estimator_sensitivity: f32 = 0.1,
+    initial_planet_id: u32 = 1, // from 1 to <number_of_planets>
 }
 
 #[derive(Parser, Debug)]

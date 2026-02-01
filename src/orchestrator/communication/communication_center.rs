@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use common_game::protocols::planet_explorer::ExplorerToPlanet;
 use common_game::utils::ID;
-use crossbeam_channel::Sender;
 
 use crate::orchestrator::communication::channel_demultiplexer::ChannelDemultiplexer;
 use crate::orchestrator::communication::logging_channel::{ActorMarker, ExplorerMarker, LoggingSender, PlanetMarker};
@@ -24,6 +22,7 @@ impl<A: ActorMarker> CommunicationCenter<A> {
         self.tx[&id].send(msg, id).map_err(|e| e.to_string())
     }
 
+    #[allow(clippy::needless_pass_by_value)] // msg kind il less than 8 bytes so passing by value is fine
     pub fn req_ack(&mut self, id: ID, msg: A::SendMsg, expected: A::RecvMsgKind) -> Result<A::RecvMsg, String> {
         self.send_to(id, msg)?;
         self.recv_from(id).map(|res| {
@@ -35,8 +34,9 @@ impl<A: ActorMarker> CommunicationCenter<A> {
         })? // Flatten the Result<Result<...>>
     }
 
-    /// Same asreq_ack but doesn't require &mut self. Doesn't buffer messages.
+    /// Same as `req_ack` but doesn't require &mut self. Doesn't buffer messages.
     /// May lead to lost messages if another actor sends a message while waiting for the response.
+    #[allow(clippy::needless_pass_by_value)] // msg kind il less than 8 bytes so passing by value is fine
     pub fn riskier_req_ack(&self, id: ID, msg: A::SendMsg, expected: A::RecvMsgKind) -> Result<A::RecvMsg, String> {
         self.send_to(id, msg)?;
         match self.rx.recv_any() {
