@@ -1,6 +1,4 @@
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
@@ -25,14 +23,14 @@ pub struct ExampleExplorer {
     bag: Bag,
 
     // Information collection
-    knowledge: ExplorerKnowledge,
+    knowledge: ExplorerKnowledge
 }
 
 enum ExplorerMode {
     Auto,
     Manual,
     Stopped,
-    Killed,
+    Killed
 }
 
 struct Bag {
@@ -49,7 +47,7 @@ impl Explorer for ExampleExplorer {
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
         tx_current_planet: Sender<ExplorerToPlanet>,
-        rx_planet: Receiver<PlanetToExplorer>,
+        rx_planet: Receiver<PlanetToExplorer>
     ) -> Self {
         ExampleExplorer {
             id,
@@ -60,18 +58,17 @@ impl Explorer for ExampleExplorer {
             tx_planet: Some(tx_current_planet),
             rx_planet,
             bag: Bag {},
-            knowledge: ExplorerKnowledge {},
+            knowledge: ExplorerKnowledge {}
         }
     }
 
     fn run(&mut self) -> Result<(), String> {
         loop {
             match self.rx_orchestrator.recv() {
-                Ok(msg) => {
+                Ok(msg) =>
                     if let Err(e) = self.handle_orchestrator_message(msg) {
                         log::error!("Error handling orchestrator message: {e}");
-                    }
-                }
+                    },
                 Err(e) => {
                     log::error!("Error receiving message from orchestrator: {e}");
                     Err(e.to_string())?;
@@ -82,7 +79,6 @@ impl Explorer for ExampleExplorer {
 }
 
 impl ExampleExplorer {
-    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
-        Ok(())
-    }
+    #[allow(clippy::unnecessary_wraps, clippy::needless_pass_by_value, clippy::unused_self)] // just a boilerplate example
+    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> { Ok(()) }
 }
