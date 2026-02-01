@@ -1,6 +1,6 @@
 use std::thread;
 
-use common_game::components::planet::Planet;
+use common_game::components::planet::{DummyPlanetState, Planet};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestratorKind, OrchestratorToExplorer,
 };
@@ -8,7 +8,7 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::utils::ID;
 
 use crate::explorers::ExplorerBuilder;
-use crate::orchestrator::CommunicationCenter;
+use crate::gui::GuiEventBuffer;
 use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
 use crate::orchestrator::{
     ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
@@ -17,6 +17,7 @@ use crate::orchestrator::{
     ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
     PlanetLoggingReceiver, PlanetLoggingSender,
 };
+use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -96,36 +97,68 @@ impl Orchestrator {
                 galaxy: initial_galaxy.galaxy,
                 planets: planet_handles,
                 explorers: explorer_handles,
-                communication_center: CommunicationCenter::new(
-                    explorer_senders,
+                planets_communication_center: PlanetCommunicationCenter::new(
                     planet_senders,
                     PlanetChannelDemultiplexer::new(PlanetLoggingReceiver::new(
                         initial_galaxy.planet_to_orchestrator_rx,
                     )),
+                ),
+                explorers_communication_center: ExplorerCommunicationCenter::new(
+                    explorer_senders,
                     ExplorerChannelDemultiplexer::new(ExplorerLoggingReceiver::new(
                         initial_galaxy.explorer_to_orchestrator_rx,
                     )),
                 ),
+                gui_events_buffer: GuiEventBuffer::new(),
             },
         })
     }
 
     pub fn run(&mut self) -> Result<(), String> {
-        let mut update_strategy = OrchestratorUpdateFactory::get_strategy(self.mode);
-
-        self.send_planet_ai_start()?;
-        self.send_explorer_ai_start()?;
+        self.manual_init()?;
 
         while !self.is_game_over() {
-            update_strategy.update(&mut self.state)?;
-            self.state.time += 1;
-            log::info!("--- Time step {} completed ---", self.state.time);
+            self.manual_step()?;
         }
         Ok(())
     }
 
-    fn is_game_over(&self) -> bool {
+    pub fn manual_init(&mut self) -> Result<(), String> {
+        self.send_planet_ai_start()?;
+        self.notify_planet_explorer_channel()?;
+        self.send_explorer_ai_start()?;
+        Ok(())
+    }
+
+    pub fn manual_step(&mut self) -> Result<(), String> {
+        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).update()?;
+        self.state.time += 1;
+        log::info!("--- Time step {} completed ---", self.state.time);
+        Ok(())
+    }
+
+    pub fn is_game_over(&self) -> bool {
         self.state.galaxy.get_planets().is_empty()
+    }
+
+    pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
+        &mut self.state.gui_events_buffer
+    }
+
+    pub fn get_topology(&self) -> Vec<(ID, ID)> {
+        self.state.galaxy.get_topology()
+    }
+
+    pub fn process_commands(&mut self) -> Result<(), String> {
+        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
+    }
+
+    pub fn set_mode_auto(&mut self) {
+        self.mode = OrchestratorMode::Auto;
+    }
+
+    pub fn set_mode_manual(&mut self) {
+        self.mode = OrchestratorMode::Manual;
     }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
@@ -150,7 +183,7 @@ impl Orchestrator {
 
     fn send_planet_ai_start(&mut self) -> Result<(), String> {
         for planet_id in self.state.galaxy.get_planets() {
-            self.state.communication_center.planet_req_ack(
+            self.state.planets_communication_center.req_ack(
                 planet_id,
                 OrchestratorToPlanet::StartPlanetAI,
                 PlanetToOrchestratorKind::StartPlanetAIResult,
@@ -159,15 +192,42 @@ impl Orchestrator {
         Ok(())
     }
 
+    fn notify_planet_explorer_channel(&mut self) -> Result<(), String> {
+        for (explorer_id, explorer_handle) in self.state.explorers.iter() {
+            let current_planet_id = explorer_handle.current_planet;
+            let new_sender = explorer_handle.tx_planet.clone();
+            self.state.planets_communication_center.notify_planet_incoming_explorer(*explorer_id, current_planet_id, new_sender)?;
+        }
+        Ok(())
+    }
+
     fn send_explorer_ai_start(&mut self) -> Result<(), String> {
         for explorer_id in self.state.explorers.keys() {
-            self.state.communication_center.explorer_req_ack(
+            self.state.explorers_communication_center.req_ack(
                 *explorer_id,
                 OrchestratorToExplorer::StartExplorerAI,
                 ExplorerToOrchestratorKind::StartExplorerAIResult,
             )?;
         }
         Ok(())
+    }
+
+    /// Get the state of a planet by its ID (to be used only in non-concurrent contexts)
+    pub fn get_planet_state(&self, planet_id: ID) -> Option<Result<DummyPlanetState, String>> {
+        if !self.state.planets.contains_key(&planet_id) {
+            return None;
+        }
+
+        Some(
+            self.state
+                .planets_communication_center
+                .riskier_req_ack(
+                    planet_id,
+                    OrchestratorToPlanet::InternalStateRequest,
+                    PlanetToOrchestratorKind::InternalStateResponse,
+                )
+                .map(|res| res.into_internal_state_response().unwrap().1),
+        ) // Unwrap safe due to the expected kind
     }
 }
 

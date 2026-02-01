@@ -10,10 +10,8 @@ use common_game::logging::EventType::{
     MessagePlanetToOrchestrator,
 };
 use common_game::logging::{EventType, LogEvent, Participant, Payload};
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
@@ -30,16 +28,19 @@ pub struct PlanetMarker;
 
 pub trait ActorMarker {
     type SendMsg: std::fmt::Debug;
-    type RecvMsg: std::fmt::Debug;
+    type RecvMsg: std::fmt::Debug + 'static; // 'static needed for kind::from(&msg)
+    type RecvMsgKind: std::fmt::Debug + PartialEq + for<'a> From<&'a Self::RecvMsg>; // Needed to use kind::from(&msg)
     fn event_type_send() -> EventType;
     fn event_type_recv() -> EventType;
     fn actor_type() -> common_game::logging::ActorType;
     fn get_id(msg: &Self::RecvMsg) -> ID;
+    fn get_name() -> &'static str;
 }
 
 impl ActorMarker for ExplorerMarker {
     type SendMsg = OrchestratorToExplorer;
     type RecvMsg = ExplorerToOrchestrator<BagContent>;
+    type RecvMsgKind = ExplorerToOrchestratorKind;
     fn event_type_send() -> EventType {
         MessageOrchestratorToExplorer
     }
@@ -52,11 +53,15 @@ impl ActorMarker for ExplorerMarker {
     fn get_id(msg: &Self::RecvMsg) -> ID {
         msg.explorer_id()
     }
+    fn get_name() -> &'static str {
+        "explorer"
+    }
 }
 
 impl ActorMarker for PlanetMarker {
     type SendMsg = OrchestratorToPlanet;
     type RecvMsg = PlanetToOrchestrator;
+    type RecvMsgKind = PlanetToOrchestratorKind;
     fn event_type_send() -> EventType {
         MessageOrchestratorToPlanet
     }
@@ -68,6 +73,9 @@ impl ActorMarker for PlanetMarker {
     }
     fn get_id(msg: &Self::RecvMsg) -> ID {
         msg.planet_id()
+    }
+    fn get_name() -> &'static str {
+        "planet"
     }
 }
 

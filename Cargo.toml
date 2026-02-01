@@ -25,6 +25,7 @@ carbonium = {git = "https://github.com/AP-2025-No-Crustaceans-Sky/Carbonium.git"
 one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_million_crabs.git"}
 HWHAB = { package = "Planet", git = "https://github.com/Houston-we-have-a-borrow/Planet.git"} # Houston-we-have-a-borrow
 rust-eze = {package = "pub-rust-eze", git = "https://github.com/Rust-eze-Advanced-Programming/pub-Rust-eze.git"}
+bevy = "0.18.0"
 
 [dev-dependencies]
 ctor = "0.6.3"

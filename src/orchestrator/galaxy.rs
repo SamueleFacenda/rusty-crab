@@ -73,6 +73,15 @@ impl Galaxy {
             vec![]
         }
     }
+
+    pub fn get_topology(&self) -> Vec<(ID, ID)> {
+        self.connections
+            .iter()
+            .map(|(id, neigh_set)| neigh_set.iter().map(|n| (*id, *n)))
+            .flatten()
+            .filter(|(a, b)| a < b) // avoid duplicates
+            .collect()
+    }
 }
 
 #[allow(clippy::wildcard_imports)] // It's just tests

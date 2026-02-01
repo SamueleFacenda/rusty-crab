@@ -1,6 +1,7 @@
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
 #[derive(Debug)]
 pub struct BagContent;
@@ -12,6 +13,7 @@ pub trait Explorer {
         current_planet: common_game::utils::ID,
         rx_orchestrator: crossbeam_channel::Receiver<OrchestratorToExplorer>,
         tx_orchestrator: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
+        tx_first_planet: crossbeam_channel::Sender<ExplorerToPlanet>,
         rx_planet: crossbeam_channel::Receiver<
             common_game::protocols::planet_explorer::PlanetToExplorer,
         >,
@@ -37,6 +39,10 @@ pub(crate) trait ExplorerBuilder: Send {
         self: Box<Self>,
         rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>,
     ) -> Box<dyn ExplorerBuilder>;
+    fn with_current_planet_tx(
+        self: Box<Self>,
+        tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+    ) -> Box<dyn ExplorerBuilder>;
     fn with_id(self: Box<Self>, id: common_game::utils::ID) -> Box<dyn ExplorerBuilder>;
     fn with_current_planet(
         self: Box<Self>,
@@ -47,9 +53,8 @@ pub(crate) trait ExplorerBuilder: Send {
 pub(crate) struct ExplorerBuilderImpl<T: Explorer> {
     rx_orchestrator: Option<crossbeam_channel::Receiver<OrchestratorToExplorer>>,
     tx_orchestrator: Option<crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>>,
-    rx_planet: Option<
-        crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>,
-    >,
+    rx_planet: Option<crossbeam_channel::Receiver<PlanetToExplorer>>,
+    tx_current_planet: Option<crossbeam_channel::Sender<ExplorerToPlanet>>,
     id: Option<common_game::utils::ID>,
     current_planet: Option<common_game::utils::ID>,
     _phantom: std::marker::PhantomData<T>,
@@ -61,6 +66,8 @@ impl<T: Explorer> ExplorerBuilderImpl<T> {
             rx_orchestrator: None,
             tx_orchestrator: None,
             rx_planet: None,
+            tx_current_planet: None,
+            
             id: None,
             current_planet: None,
             _phantom: std::marker::PhantomData,
@@ -85,11 +92,15 @@ impl<T: Explorer + 'static + Send> ExplorerBuilder for ExplorerBuilderImpl<T> {
         if self.current_planet.is_none() {
             return Err("Current planet ID not set".to_string());
         }
+        if self.tx_current_planet.is_none() {
+            return Err("Current planet TX channel not set".to_string());
+        }
         Ok(Box::new(T::new(
             self.id.unwrap(),
             self.current_planet.unwrap(),
             self.rx_orchestrator.unwrap(),
             self.tx_orchestrator.unwrap(),
+            self.tx_current_planet.unwrap(),
             self.rx_planet.unwrap(),
         )))
     }
@@ -120,6 +131,16 @@ impl<T: Explorer + 'static + Send> ExplorerBuilder for ExplorerBuilderImpl<T> {
     ) -> Box<dyn ExplorerBuilder> {
         Box::new(ExplorerBuilderImpl {
             rx_planet: Some(rx),
+            ..*self
+        })
+    }
+    
+    fn with_current_planet_tx(
+        self: Box<Self>,
+        tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+    ) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl {
+            tx_current_planet: Some(tx),
             ..*self
         })
     }
