@@ -1,8 +1,10 @@
 use std::collections::{HashSet, VecDeque};
+
 use common_game::utils::ID;
+
+use super::{GalaxyKnowledge, OrchestratorCommunicator, PlanetsCommunicator};
 use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
 use crate::explorers::hardware_accelerated::explorer::ExplorerState;
-use super::{OrchestratorCommunicator, PlanetsCommunicator, GalaxyKnowledge};
 
 pub(super) struct RoundExecutor<'a> {
     planets_communicator: &'a mut PlanetsCommunicator,
@@ -12,13 +14,12 @@ pub(super) struct RoundExecutor<'a> {
 }
 
 impl<'a> RoundExecutor<'a> {
-    pub fn new(planets_communicator: &'a mut PlanetsCommunicator, orchestrator_communicator: &'a OrchestratorCommunicator , state: &'a mut ExplorerState) -> RoundExecutor<'a> {
-        RoundExecutor {
-            planets_communicator,
-            orchestrator_communicator,
-            state,
-            new_galaxy: GalaxyKnowledge::new(),
-        }
+    pub fn new(
+        planets_communicator: &'a mut PlanetsCommunicator,
+        orchestrator_communicator: &'a OrchestratorCommunicator,
+        state: &'a mut ExplorerState
+    ) -> RoundExecutor<'a> {
+        RoundExecutor { planets_communicator, orchestrator_communicator, state, new_galaxy: GalaxyKnowledge::new() }
     }
 
     /// Returns the updated GalaxyKnowledge and the ID of the planet where the explorer ended the round
@@ -86,12 +87,17 @@ impl<'a> RoundExecutor<'a> {
             }
         }
 
-        unexplored.into_iter().map(|pid| (pid,
-            self.new_galaxy.get_planet_neighbours(pid) // Count connections with explored planets
-                .map(|neighbors| neighbors.iter()
-                    .filter(|n| explored.contains(n))
-                    .count())
-                .unwrap_or(0))) // If no neighbors, 0 connections
+        unexplored
+            .into_iter()
+            .map(|pid| {
+                (
+                    pid,
+                    self.new_galaxy
+                        .get_planet_neighbours(pid) // Count connections with explored planets
+                        .map(|neighbors| neighbors.iter().filter(|n| explored.contains(n)).count())
+                        .unwrap_or(0)
+                )
+            }) // If no neighbors, 0 connections
             .max_by(|a, b| a.1.cmp(&b.1))
             .map(|(pid, _)| pid)
     }
@@ -119,9 +125,12 @@ impl<'a> RoundExecutor<'a> {
     }
 
     fn goto_safest_place(&mut self) -> Result<(), String> {
-        let safest = self.new_galaxy.get_planet_ids().iter()
+        let safest = self
+            .new_galaxy
+            .get_planet_ids()
+            .iter()
             .map(|pid| (pid, self.new_galaxy.get_planet_reliability(pid)))
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())// Unwrap safe since reliability is a f32 constant
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()) // Unwrap safe since reliability is a f32 constant
             .map(|(pid, _)| *pid)
             .ok_or("No planets found in galaxy")?;
 
@@ -170,5 +179,4 @@ impl<'a> RoundExecutor<'a> {
         }
         Err(format!("No path found to planet {}", planet_id))
     }
-
 }

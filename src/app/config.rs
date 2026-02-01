@@ -1,7 +1,8 @@
+use std::sync::OnceLock;
+
 use clap::Parser;
 use config::{Config, Environment, File};
 use serde::Deserialize;
-use std::sync::OnceLock;
 
 macro_rules! config_fields {
     ( $( $field:ident: $ty:ty = $default:expr ),* $(,)? ) => {
@@ -52,7 +53,7 @@ pub struct CliArgs {
     pub log_level: String,
     /// Log file path
     #[arg(long)]
-    pub log_file: Option<String>,
+    pub log_file: Option<String>
 }
 
 static CONFIG: OnceLock<AppConfig> = OnceLock::new();
@@ -65,12 +66,8 @@ impl AppConfig {
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
             .build()
             .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
-        CONFIG
-            .set(AppConfig::from_settings(&settings, args))
-            .expect("AppConfig can only be initialized once");
+        CONFIG.set(AppConfig::from_settings(&settings, args)).expect("AppConfig can only be initialized once");
     }
 
-    pub fn get() -> &'static AppConfig {
-        CONFIG.get().expect("AppConfig is not initialized")
-    }
+    pub fn get() -> &'static AppConfig { CONFIG.get().expect("AppConfig is not initialized") }
 }

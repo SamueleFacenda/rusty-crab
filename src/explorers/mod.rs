@@ -8,7 +8,8 @@ mod hardware_accelerated;
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
 pub(crate) type ExampleExplorerBuilder = explorer::ExplorerBuilderImpl<example::ExampleExplorer>;
-pub(crate) type HardwareAcceleratedExplorerBuilder = explorer::ExplorerBuilderImpl<hardware_accelerated::HardwareAcceleratedExplorer>;
+pub(crate) type HardwareAcceleratedExplorerBuilder =
+    explorer::ExplorerBuilderImpl<hardware_accelerated::HardwareAcceleratedExplorer>;
 
 pub(crate) struct ExplorerFactory;
 
@@ -18,9 +19,7 @@ impl ExplorerFactory {
             "example" => Box::new(ExampleExplorerBuilder::new()),
             "hardware_accelerated" => Box::new(HardwareAcceleratedExplorerBuilder::new()),
             _ => {
-                log::warn!(
-                    "Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer."
-                );
+                log::warn!("Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer.");
                 Box::new(ExampleExplorerBuilder::new())
             }
         }

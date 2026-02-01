@@ -1,18 +1,17 @@
 use std::collections::HashMap;
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
+
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 use log::info;
-use crate::explorers::{BagContent, Explorer};
-use crate::explorers::hardware_accelerated::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
-use crate::explorers::hardware_accelerated::{OrchestratorCommunicator, PlanetsCommunicator};
+
 use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
-use crate::explorers::hardware_accelerated::GalaxyKnowledge;
 use crate::explorers::hardware_accelerated::probability_estimator::ProbabilityEstimator;
 use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
+use crate::explorers::hardware_accelerated::{GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver,
+                                             OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetsCommunicator};
+use crate::explorers::{BagContent, Explorer};
 
 // DTO for the explorer's state
 pub(super) struct ExplorerState {
@@ -20,7 +19,7 @@ pub(super) struct ExplorerState {
     pub knowledge: Option<GalaxyKnowledge>,
     pub current_planet: ID,
     pub asteroid_probability_estimator: ProbabilityEstimator,
-    pub sunray_probability_estimator: ProbabilityEstimator,
+    pub sunray_probability_estimator: ProbabilityEstimator
 }
 
 pub struct HardwareAcceleratedExplorer {
@@ -29,7 +28,7 @@ pub struct HardwareAcceleratedExplorer {
     state: ExplorerState,
 
     orchestrator_communicator: OrchestratorCommunicator,
-    planets_communicator: PlanetsCommunicator,
+    planets_communicator: PlanetsCommunicator
 }
 
 struct Bag {
@@ -46,7 +45,7 @@ impl Explorer for HardwareAcceleratedExplorer {
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
         tx_current_planet: Sender<ExplorerToPlanet>,
-        rx_planet: Receiver<PlanetToExplorer>,
+        rx_planet: Receiver<PlanetToExplorer>
     ) -> Self {
         HardwareAcceleratedExplorer {
             id,
@@ -55,21 +54,18 @@ impl Explorer for HardwareAcceleratedExplorer {
                 knowledge: None,
                 current_planet,
                 asteroid_probability_estimator: ProbabilityEstimator::new(),
-                sunray_probability_estimator: ProbabilityEstimator::new(),
+                sunray_probability_estimator: ProbabilityEstimator::new()
             },
             orchestrator_communicator: OrchestratorCommunicator::new(
                 OrchestratorLoggingSender::new(tx_orchestrator, id, 0), // Orchestrator has ID 0
                 OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0),
-                id,
-            ),
-            planets_communicator: PlanetsCommunicator::new(
-                HashMap::from([(
-                    current_planet,
-                    PlanetLoggingSender::new(tx_current_planet, id, current_planet),
-                )]),
-                PlanetLoggingReceiver::new(rx_planet, id, 1), // First planet has ID 1
                 id
             ),
+            planets_communicator: PlanetsCommunicator::new(
+                HashMap::from([(current_planet, PlanetLoggingSender::new(tx_current_planet, id, current_planet))]),
+                PlanetLoggingReceiver::new(rx_planet, id, 1), // First planet has ID 1
+                id
+            )
         }
     }
 
@@ -108,9 +104,8 @@ impl HardwareAcceleratedExplorer {
                 self.orchestrator_communicator.send_kill_ack()?;
                 return Ok(false);
             }
-            OrchestratorToExplorer::CurrentPlanetRequest => {
-                self.orchestrator_communicator.send_current_planet_ack(self.state.current_planet)?
-            }
+            OrchestratorToExplorer::CurrentPlanetRequest =>
+                self.orchestrator_communicator.send_current_planet_ack(self.state.current_planet)?,
             OrchestratorToExplorer::SupportedResourceRequest => {
                 let resources = self.planets_communicator.basic_resource_discovery(self.state.current_planet)?;
                 self.orchestrator_communicator.send_supported_resources_ack(resources)?;
@@ -120,30 +115,28 @@ impl HardwareAcceleratedExplorer {
                 self.orchestrator_communicator.send_combination_rules_ack(combinations)?;
             }
             OrchestratorToExplorer::GenerateResourceRequest { to_generate } => {
-                let generated = self.planets_communicator.generate_basic_resource(self.state.current_planet, to_generate)?;
+                let generated =
+                    self.planets_communicator.generate_basic_resource(self.state.current_planet, to_generate)?;
                 // TODO store generated resource in bag
-                self.orchestrator_communicator.send_generation_ack(
-                    generated.ok_or("Cannot create resource".to_string()).map(|_|())
-                )?;
+                self.orchestrator_communicator
+                    .send_generation_ack(generated.ok_or("Cannot create resource".to_string()).map(|_| ()))?;
             }
             OrchestratorToExplorer::CombineResourceRequest { to_generate } => {
                 // TODO send the basic resources too
-                // let combination_result = self.planets_communicator.combine_resources(self.current_planet_id, to_generate)?;
+                // let combination_result =
+                // self.planets_communicator.combine_resources(self.current_planet_id, to_generate)?;
                 // // TODO store generated resource in bag if Ok
                 // self.orchestrator_communicator.send_combination_ack(
                 //     combination_result.map(|_|()).map_err(|(e, _, _)| e)
                 // )?;
             }
             OrchestratorToExplorer::BagContentRequest => {
-                RoundExecutor::new(
-                    &mut self.planets_communicator,
-                    &self.orchestrator_communicator,
-                    &mut self.state
-                ).execute_round()?;
+                RoundExecutor::new(&mut self.planets_communicator, &self.orchestrator_communicator, &mut self.state)
+                    .execute_round()?;
                 // TODO send bag content
-                self.orchestrator_communicator.send_bag_content_ack(BagContent{})?;
+                self.orchestrator_communicator.send_bag_content_ack(BagContent {})?;
             }
-            _ => return Err(format!("Unexpected message type: {:?}", msg)),
+            _ => return Err(format!("Unexpected message type: {:?}", msg))
         }
         Ok(true)
     }

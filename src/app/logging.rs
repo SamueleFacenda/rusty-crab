@@ -1,5 +1,6 @@
-use super::AppConfig;
 use fern::colors::ColoredLevelConfig;
+
+use super::AppConfig;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     let log_level = &AppConfig::get().log_level;

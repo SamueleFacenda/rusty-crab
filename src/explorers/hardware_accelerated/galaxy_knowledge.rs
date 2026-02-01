@@ -1,21 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
 
 struct PlanetKnowledge {
     basic_resources: HashSet<BasicResourceType>,
     complex_resources: HashSet<ComplexResourceType>,
-    n_charged_cells: u32,
+    n_charged_cells: u32
 }
 
 impl PlanetKnowledge {
     pub fn new() -> Self {
-        PlanetKnowledge {
-            basic_resources: HashSet::new(),
-            complex_resources: HashSet::new(),
-            n_charged_cells: 0,
-        }
+        PlanetKnowledge { basic_resources: HashSet::new(), complex_resources: HashSet::new(), n_charged_cells: 0 }
     }
 }
 
@@ -23,7 +20,7 @@ impl PlanetKnowledge {
 pub(super) struct GalaxyKnowledge {
     connections: HashMap<ID, HashSet<ID>>,
     planets_knowledge: HashMap<ID, PlanetKnowledge>,
-    max_charged_cells_per_planet: u32,
+    max_charged_cells_per_planet: u32
 }
 
 impl GalaxyKnowledge {
@@ -31,10 +28,9 @@ impl GalaxyKnowledge {
         GalaxyKnowledge {
             connections: HashMap::new(),
             planets_knowledge: HashMap::new(),
-            max_charged_cells_per_planet: 0,
+            max_charged_cells_per_planet: 0
         }
     }
-
 
     pub fn add_planet(&mut self, id: ID) {
         self.connections.insert(id, HashSet::new());
@@ -69,22 +65,24 @@ impl GalaxyKnowledge {
         }
     }
 
-    pub fn has_planet(&self, id: ID) -> bool {
-        self.connections.contains_key(&id)
-    }
+    pub fn has_planet(&self, id: ID) -> bool { self.connections.contains_key(&id) }
 
     /// This is a deterministic lower bound estimate of sunrays received
     pub fn estimate_sunrays_received(&self, new_state: &GalaxyKnowledge) -> u32 {
         self.count_comparison_predicate(new_state, |old, new| new.n_charged_cells > old.n_charged_cells)
     }
 
-    /// This is a deterministic lower bound estimate of asteroids received (assumes no cells were used for building)
-    /// Maybe it's not reliable in a multi-explorer scenario
+    /// This is a deterministic lower bound estimate of asteroids received (assumes no cells were used for
+    /// building) Maybe it's not reliable in a multi-explorer scenario
     pub fn estimate_asteroids_received(&self, new_state: &GalaxyKnowledge) -> u32 {
         self.count_comparison_predicate(new_state, |old, new| new.n_charged_cells < old.n_charged_cells)
     }
 
-    fn count_comparison_predicate(&self, b: &GalaxyKnowledge, pred: impl Fn(&PlanetKnowledge, &PlanetKnowledge) -> bool) -> u32 {
+    fn count_comparison_predicate(
+        &self,
+        b: &GalaxyKnowledge,
+        pred: impl Fn(&PlanetKnowledge, &PlanetKnowledge) -> bool
+    ) -> u32 {
         let mut count = 0;
         for (id, planet_knowledge) in &self.planets_knowledge {
             if let Some(other_knowledge) = b.planets_knowledge.get(id) {
@@ -101,31 +99,24 @@ impl GalaxyKnowledge {
     pub fn get_planet_reliability(&self, id: &ID) -> f32 {
         let planet_knowledge = match self.planets_knowledge.get(&id) {
             Some(pk) => pk,
-            None => return 0.0,
+            None => return 0.0
         };
 
-        if self.max_charged_cells_per_planet == 0 { // Avoid division by zero
+        if self.max_charged_cells_per_planet == 0 {
+            // Avoid division by zero
             return 0.0;
         }
-        
+
         planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32
     }
 
-    pub fn get_n_planets(&self) -> usize {
-        self.connections.len()
-    }
+    pub fn get_n_planets(&self) -> usize { self.connections.len() }
 
     pub fn get_planet_neighbours(&self, planet_id: ID) -> Option<&HashSet<ID>> {
-        if let Some(neighbors) = self.connections.get(&planet_id) {
-            Some(neighbors)
-        } else {
-            None
-        }
+        if let Some(neighbors) = self.connections.get(&planet_id) { Some(neighbors) } else { None }
     }
 
-    pub fn get_planet_ids(&self) -> Vec<ID> {
-        self.connections.keys().cloned().collect()
-    }
+    pub fn get_planet_ids(&self) -> Vec<ID> { self.connections.keys().cloned().collect() }
 }
 
 #[cfg(test)]

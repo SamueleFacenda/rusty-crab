@@ -1,33 +1,21 @@
 use crate::app::AppConfig;
 
 pub(crate) struct ProbabilityEstimator {
-    estimate :f32
+    estimate: f32
 }
 
 impl ProbabilityEstimator {
-    pub fn new() -> Self {
-        ProbabilityEstimator {
-            estimate: -1.0,
-        }
-    }
+    pub fn new() -> Self { ProbabilityEstimator { estimate: -1.0 } }
 
-    pub fn update(&mut self, n_planets: u32, n_affected: u32){
+    pub fn update(&mut self, n_planets: u32, n_affected: u32) {
         let new_prob = n_affected as f32 / n_planets as f32;
-        let sensibility = if self.estimate < 0f32 {
-            1.0
-        } else {
-            Self::get_sensibility()
-        };
+        let sensibility = if self.estimate < 0f32 { 1.0 } else { Self::get_sensibility() };
 
-        self.estimate = self.estimate * (1.0  - sensibility) + new_prob * sensibility ;
+        self.estimate = self.estimate * (1.0 - sensibility) + new_prob * sensibility;
     }
-    pub fn get_probability(&self) -> f32 {
-        self.estimate
-    }
+    pub fn get_probability(&self) -> f32 { self.estimate }
 
-    fn get_sensibility() -> f32 {
-        AppConfig::get().explorer_probability_estimator_sensitivity
-    }
+    fn get_sensibility() -> f32 { AppConfig::get().explorer_probability_estimator_sensitivity }
 }
 
 #[cfg(test)]

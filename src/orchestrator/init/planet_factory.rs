@@ -16,7 +16,7 @@ pub(crate) enum PlanetType {
     Carbonium,
     OneMillionCrabs,
     HoustonWeHaveABorrow,
-    RustEze,
+    RustEze
 }
 
 pub(crate) struct PlanetFactory;
@@ -27,47 +27,20 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Result<Planet, String> {
         match planet_type {
-            PlanetType::PanicOutOfOxygen => {
-                Self::create_panic_out_of_oxygen_planet(id, sender, receiver, explorer_receiver)
-            }
-            PlanetType::Rustrelli => Ok(Self::create_rustrelli_planet(
-                id,
-                sender,
-                receiver,
-                explorer_receiver,
-            )),
-            PlanetType::TheCompilerStrikesBack => {
-                Ok(Self::create_the_compiler_strikes_back_planet(
-                    id,
-                    sender,
-                    receiver,
-                    explorer_receiver,
-                ))
-            }
-            PlanetType::Carbonium => Ok(Self::create_carbonium_planet(
-                id,
-                sender,
-                receiver,
-                explorer_receiver,
-            )),
-            PlanetType::OneMillionCrabs => {
-                Self::create_one_million_crabs_planet(id, sender, receiver, explorer_receiver)
-            }
-            PlanetType::HoustonWeHaveABorrow => Self::create_houston_we_have_a_borrow_planet(
-                id,
-                sender,
-                receiver,
-                explorer_receiver,
-            ),
-            PlanetType::RustEze => Ok(Self::create_rust_eze_planet(
-                id,
-                sender,
-                receiver,
-                explorer_receiver,
-            )),
+            PlanetType::PanicOutOfOxygen =>
+                Self::create_panic_out_of_oxygen_planet(id, sender, receiver, explorer_receiver),
+            PlanetType::Rustrelli => Ok(Self::create_rustrelli_planet(id, sender, receiver, explorer_receiver)),
+            PlanetType::TheCompilerStrikesBack =>
+                Ok(Self::create_the_compiler_strikes_back_planet(id, sender, receiver, explorer_receiver)),
+            PlanetType::Carbonium => Ok(Self::create_carbonium_planet(id, sender, receiver, explorer_receiver)),
+            PlanetType::OneMillionCrabs =>
+                Self::create_one_million_crabs_planet(id, sender, receiver, explorer_receiver),
+            PlanetType::HoustonWeHaveABorrow =>
+                Self::create_houston_we_have_a_borrow_planet(id, sender, receiver, explorer_receiver),
+            PlanetType::RustEze => Ok(Self::create_rust_eze_planet(id, sender, receiver, explorer_receiver))
         }
     }
 
@@ -76,7 +49,7 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Planet {
         the_compiler_strikes_back::planet::create_planet(receiver, sender, explorer_receiver, id)
     }
@@ -85,13 +58,13 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Result<Planet, String> {
         air_fryer::create_planet(
             id,
             air_fryer::PlanetAI::new(),
             (receiver, sender), // To be checked
-            explorer_receiver,
+            explorer_receiver
         )
     }
 
@@ -99,14 +72,14 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Planet {
         rustrelli::create_planet(
             id,
             receiver,
             sender,
             explorer_receiver,
-            rustrelli::ExplorerRequestLimit::None, // Can be changed to FairShare
+            rustrelli::ExplorerRequestLimit::None // Can be changed to FairShare
         )
     }
 
@@ -115,7 +88,7 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Planet {
         carbonium::create_planet(id, receiver, sender, explorer_receiver)
     }
@@ -124,7 +97,7 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Result<Planet, String> {
         one_million_crabs::planet::create_planet(receiver, sender, explorer_receiver, id)
     }
@@ -134,7 +107,7 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Result<Planet, String> {
         HWHAB::houston_we_have_a_borrow(
             receiver,
@@ -142,7 +115,7 @@ impl PlanetFactory {
             explorer_receiver,
             id,
             HWHAB::RocketStrategy::Default, // (Disabled, Safe, EmergencyReserve, Default)
-            Some(Carbon),                   // Any Option<BasicResourceType>, what a novel idea
+            Some(Carbon)                    // Any Option<BasicResourceType>, what a novel idea
         )
     }
 
@@ -150,7 +123,7 @@ impl PlanetFactory {
         id: ID,
         sender: Sender<PlanetToOrchestrator>,
         receiver: Receiver<OrchestratorToPlanet>,
-        explorer_receiver: Receiver<ExplorerToPlanet>,
+        explorer_receiver: Receiver<ExplorerToPlanet>
     ) -> Planet {
         rust_eze::create_planet(id, receiver, sender, explorer_receiver)
     }
@@ -158,14 +131,11 @@ impl PlanetFactory {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crossbeam_channel::unbounded;
 
-    fn get_channels() -> (
-        Sender<PlanetToOrchestrator>,
-        Receiver<OrchestratorToPlanet>,
-        Receiver<ExplorerToPlanet>,
-    ) {
+    use super::*;
+
+    fn get_channels() -> (Sender<PlanetToOrchestrator>, Receiver<OrchestratorToPlanet>, Receiver<ExplorerToPlanet>) {
         let (tx_orch, rx_orch) = unbounded();
         let (tx_planet, rx_planet) = unbounded();
         let (tx_explorer, rx_explorer) = unbounded();
@@ -176,13 +146,7 @@ mod tests {
     fn test_panic_out_of_oxygen_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet = PlanetFactory::make_planet(
-            PlanetType::PanicOutOfOxygen,
-            1,
-            tx_planet,
-            rx_orch,
-            rx_explorer,
-        );
+        let planet = PlanetFactory::make_planet(PlanetType::PanicOutOfOxygen, 1, tx_planet, rx_orch, rx_explorer);
 
         assert!(planet.is_ok());
     }
@@ -191,8 +155,7 @@ mod tests {
     fn test_rustrelli_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet =
-            PlanetFactory::make_planet(PlanetType::Rustrelli, 2, tx_planet, rx_orch, rx_explorer);
+        let planet = PlanetFactory::make_planet(PlanetType::Rustrelli, 2, tx_planet, rx_orch, rx_explorer);
 
         assert!(planet.is_ok());
     }
@@ -201,13 +164,7 @@ mod tests {
     fn test_one_million_crabs_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet = PlanetFactory::make_planet(
-            PlanetType::OneMillionCrabs,
-            3,
-            tx_planet,
-            rx_orch,
-            rx_explorer,
-        );
+        let planet = PlanetFactory::make_planet(PlanetType::OneMillionCrabs, 3, tx_planet, rx_orch, rx_explorer);
 
         assert!(planet.is_ok());
     }
@@ -216,13 +173,7 @@ mod tests {
     fn test_houston_we_have_a_borrow_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet = PlanetFactory::make_planet(
-            PlanetType::HoustonWeHaveABorrow,
-            4,
-            tx_planet,
-            rx_orch,
-            rx_explorer,
-        );
+        let planet = PlanetFactory::make_planet(PlanetType::HoustonWeHaveABorrow, 4, tx_planet, rx_orch, rx_explorer);
 
         assert!(planet.is_ok());
     }
@@ -231,8 +182,7 @@ mod tests {
     fn test_rust_eze_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet =
-            PlanetFactory::make_planet(PlanetType::RustEze, 5, tx_planet, rx_orch, rx_explorer);
+        let planet = PlanetFactory::make_planet(PlanetType::RustEze, 5, tx_planet, rx_orch, rx_explorer);
 
         assert!(planet.is_ok());
     }
@@ -241,19 +191,13 @@ mod tests {
     fn test_carbonium_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet =
-            PlanetFactory::make_planet(PlanetType::Carbonium, 6, tx_planet, rx_orch, rx_explorer);
+        let planet = PlanetFactory::make_planet(PlanetType::Carbonium, 6, tx_planet, rx_orch, rx_explorer);
     }
 
     #[test]
     fn test_the_compiler_strikes_back_planet_creation() {
         let (tx_planet, rx_orch, rx_explorer) = get_channels();
 
-        let planet = PlanetFactory::create_the_compiler_strikes_back_planet(
-            7,
-            tx_planet,
-            rx_orch,
-            rx_explorer,
-        );
+        let planet = PlanetFactory::create_the_compiler_strikes_back_planet(7, tx_planet, rx_orch, rx_explorer);
     }
 }
