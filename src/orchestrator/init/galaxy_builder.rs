@@ -8,7 +8,7 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender, unbounded};
-
+use crate::app::AppConfig;
 use crate::explorers::{BagContent, ExplorerBuilder};
 use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 
@@ -109,7 +109,7 @@ impl GalaxyBuilder {
 
         let galaxy = self.get_galaxy()?;
         let planet_inits = self.get_planets_init()?;
-        let explorer_inits = if let Some(first_planet_init) = &planet_inits.get(&1) {
+        let explorer_inits = if let Some(first_planet_init) = &planet_inits.get(&AppConfig::get().initial_planet_id) {
             self.get_explorers_init(&first_planet_init.explorer_to_planet_tx)
         } else {
             HashMap::new()
@@ -141,7 +141,7 @@ impl GalaxyBuilder {
             let plan_to_ex_channel = unbounded();
             let explorer = explorer
                 .with_id(id)
-                .with_current_planet(1) // all explorers start at first planet
+                .with_current_planet(AppConfig::get().initial_planet_id)
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
                 .with_planet_rx(plan_to_ex_channel.1)
@@ -150,7 +150,7 @@ impl GalaxyBuilder {
                 id,
                 ExplorerInit {
                     explorer,
-                    initial_planet: 1, // the first planet is always ID 1
+                    initial_planet: AppConfig::get().initial_planet_id,
                     orchestrator_to_explorer_tx: orch_to_ex_channel.0,
                     planet_to_explorer_tx: plan_to_ex_channel.0,
                 },

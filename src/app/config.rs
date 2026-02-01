@@ -38,6 +38,7 @@ config_fields! {
     number_of_planets: usize = 7,
     explorers: Vec<String> = vec![],
     show_gui: bool = false,
+    initial_planet_id: u32 = 1, // from 1 to <number_of_planets>
 }
 
 #[derive(Parser, Debug)]
