@@ -9,6 +9,7 @@ use crossbeam_channel::{Receiver, Sender};
 use crate::explorers::{BagContent, Explorer};
 use crate::explorers::hardware_accelerated::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
 use crate::explorers::hardware_accelerated::{OrchestratorCommunicator, PlanetsCommunicator};
+use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
 use crate::explorers::hardware_accelerated::GalaxyKnowledge;
 use crate::explorers::hardware_accelerated::probability_estimator::ProbabilityEstimator;
 use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
@@ -44,6 +45,7 @@ impl Explorer for HardwareAcceleratedExplorer {
         current_planet: ID,
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
+        tx_current_planet: Sender<ExplorerToPlanet>,
         rx_planet: Receiver<PlanetToExplorer>,
     ) -> Self {
         HardwareAcceleratedExplorer {
@@ -56,15 +58,15 @@ impl Explorer for HardwareAcceleratedExplorer {
                 sunray_probability_estimator: ProbabilityEstimator::new(),
             },
             orchestrator_communicator: OrchestratorCommunicator::new(
-                OrchestratorLoggingSender::new(tx_orchestrator, id),
-                OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0), // Orchestrator has ID 0
+                OrchestratorLoggingSender::new(tx_orchestrator, id, 0), // Orchestrator has ID 0
+                OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0),
                 id,
             ),
             planets_communicator: PlanetsCommunicator::new(
                 HashMap::from([(
                     current_planet,
-                    PlanetLoggingSender::new(tx_orchestrator.clone(), id, current_planet),
-                )]))])
+                    PlanetLoggingSender::new(tx_current_planet, id, current_planet),
+                )]),
                 PlanetLoggingReceiver::new(rx_planet, id, 1), // First planet has ID 1
                 id
             ),

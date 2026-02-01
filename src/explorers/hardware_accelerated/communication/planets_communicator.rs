@@ -4,6 +4,7 @@ use common_game::protocols::planet_explorer::{
 use common_game::utils::ID;
 use std::collections::{HashMap, HashSet};
 use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceRequest, ComplexResourceType, GenericResource};
+use crossbeam_channel::Sender;
 use crate::app::AppConfig;
 use super::{PlanetLoggingSender, PlanetLoggingReceiver };
 
@@ -27,8 +28,8 @@ impl PlanetsCommunicator {
         }
     }
 
-    pub fn add_planet(&mut self, planet_id: ID, mut sender: PlanetLoggingSender) {
-        sender.set_other_id(planet_id);
+    pub fn add_planet(&mut self, planet_id: ID, sender: Sender<ExplorerToPlanet>) {
+        let sender = PlanetLoggingSender::new(sender, self.explorer_id, planet_id);
         self.to_planets.insert(planet_id, sender);
     }
 

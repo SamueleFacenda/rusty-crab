@@ -139,7 +139,7 @@ impl<'a> RoundExecutor<'a> {
             if opt_sender.is_none() {
                 return Err(format!("Travel to planet {} failed", p));
             }
-            self.planets_communicator.add_planet(p, PlanetLoggingSender::new(opt_sender.unwrap(), p));
+            self.planets_communicator.add_planet(p, opt_sender.unwrap());
             self.planets_communicator.set_current_planet(p);
             self.state.current_planet = p;
         }

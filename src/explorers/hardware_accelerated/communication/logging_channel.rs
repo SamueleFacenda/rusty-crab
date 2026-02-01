@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use common_game::logging::ActorType::{Explorer, Planet, Orchestrator};
 use common_game::logging::Channel::Debug;
-use common_game::logging::EventType::{MessageExplorerToOrchestrator, MessageExplorerToPlanet, MessageOrchestratorToExplorer, MessageOrchestratorToPlanet, MessagePlanetToExplorer, MessagePlanetToOrchestrator};
+use common_game::logging::EventType::{MessageExplorerToOrchestrator, MessageExplorerToPlanet, MessageOrchestratorToExplorer, MessagePlanetToExplorer};
 use common_game::logging::{EventType, LogEvent, Participant, Payload};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
@@ -71,17 +71,13 @@ pub struct LoggingReceiver<A: ActorMarker> {
 }
 
 impl<A: ActorMarker> LoggingSender<A> {
-    pub fn new(sender: Sender<A::SendMsg>, explorer_id: ID) -> Self {
+    pub fn new(sender: Sender<A::SendMsg>, explorer_id: ID, other_id: ID) -> Self {
         Self {
             sender,
             explorer_id,
-            other_id: 0,
+            other_id,
             _marker: PhantomData,
         }
-    }
-
-    pub fn set_other_id(&mut self, other_id: ID) {
-        self.other_id = other_id;
     }
 
     pub fn send(
