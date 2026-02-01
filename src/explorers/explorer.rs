@@ -1,6 +1,4 @@
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestrator, OrchestratorToExplorer,
-};
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
 #[derive(Debug)]
@@ -14,40 +12,34 @@ pub trait Explorer {
         rx_orchestrator: crossbeam_channel::Receiver<OrchestratorToExplorer>,
         tx_orchestrator: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
         tx_first_planet: crossbeam_channel::Sender<ExplorerToPlanet>,
-        rx_planet: crossbeam_channel::Receiver<
-            common_game::protocols::planet_explorer::PlanetToExplorer,
-        >,
+        rx_planet: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>
     ) -> Self
     where
         Self: Sized;
 
     fn run(&mut self) -> Result<(), String>;
-    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String>;
 }
 
 pub(crate) trait ExplorerBuilder: Send {
     fn build(self: Box<Self>) -> Result<Box<dyn Explorer>, String>;
     fn with_orchestrator_rx(
         self: Box<Self>,
-        rx: crossbeam_channel::Receiver<OrchestratorToExplorer>,
+        rx: crossbeam_channel::Receiver<OrchestratorToExplorer>
     ) -> Box<dyn ExplorerBuilder>;
     fn with_orchestrator_tx(
         self: Box<Self>,
-        tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
+        tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>
     ) -> Box<dyn ExplorerBuilder>;
     fn with_planet_rx(
         self: Box<Self>,
-        rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>,
+        rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>
     ) -> Box<dyn ExplorerBuilder>;
     fn with_current_planet_tx(
         self: Box<Self>,
-        tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+        tx: crossbeam_channel::Sender<ExplorerToPlanet>
     ) -> Box<dyn ExplorerBuilder>;
     fn with_id(self: Box<Self>, id: common_game::utils::ID) -> Box<dyn ExplorerBuilder>;
-    fn with_current_planet(
-        self: Box<Self>,
-        planet_id: common_game::utils::ID,
-    ) -> Box<dyn ExplorerBuilder>;
+    fn with_current_planet(self: Box<Self>, planet_id: common_game::utils::ID) -> Box<dyn ExplorerBuilder>;
 }
 
 pub(crate) struct ExplorerBuilderImpl<T: Explorer> {
@@ -57,7 +49,7 @@ pub(crate) struct ExplorerBuilderImpl<T: Explorer> {
     tx_current_planet: Option<crossbeam_channel::Sender<ExplorerToPlanet>>,
     id: Option<common_game::utils::ID>,
     current_planet: Option<common_game::utils::ID>,
-    _phantom: std::marker::PhantomData<T>,
+    _phantom: std::marker::PhantomData<T>
 }
 
 impl<T: Explorer> ExplorerBuilderImpl<T> {
@@ -67,10 +59,10 @@ impl<T: Explorer> ExplorerBuilderImpl<T> {
             tx_orchestrator: None,
             rx_planet: None,
             tx_current_planet: None,
-            
+
             id: None,
             current_planet: None,
-            _phantom: std::marker::PhantomData,
+            _phantom: std::marker::PhantomData
         }
     }
 }
@@ -101,64 +93,43 @@ impl<T: Explorer + 'static + Send> ExplorerBuilder for ExplorerBuilderImpl<T> {
             self.rx_orchestrator.unwrap(),
             self.tx_orchestrator.unwrap(),
             self.tx_current_planet.unwrap(),
-            self.rx_planet.unwrap(),
+            self.rx_planet.unwrap()
         )))
     }
 
     fn with_orchestrator_rx(
         self: Box<Self>,
-        rx: crossbeam_channel::Receiver<OrchestratorToExplorer>,
+        rx: crossbeam_channel::Receiver<OrchestratorToExplorer>
     ) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            rx_orchestrator: Some(rx),
-            ..*self
-        })
+        Box::new(ExplorerBuilderImpl { rx_orchestrator: Some(rx), ..*self })
     }
 
     fn with_orchestrator_tx(
         self: Box<Self>,
-        tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
+        tx: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>
     ) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            tx_orchestrator: Some(tx),
-            ..*self
-        })
+        Box::new(ExplorerBuilderImpl { tx_orchestrator: Some(tx), ..*self })
     }
 
     fn with_planet_rx(
         self: Box<Self>,
-        rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>,
+        rx: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>
     ) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            rx_planet: Some(rx),
-            ..*self
-        })
+        Box::new(ExplorerBuilderImpl { rx_planet: Some(rx), ..*self })
     }
-    
+
     fn with_current_planet_tx(
         self: Box<Self>,
-        tx: crossbeam_channel::Sender<ExplorerToPlanet>,
+        tx: crossbeam_channel::Sender<ExplorerToPlanet>
     ) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            tx_current_planet: Some(tx),
-            ..*self
-        })
+        Box::new(ExplorerBuilderImpl { tx_current_planet: Some(tx), ..*self })
     }
 
     fn with_id(self: Box<Self>, id: common_game::utils::ID) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            id: Some(id),
-            ..*self
-        })
+        Box::new(ExplorerBuilderImpl { id: Some(id), ..*self })
     }
 
-    fn with_current_planet(
-        self: Box<Self>,
-        planet_id: common_game::utils::ID,
-    ) -> Box<dyn ExplorerBuilder> {
-        Box::new(ExplorerBuilderImpl {
-            current_planet: Some(planet_id),
-            ..*self
-        })
+    fn with_current_planet(self: Box<Self>, planet_id: common_game::utils::ID) -> Box<dyn ExplorerBuilder> {
+        Box::new(ExplorerBuilderImpl { current_planet: Some(planet_id), ..*self })
     }
 }

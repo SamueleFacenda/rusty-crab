@@ -4,7 +4,7 @@ use common_game::utils::ID;
 
 /// Galaxy topology container, only manages the connections between planets.
 pub(crate) struct Galaxy {
-    connections: HashMap<ID, HashSet<ID>>,
+    connections: HashMap<ID, HashSet<ID>>
 }
 
 impl Galaxy {
@@ -28,8 +28,7 @@ impl Galaxy {
     }
 
     pub fn make_circular(ids: &[ID]) -> Result<Self, String> {
-        let mut connections: HashMap<ID, HashSet<ID>> =
-            ids.iter().map(|&id| (id, HashSet::new())).collect();
+        let mut connections: HashMap<ID, HashSet<ID>> = ids.iter().map(|&id| (id, HashSet::new())).collect();
         if connections.len() != ids.len() {
             return Err("Duplicate planet IDs found".to_string());
         }
@@ -47,16 +46,10 @@ impl Galaxy {
         Ok(Galaxy { connections })
     }
 
-    pub fn get_planets(&self) -> Vec<ID> {
-        self.connections.keys().copied().collect()
-    }
+    pub fn get_planets(&self) -> Vec<ID> { self.connections.keys().copied().collect() }
 
     pub fn are_planets_connected(&self, a: ID, b: ID) -> bool {
-        if let Some(neighbors) = self.connections.get(&a) {
-            neighbors.contains(&b)
-        } else {
-            false
-        }
+        if let Some(neighbors) = self.connections.get(&a) { neighbors.contains(&b) } else { false }
     }
 
     pub fn remove_planet(&mut self, id: ID) {
@@ -77,8 +70,7 @@ impl Galaxy {
     pub fn get_topology(&self) -> Vec<(ID, ID)> {
         self.connections
             .iter()
-            .map(|(id, neigh_set)| neigh_set.iter().map(|n| (*id, *n)))
-            .flatten()
+            .flat_map(|(id, neigh_set)| neigh_set.iter().map(|n| (*id, *n)))
             .filter(|(a, b)| a < b) // avoid duplicates
             .collect()
     }
@@ -90,9 +82,7 @@ mod test {
     use super::*;
 
     #[allow(dead_code)] // used in some tests
-    fn get_dummy_ids() -> Vec<ID> {
-        vec![1, 2, 3, 4, 5]
-    }
+    fn get_dummy_ids() -> Vec<ID> { vec![1, 2, 3, 4, 5] }
 
     #[test]
     fn test_fully_connected() {

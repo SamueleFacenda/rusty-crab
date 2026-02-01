@@ -13,15 +13,11 @@ pub struct OrchestratorUpdateFactory;
 impl OrchestratorUpdateFactory {
     pub fn get_strategy(
         mode: OrchestratorMode,
-        state: &mut OrchestratorState,
+        state: &mut OrchestratorState
     ) -> Box<dyn OrchestratorUpdateStrategy + '_> {
         match mode {
-            OrchestratorMode::Auto => {
-                Box::new(auto_update_strategy::AutoUpdateStrategy::new(state))
-            }
-            OrchestratorMode::Manual => {
-                Box::new(manual_update_strategy::ManualUpdateStrategy::new(state))
-            }
+            OrchestratorMode::Auto => Box::new(auto_update_strategy::AutoUpdateStrategy::new(state)),
+            OrchestratorMode::Manual => Box::new(manual_update_strategy::ManualUpdateStrategy::new(state))
         }
     }
 }
