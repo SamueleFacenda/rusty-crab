@@ -1,3 +1,6 @@
 [submodule "src/gui/omc-gui"]
 	path = src/gui/omc-gui
 	url = https://github.com/Advance-Programming-2025/omc-gui.git
+[submodule "src/explorers/allegory"]
+	path = src/explorers/allegory
+	url = https://github.com/NeoEcc/Allegory-explorer.git
