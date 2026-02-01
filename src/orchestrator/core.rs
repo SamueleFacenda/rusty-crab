@@ -125,6 +125,7 @@ impl Orchestrator {
 
     pub fn manual_init(&mut self) -> Result<(), String> {
         self.send_planet_ai_start()?;
+        self.notify_planet_explorer_channel()?;
         self.send_explorer_ai_start()?;
         Ok(())
     }
@@ -187,6 +188,15 @@ impl Orchestrator {
                 OrchestratorToPlanet::StartPlanetAI,
                 PlanetToOrchestratorKind::StartPlanetAIResult,
             )?;
+        }
+        Ok(())
+    }
+
+    fn notify_planet_explorer_channel(&mut self) -> Result<(), String> {
+        for (explorer_id, explorer_handle) in self.state.explorers.iter() {
+            let current_planet_id = explorer_handle.current_planet;
+            let new_sender = explorer_handle.tx_planet.clone();
+            self.state.planets_communication_center.notify_planet_incoming_explorer(*explorer_id, current_planet_id, new_sender)?;
         }
         Ok(())
     }
