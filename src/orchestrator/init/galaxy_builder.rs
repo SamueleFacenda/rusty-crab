@@ -103,9 +103,17 @@ impl GalaxyBuilder {
         if !self.fully_connected && !self.circular {
             return Err("Must specify either fully connected or circular topology".to_string());
         }
+        if self.n_planets == 0 && !self.explorers.is_empty() {
+            return Err("Cannot have explorers without planets".to_string());
+        }
+
         let galaxy = self.get_galaxy()?;
         let planet_inits = self.get_planets_init()?;
-        let explorer_inits = self.get_explorers_init();
+        let explorer_inits = if let Some(first_planet_init) = &planet_inits.get(&1) {
+            self.get_explorers_init(&first_planet_init.explorer_to_planet_tx)
+        } else {
+            HashMap::new()
+        };
 
         Ok(GalaxyBuilderResult {
             galaxy,
@@ -125,7 +133,7 @@ impl GalaxyBuilder {
         }
     }
 
-    fn get_explorers_init(&mut self) -> HashMap<ID, ExplorerInit> {
+    fn get_explorers_init(&mut self, first_planet_sender: &Sender<ExplorerToPlanet>) -> HashMap<ID, ExplorerInit> {
         let mut handles = HashMap::new();
         let explorer_ids = self.get_explorer_ids();
         for (explorer, id) in self.explorers.drain(..).zip(explorer_ids) {
@@ -136,7 +144,8 @@ impl GalaxyBuilder {
                 .with_current_planet(1) // all explorers start at first planet
                 .with_orchestrator_rx(orch_to_ex_channel.1)
                 .with_orchestrator_tx(self.explorer_to_orchestrator.0.clone())
-                .with_planet_rx(plan_to_ex_channel.1);
+                .with_planet_rx(plan_to_ex_channel.1)
+                .with_current_planet_tx(first_planet_sender.clone());
             handles.insert(
                 id,
                 ExplorerInit {

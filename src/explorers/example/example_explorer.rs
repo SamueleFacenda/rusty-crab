@@ -48,6 +48,7 @@ impl Explorer for ExampleExplorer {
         current_planet: ID,
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
+        tx_current_planet: Sender<ExplorerToPlanet>,
         rx_planet: Receiver<PlanetToExplorer>,
     ) -> Self {
         ExampleExplorer {
@@ -56,7 +57,7 @@ impl Explorer for ExampleExplorer {
             mode: ExplorerMode::Auto,
             rx_orchestrator,
             tx_orchestrator,
-            tx_planet: None,
+            tx_planet: Some(tx_current_planet),
             rx_planet,
             bag: Bag {},
             knowledge: ExplorerKnowledge {},
