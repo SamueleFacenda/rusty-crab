@@ -40,6 +40,7 @@ impl<'a> RoundExecutor<'a> {
 
             explored.insert(next_planet);
 
+            self.new_galaxy.add_planet(next_planet);
             self.inspect_current_planet()?;
 
             // Discover neighbors
@@ -120,7 +121,7 @@ impl<'a> RoundExecutor<'a> {
     fn goto_safest_place(&mut self) -> Result<(), String> {
         let safest = self.new_galaxy.get_planet_ids().iter()
             .map(|pid| (pid, self.new_galaxy.get_planet_reliability(pid)))
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())// Unwrap safe since reliability is a f32 constant
             .map(|(pid, _)| *pid)
             .ok_or("No planets found in galaxy")?;
 

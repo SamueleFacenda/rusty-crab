@@ -104,6 +104,10 @@ impl GalaxyKnowledge {
             None => return 0.0,
         };
 
+        if self.max_charged_cells_per_planet == 0 { // Avoid division by zero
+            return 0.0;
+        }
+        
         planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32
     }
 

@@ -5,7 +5,7 @@ use common_game::protocols::orchestrator_explorer::{
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
-
+use log::info;
 use crate::explorers::{BagContent, Explorer};
 use crate::explorers::hardware_accelerated::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver};
 use crate::explorers::hardware_accelerated::{OrchestratorCommunicator, PlanetsCommunicator};
@@ -79,6 +79,7 @@ impl Explorer for HardwareAcceleratedExplorer {
             let msg = self.orchestrator_communicator.recv()?;
             self.handle_orchestrator_message(msg)?
         } {} // no do while :(
+        info!("Explorer {} terminating gracefully.", self.id);
         Ok(())
     }
 }
