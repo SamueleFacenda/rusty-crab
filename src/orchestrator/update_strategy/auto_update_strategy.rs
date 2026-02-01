@@ -26,10 +26,10 @@ impl AutoUpdateStrategy<'_> {
     }
 
     fn execute_cycle(&mut self) -> Result<(), String> {
-        self.explorers_not_passed = self.state.explorers.keys().copied().collect();
-
         self.send_sunrays()?;
         self.send_asteroids()?;
+
+        self.explorers_not_passed = self.state.explorers.keys().copied().collect();
         self.send_bag_content_requests()?;
 
         while !self.explorers_not_passed.is_empty() {
