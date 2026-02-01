@@ -6,7 +6,7 @@ mod orchestrator;
 pub(crate) use gui::{assets, events, game};
 use orchestrator::{Orchestrator, OrchestratorMode};
 
-use crate::explorers::{ExplorerBuilder, ExplorerFactory};
+use crate::explorers::ExplorerFactory;
 use crate::gui::run_gui;
 
 fn init() {
@@ -28,9 +28,7 @@ fn main() {
     let config = app::AppConfig::get();
 
     if config.show_gui {
-        run_gui().unwrap_or_else(|e| {
-            log::error!("GUI terminated with error: {e}");
-        });
+        run_gui();
         return;
     }
 

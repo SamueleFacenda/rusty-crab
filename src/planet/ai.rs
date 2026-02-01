@@ -102,7 +102,7 @@ impl PlanetAI for RustyCrabPlanetAI {
         match msg {
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } =>
                 Some(PlanetToExplorer::AvailableEnergyCellResponse {
-                    available_cells: if state.full_cell().is_some() { 1 } else { 0 }
+                    available_cells: u32::from(state.full_cell().is_some())
                 }),
             ExplorerToPlanet::SupportedResourceRequest { .. } =>
                 Some(PlanetToExplorer::SupportedResourceResponse { resource_list: generator.all_available_recipes() }),

@@ -16,7 +16,7 @@ use crate::orchestrator::{Galaxy, PlanetFactory, PlanetType};
 pub(crate) struct GalaxyBuilder {
     fully_connected: bool,
     circular: bool,
-    n_planets: usize,
+    n_planets: u32,
     explorers: Vec<Box<dyn ExplorerBuilder>>,
     explorer_to_orchestrator:
         (Sender<ExplorerToOrchestrator<BagContent>>, Receiver<ExplorerToOrchestrator<BagContent>>),
@@ -72,7 +72,7 @@ impl GalaxyBuilder {
     #[allow(dead_code)] // not currently used but still useful
     pub fn with_circular_topology(self) -> Self { GalaxyBuilder { circular: true, ..self } }
 
-    pub fn with_n_planets(self, n: usize) -> Self { GalaxyBuilder { n_planets: n, ..self } }
+    pub fn with_n_planets(self, n: u32) -> Self { GalaxyBuilder { n_planets: n, ..self } }
 
     pub fn with_explorers(self, explorers: Vec<Box<dyn ExplorerBuilder>>) -> Self {
         GalaxyBuilder { explorers, ..self }
@@ -173,7 +173,7 @@ impl GalaxyBuilder {
 
     #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn get_explorer_ids(&self) -> Vec<ID> {
-        (self.n_planets + 1..=(self.n_planets + self.explorers.len())).map(|i| i as ID).collect()
+        (self.n_planets as usize + 1..=(self.n_planets as usize + self.explorers.len())).map(|i| i as ID).collect()
     }
 }
 

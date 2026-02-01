@@ -3,6 +3,7 @@ use crate::app::AppConfig;
 pub(crate) struct ProbabilityCalculator;
 
 impl ProbabilityCalculator {
+    #[allow(clippy::cast_precision_loss)] // time will never be that big
     pub(crate) fn get_asteroid_probability(time: u32) -> f32 {
         // A sigmoid function that starts with y=initial_asteroid_probability
         let p_start = AppConfig::get().initial_asteroid_probability;
