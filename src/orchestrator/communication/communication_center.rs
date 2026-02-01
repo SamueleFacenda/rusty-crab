@@ -1,6 +1,7 @@
 use common_game::utils::ID;
 use std::collections::HashMap;
-
+use common_game::protocols::planet_explorer::ExplorerToPlanet;
+use crossbeam_channel::Sender;
 use crate::orchestrator::communication::channel_demultiplexer::ChannelDemultiplexer;
 use crate::orchestrator::communication::logging_channel::{ActorMarker, ExplorerMarker, LoggingSender, PlanetMarker};
 
@@ -49,8 +50,8 @@ impl<A: ActorMarker> CommunicationCenter<A> {
         })? // Flatten the Result<Result<...>>
     }
 
-    /// Same as planet_req_ack but doesn't require &mut self. Doesn't buffer messages.
-    /// May lead to lost messages if another planet sends a message while waiting for the response.
+    /// Same asreq_ack but doesn't require &mut self. Doesn't buffer messages.
+    /// May lead to lost messages if another actor sends a message while waiting for the response.
     pub fn riskier_req_ack(
         &self,
         id: ID,
@@ -70,7 +71,7 @@ impl<A: ActorMarker> CommunicationCenter<A> {
                 }
                 if A::RecvMsgKind::from(&res) != expected {
                     return Err(format!(
-                        "Expected {} {id} to respond with {expected:?}, but got {res:?}"
+                        "Expected {} {id} to respond with {expected:?}, but got {res:?}",
                         A::get_name()
                     ));
                 }
@@ -89,6 +90,8 @@ impl<A: ActorMarker> CommunicationCenter<A> {
         self.rx.recv_from(id)
     }
 }
+
+
 
 pub(crate) type PlanetCommunicationCenter = CommunicationCenter<PlanetMarker>;
 pub(crate) type ExplorerCommunicationCenter = CommunicationCenter<ExplorerMarker>;

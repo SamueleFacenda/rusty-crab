@@ -126,9 +126,11 @@ impl ManualUpdateStrategy<'_> {
             ));
         }
 
-        self.notify_planet_incoming_explorer(explorer_id, dst_planet_id)?;
-        self.notify_planet_explorer_left(explorer_id, current_planet_id)?;
-        self.notify_explorer_successful_movement(explorer_id, dst_planet_id)?;
+        let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
+        self.state.planets_communication_center.notify_planet_incoming_explorer(explorer_id, dst_planet_id, new_sender)?;
+        self.state.planets_communication_center.notify_planet_explorer_left(explorer_id, current_planet_id)?;
+        let new_sender = self.state.planets[&dst_planet_id].tx_explorer.clone();
+        self.state.explorers_communication_center.notify_explorer_successful_movement(explorer_id, dst_planet_id, new_sender)?;
 
         // Update internal state
         self.state
@@ -137,98 +139,6 @@ impl ManualUpdateStrategy<'_> {
             .unwrap()  // It is checked above that the explorer exists
             .current_planet = dst_planet_id;
 
-        Ok(())
-    }
-
-    fn notify_planet_incoming_explorer(
-        &mut self,
-        explorer_id: ID,
-        dst_planet_id: ID,
-    ) -> Result<(), String> {
-        let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
-        let (_, accepted_explorer_id, res) = self.state
-            .planets_communication_center
-            .req_ack(
-                dst_planet_id,
-                OrchestratorToPlanet::IncomingExplorerRequest {
-                    explorer_id,
-                    new_sender,
-                },
-                PlanetToOrchestratorKind::IncomingExplorerResponse,
-            )?
-            .into_incoming_explorer_response()
-            .unwrap(); // Unwrap is safe due to expected kind
-
-        if res.is_err() {
-            return Err(format!(
-                "Planet {dst_planet_id} failed to accept incoming explorer {explorer_id}: {}",
-                res.err().unwrap()
-            ));
-        }
-
-        if accepted_explorer_id != explorer_id {
-            return Err(format!(
-                "Planet {dst_planet_id} accepted incoming explorer {accepted_explorer_id}, but was expected to accept explorer {explorer_id}"
-            ));
-        }
-        Ok(())
-    }
-
-    fn notify_planet_explorer_left(
-        &mut self,
-        explorer_id: ID,
-        current_planet_id: ID,
-    ) -> Result<(), String> {
-        let (_, left_explorer_id, res) = self.state
-            .planets_communication_center
-            .req_ack(
-                current_planet_id,
-                OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id },
-                PlanetToOrchestratorKind::OutgoingExplorerResponse,
-            )?
-            .into_outgoing_explorer_response()
-            .unwrap(); // Unwrap is safe due to expected kind
-
-        if res.is_err() {
-            return Err(format!(
-                "Planet {current_planet_id} failed to confirm outgoing explorer {explorer_id}: {}",
-                res.err().unwrap()
-            ));
-        }
-
-        if left_explorer_id != explorer_id {
-            return Err(format!(
-                "Planet {current_planet_id} confirmed outgoing explorer {left_explorer_id}, but was expected to confirm explorer {explorer_id}"
-            ));
-        }
-        Ok(())
-    }
-
-    fn notify_explorer_successful_movement(
-        &mut self,
-        explorer_id: ID,
-        planet_id: ID,
-    ) -> Result<(), String> {
-        let sender_to_new_planet = Some(self.state.planets[&planet_id].tx_explorer.clone());
-        let new_planet_id = self.state
-            .explorers_communication_center
-            .req_ack(
-                explorer_id,
-                OrchestratorToExplorer::MoveToPlanet {
-                    sender_to_new_planet: sender_to_new_planet.clone(),
-                    planet_id,
-                },
-                ExplorerToOrchestratorKind::MovedToPlanetResult,
-            )?
-            .into_moved_to_planet_result()
-            .unwrap()
-            .1; // Unwrap is safe due to expected kind
-
-        if new_planet_id != planet_id {
-            return Err(format!(
-                "Explorer {explorer_id} moved to planet {new_planet_id}, but was expected to move to planet {planet_id}"
-            ));
-        }
         Ok(())
     }
 
