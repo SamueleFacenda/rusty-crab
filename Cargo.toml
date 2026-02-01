@@ -7,6 +7,8 @@ readme = false
 description = "The rusty crab group module, used in the unitn ap2025 class. It contains the planet definition."
 license = "CC-BY-NC-ND-4.0"
 
+exclude = ["src/main.rs"]
+
 [dependencies]
 common-game = "3.0.0"
 crossbeam-channel = "0.5.15"
