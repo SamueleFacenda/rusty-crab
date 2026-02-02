@@ -21,9 +21,10 @@ impl GuiEventBuffer {
 
     pub fn asteroid_sent(&mut self, planet_id: ID) { self.buffer.push(OrchestratorEvent::AsteroidSent { planet_id }); }
 
-    pub fn explorer_moved(&mut self, origin: ID, destination: ID) {
-        self.buffer.push(OrchestratorEvent::ExplorerMoved { origin, destination });
+    pub fn explorer_moved(&mut self, explorer_id: ID, destination: ID) {
+        self.buffer.push(OrchestratorEvent::ExplorerMoved { explorer_id, destination });
     }
 
     pub fn drain_events(&mut self) -> Vec<OrchestratorEvent> { std::mem::take(&mut self.buffer) }
+    pub fn has_events(&self) -> bool { !self.buffer.is_empty() }
 }
