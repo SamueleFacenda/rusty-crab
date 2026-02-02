@@ -4,9 +4,9 @@ use std::rc::Rc;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
 
 use super::{GlobalTask, get_resource_recipe};
-use crate::explorers::hardware_accelerated::Bag;
-use crate::explorers::hardware_accelerated::planning::local::LocalTask::{Generate, Produce};
-use crate::explorers::hardware_accelerated::planning::local::TaskTree::Leaf;
+use crate::explorers::samufaz::Bag;
+use crate::explorers::samufaz::planning::local::LocalTask::{Generate, Produce};
+use crate::explorers::samufaz::planning::local::TaskTree::Leaf;
 
 #[derive(Clone, Debug)]
 pub(crate) enum LocalTask {

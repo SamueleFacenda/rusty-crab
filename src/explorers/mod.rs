@@ -3,13 +3,13 @@
 
 mod example;
 mod explorer;
-mod hardware_accelerated;
+mod samufaz;
 
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
 pub(crate) type ExampleExplorerBuilder = explorer::ExplorerBuilderImpl<example::ExampleExplorer>;
-pub(crate) type HardwareAcceleratedExplorerBuilder =
-    explorer::ExplorerBuilderImpl<hardware_accelerated::HardwareAcceleratedExplorer>;
+pub(crate) type SamuFazExplorerBuilder =
+    explorer::ExplorerBuilderImpl<samufaz::SamuFazExplorer>;
 
 pub(crate) struct ExplorerFactory;
 
@@ -18,7 +18,7 @@ impl ExplorerFactory {
         #[allow(clippy::single_match_else)] // more explorers are added in personal branches
         match type_name.to_ascii_lowercase().as_str() {
             "example" => Box::new(ExampleExplorerBuilder::new()),
-            "hardware_accelerated" => Box::new(HardwareAcceleratedExplorerBuilder::new()),
+            "samufaz" => Box::new(SamuFazExplorerBuilder::new()),
             _ => {
                 log::warn!("Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer.");
                 Box::new(ExampleExplorerBuilder::new())

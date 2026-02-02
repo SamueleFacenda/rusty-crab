@@ -9,7 +9,7 @@ use log::info;
 use super::{Bag, GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
             PlanetLoggingReceiver, PlanetLoggingSender, PlanetsCommunicator, ProbabilityEstimator,
             get_resource_request};
-use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
+use crate::explorers::samufaz::round_executor::RoundExecutor;
 use crate::explorers::{BagContent, Explorer};
 
 // DTO for the explorer's state
@@ -21,7 +21,7 @@ pub(super) struct ExplorerState {
     pub sunray_probability_estimator: ProbabilityEstimator
 }
 
-pub struct HardwareAcceleratedExplorer {
+pub struct SamuFazExplorer {
     id: ID,
     stopped: bool,
 
@@ -31,7 +31,7 @@ pub struct HardwareAcceleratedExplorer {
     planets_communicator: PlanetsCommunicator
 }
 
-impl Explorer for HardwareAcceleratedExplorer {
+impl Explorer for SamuFazExplorer {
     fn new(
         id: ID,
         current_planet: ID,
@@ -40,7 +40,7 @@ impl Explorer for HardwareAcceleratedExplorer {
         tx_current_planet: Sender<ExplorerToPlanet>,
         rx_planet: Receiver<PlanetToExplorer>
     ) -> Self {
-        HardwareAcceleratedExplorer {
+        SamuFazExplorer {
             id,
             stopped: false,
             state: ExplorerState {
@@ -74,7 +74,7 @@ impl Explorer for HardwareAcceleratedExplorer {
     }
 }
 
-impl HardwareAcceleratedExplorer {
+impl SamuFazExplorer {
     fn wait_for_start(&mut self) -> Result<(), String> {
         let msg = self.orchestrator_communicator.recv()?;
         if !msg.is_start_explorer_ai() {

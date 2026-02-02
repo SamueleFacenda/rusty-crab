@@ -10,7 +10,7 @@ use bag::Bag;
 use communication::{OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
                     PlanetLoggingReceiver, PlanetLoggingSender, PlanetsCommunicator};
 use explorer::ExplorerState;
-pub(crate) use explorer::HardwareAcceleratedExplorer;
+pub(crate) use explorer::SamuFazExplorer;
 use galaxy_knowledge::GalaxyKnowledge;
 use planning::{GlobalPlanner, LocalPlanner, LocalTask, get_resource_recipe, get_resource_request};
 use probability_estimator::ProbabilityEstimator;
