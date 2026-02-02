@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::thread::current;
-use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType, GenericResource, Oxygen, ResourceType};
+use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceRequest, ComplexResourceType, GenericResource, Oxygen, ResourceType};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
@@ -49,6 +49,35 @@ impl Default for Bag {
         Bag {
             basic_resources: Vec::new(),
             complex_resources: Vec::new()
+        }
+    }
+}
+
+impl Bag {
+    fn get_basic(&mut self, target_type: BasicResourceType) -> Option<BasicResource> {
+        if let Some(index) = self.basic_resources.iter()
+            .position(|res| res.get_type() == target_type){
+            return Some(self.basic_resources.remove(index))
+        }
+        None
+    }
+
+    fn get_complex(&mut self, target_type: ComplexResourceType) -> Option<ComplexResource> {
+        if let Some(index) = self.complex_resources.iter()
+            .position(|res| res.get_type() == target_type){
+            return Some(self.complex_resources.remove(index))
+        }
+        None
+    }
+
+    fn push_generic(&mut self, resource: GenericResource) {
+        match resource {
+            GenericResource::BasicResources(value) => {
+                self.basic_resources.push(value);
+            },
+            GenericResource::ComplexResources(value ) => {
+                self.complex_resources.push(value);
+            }
         }
     }
 }
@@ -130,6 +159,21 @@ impl CettoExplorer {
                 self.mode = ExplorerMode::Killed;
                 self.tx_orchestrator.send(ExplorerToOrchestrator::KillExplorerResult {explorer_id: self.id })
             },
+            OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id } => {
+                // Update current_planet_id and its tx_planet, then respond.
+                // If the new sender is None, stay on the same planet
+                if let Some(tx_new_planet) = sender_to_new_planet {
+                    self.current_planet_id = planet_id;
+                    if !self.tx_planets.contains_key(&planet_id) {
+                        self.tx_planets.insert(planet_id, PlanetLoggingSender::new(tx_new_planet, self.id, planet_id));
+                    }
+                }
+                // Do nothing if the sender is None, just respond to the orch
+
+                self.tx_orchestrator.send(
+                    ExplorerToOrchestrator::MovedToPlanetResult { explorer_id: self.id, planet_id: self.current_planet_id }
+                )
+            },
             OrchestratorToExplorer::CurrentPlanetRequest => {
                 self.tx_orchestrator.send(ExplorerToOrchestrator::CurrentPlanetResult {
                     explorer_id: self.id,
@@ -186,6 +230,39 @@ impl CettoExplorer {
                 )
             },
             OrchestratorToExplorer::CombineResourceRequest { to_generate} => {
+                let comp_res_req = match to_generate {
+                    ComplexResourceType::Water => { self.make_water_request()? },
+                    ComplexResourceType::Diamond => {self.make_diamond_request()? },
+                    ComplexResourceType::Life => {self.make_life_request()? },
+                    ComplexResourceType::Robot => {self.make_robot_request()? },
+                    ComplexResourceType::Dolphin => {self.make_dolphin_request()? },
+                    ComplexResourceType::AIPartner => {self.make_aipartner_request()? },
+                };
+                // Send request to Planet
+                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::CombineResourceRequest {
+                    explorer_id: self.id,
+                    msg: comp_res_req
+                })?;
+
+                // Process response from Planet
+                let planet_response = self.rx_planet.recv()
+                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
+                    .into_combine_resource_response()?;
+                match planet_response {
+                    Ok(successful_response) => {
+                        self.bag.complex_resources.push(successful_response);
+                    },
+                    Err((err, res1, res2)) => {
+                        // Add old resources to the bag, and return error
+                        self.bag.push_generic(res1);
+                        self.bag.push_generic(res2);
+                        return Err(format!("The combination has failed: {err}"))
+                    }
+                }
+
+                // Respond to Orchestrator
+                self.tx_orchestrator.send(ExplorerToOrchestrator::CombineResourceResponse {explorer_id: self.id, generated: Ok(()) })
+
 
             },
             OrchestratorToExplorer::BagContentRequest => {
@@ -197,21 +274,6 @@ impl CettoExplorer {
                     self.knowledge.add_bi_connection(self.current_planet_id, neighbor_id);
                 }
                 Ok(())
-            },
-            OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id } => {
-                // Update current_planet_id and its tx_planet, then respond.
-                // If the new sender is None, stay on the same planet
-                if let Some(tx_new_planet) = sender_to_new_planet {
-                    self.current_planet_id = planet_id;
-                    if !self.tx_planets.contains_key(&planet_id) {
-                        self.tx_planets.insert(planet_id, PlanetLoggingSender::new(tx_new_planet, self.id, planet_id));
-                    }
-                }
-                // Do nothing if the sender is None, just respond to the orch
-
-                self.tx_orchestrator.send(
-                    ExplorerToOrchestrator::MovedToPlanetResult { explorer_id: self.id, planet_id: self.current_planet_id }
-                )
             },
         }
     }
@@ -228,4 +290,93 @@ impl CettoExplorer {
         // }
         Ok(())
     }
+
+    fn make_water_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_basic(BasicResourceType::Hydrogen);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_basic(BasicResourceType::Oxygen);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.basic_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::Water(res1.unwrap().to_hydrogen()?, res2.unwrap().to_oxygen()?))
+    }
+
+    fn make_diamond_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_basic(BasicResourceType::Carbon);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_basic(BasicResourceType::Carbon);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.basic_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::Diamond(res1.unwrap().to_carbon()?, res2.unwrap().to_carbon()?))
+    }
+
+    fn make_life_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_complex(ComplexResourceType::Water);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_basic(BasicResourceType::Carbon);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.complex_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::Life(res1.unwrap().to_water()?, res2.unwrap().to_carbon()?))
+    }
+
+    fn make_robot_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_basic(BasicResourceType::Silicon);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_complex(ComplexResourceType::Life);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.basic_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::Robot(res1.unwrap().to_silicon()?, res2.unwrap().to_life()?))
+    }
+
+    fn make_dolphin_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_complex(ComplexResourceType::Water);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_complex(ComplexResourceType::Life);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.complex_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::Dolphin(res1.unwrap().to_water()?, res2.unwrap().to_life()?))
+    }
+
+    fn make_aipartner_request(&mut self) -> Result<ComplexResourceRequest, String>{
+        let res1 = self.bag.get_complex(ComplexResourceType::Robot);
+        if res1.is_none() {
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        let res2 = self.bag.get_complex(ComplexResourceType::Diamond);
+        if res2.is_none() {
+            // First resource is Some, put it back in the Bag
+            self.bag.complex_resources.push(res1.unwrap());
+            return Err("Combination not possible, missing ingredient".to_string());
+        }
+        Ok(ComplexResourceRequest::AIPartner(res1.unwrap().to_robot()?, res2.unwrap().to_diamond()?))
+    }
+
+
+
+
+
 }
