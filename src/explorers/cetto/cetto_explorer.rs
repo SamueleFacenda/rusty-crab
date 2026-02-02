@@ -79,10 +79,10 @@ impl Bag {
     fn generate_bag_content_hashmap(&self) -> HashMap<ResourceType, usize> {
         let mut output: HashMap<ResourceType, usize> = HashMap::new();
 
-        for basic in self.basic_resources {
+        for basic in &self.basic_resources {
             *output.entry(ResourceType::Basic(basic.get_type())).or_insert(0) += 1;
         }
-        for complex in self.complex_resources {
+        for complex in &self.complex_resources {
             *output.entry(ResourceType::Complex(complex.get_type())).or_insert(0) += 1;
         }
         output
@@ -90,7 +90,7 @@ impl Bag {
 
     fn has_basic(&self, typ: BasicResourceType, target_count: i32) -> bool {
         let mut count = 0;
-        for el in self.basic_resources {
+        for el in &self.basic_resources {
             if el.get_type() == typ {
                 count += 1;
             }
@@ -100,7 +100,7 @@ impl Bag {
 
     fn has_complex(&self, typ: ComplexResourceType, target_count: i32) -> bool {
         let mut count = 0;
-        for el in self.complex_resources {
+        for el in &self.complex_resources {
             if el.get_type() == typ {
                 count += 1;
             }
@@ -115,8 +115,8 @@ impl Explorer for CettoExplorer {
         current_planet_id: ID,
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
-        rx_planet: Receiver<PlanetToExplorer>,
-        tx_first_planet: Sender<ExplorerToPlanet>
+        tx_first_planet: Sender<ExplorerToPlanet>,
+        rx_planet: Receiver<PlanetToExplorer>
     ) -> Self {
         let mut tx_planets = HashMap::new();
         let tx_first_planet = PlanetLoggingSender::new(tx_first_planet, id, current_planet_id);
@@ -127,7 +127,7 @@ impl Explorer for CettoExplorer {
             mode: ExplorerMode::Auto,
             rx_orchestrator: OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0),
             tx_orchestrator: OrchestratorLoggingSender::new(tx_orchestrator, id, 0),
-            rx_planet: PlanetLoggingReceiver::new(rx_planet, id, 1),
+            rx_planet: PlanetLoggingReceiver::new( rx_planet, id, 1),
             tx_planets,
             bag: Bag::default(),
             knowledge: ExplorerKnowledge::default()
@@ -273,8 +273,8 @@ impl CettoExplorer {
 
         let save_current_planet_id = self.current_planet_id;
 
-        for neighbor in self.knowledge.galaxy.connections[self.current_planet_id] {
-            if !visited.contains(neighbor) {
+        for neighbor in self.knowledge.galaxy.connections[&self.current_planet_id].iter().copied().collect::<Vec<ID>>() {
+            if !visited.contains(&neighbor) {
                 self.move_explorer(neighbor)?;
                 self.dfs(visited)?;
                 self.move_explorer(save_current_planet_id)?;
@@ -462,7 +462,7 @@ impl CettoExplorer {
         let data = planet_response.into_generate_resource_response().unwrap();
         let explorer_response = if let Some(res) = data {
             self.knowledge.decrease_from_goal(ResourceType::Basic(res.get_type()));
-            self.bag.basic_resources.push(*res);
+            self.bag.basic_resources.push(res);
 
             Ok(())
         } else {
