@@ -279,15 +279,32 @@ impl CettoExplorer {
             return Ok(());
         }
 
-        // CASE 2: Visit all reachable planets and exploit them
-
         let mut visited = HashSet::new();
-        visited.insert(self.current_planet_id);
-        self.exploit_current_planet()?;
+        self.dfs(&mut visited)?;
+
 
 
 
         // self.move_safest_planet();
+        Ok(())
+    }
+
+    fn dfs(&mut self, visited: &mut HashSet<ID>) -> Result<(), String>{
+        // Visits all planets and takes the resources
+
+        visited.insert(self.current_planet_id);
+        self.exploit_current_planet()?;
+        self.request_neighbors()?;
+
+        let save_current_planet_id = self.current_planet_id;
+
+        for neighbor in self.knowledge.galaxy.connections[self.current_planet_id] {
+            if !visited.contains(neighbor) {
+                self.move_explorer(neighbor)?;
+                self.dfs(visited)?;
+                self.move_explorer(save_current_planet_id)?;
+            }
+        }
         Ok(())
     }
 

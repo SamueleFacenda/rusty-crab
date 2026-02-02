@@ -4,7 +4,7 @@ use common_game::components::resource::{BasicResource, BasicResourceType, Comple
 use common_game::utils::ID;
 
 pub struct ExplorerKnowledge {
-    galaxy: GalaxyInfo,
+    pub galaxy: GalaxyInfo,
     planets: HashMap<ID, PlanetInfo>,
     goal: HashMap<ResourceType, i32>  // All the resources he needs to Mine&Craft
 }
@@ -72,7 +72,7 @@ struct PlanetInfo {
     is_destroyed: bool
 }
 struct GalaxyInfo{
-    connections: HashMap<ID, HashSet<ID>>
+    pub connections: HashMap<ID, HashSet<ID>>
 }
 
 impl PlanetInfo {
