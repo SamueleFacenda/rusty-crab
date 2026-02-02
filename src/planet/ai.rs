@@ -11,7 +11,6 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 /// The `RustyCrab` Planet AI, a defensive, reliable and versatile planet.
 pub struct RustyCrabPlanetAI {
     // Alternatively can be named just "AI" as in the docs
-    //TODO!
 }
 
 impl PlanetAI for RustyCrabPlanetAI {
@@ -97,7 +96,6 @@ impl PlanetAI for RustyCrabPlanetAI {
         combinator: &Combinator,
         msg: ExplorerToPlanet
     ) -> Option<PlanetToExplorer> {
-        // TODO: add that if the planet is stopped, return PlanetToExplorer::Stopped;
 
         match msg {
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } =>
