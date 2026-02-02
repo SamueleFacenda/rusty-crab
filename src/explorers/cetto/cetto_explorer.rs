@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::thread::current;
 use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType, GenericResource, Oxygen, ResourceType};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
@@ -8,6 +9,7 @@ use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::explorers::{BagContent, Explorer};
+use crate::explorers::cetto::explorator_channel::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
 use crate::explorers::cetto::knowledge::ExplorerKnowledge;
 
 pub struct CettoExplorer {
@@ -18,10 +20,10 @@ pub struct CettoExplorer {
     mode: ExplorerMode,
 
     // Communication Channels
-    rx_orchestrator: Receiver<OrchestratorToExplorer>,
-    tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
-    tx_planet: Option<Sender<ExplorerToPlanet>>,
-    rx_planet: Receiver<PlanetToExplorer>,
+    rx_orchestrator: OrchestratorLoggingReceiver,
+    tx_orchestrator: OrchestratorLoggingSender,
+    rx_planet: PlanetLoggingReceiver,
+    tx_planets: HashMap<ID, PlanetLoggingSender>,  // To communicate with all planets
 
     // Resources
     bag: Bag,
@@ -30,10 +32,10 @@ pub struct CettoExplorer {
     knowledge: ExplorerKnowledge,
 }
 
+#[derive(PartialEq)]
 enum ExplorerMode {
     Auto,
     Manual,
-    Stopped,
     Killed,
 }
 
@@ -45,8 +47,8 @@ struct Bag {
 impl Default for Bag {
     fn default() -> Self {
         Bag {
-            basic_resources: vec![],
-            complex_resources: vec![]
+            basic_resources: Vec::new(),
+            complex_resources: Vec::new()
         }
     }
 }
@@ -56,20 +58,23 @@ impl Default for Bag {
 impl Explorer for CettoExplorer {
     fn new(
         id: ID,
-        current_planet: ID,
+        current_planet_id: ID,
         rx_orchestrator: Receiver<OrchestratorToExplorer>,
         tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
-        tx_current_planet: Sender<ExplorerToPlanet>,
         rx_planet: Receiver<PlanetToExplorer>,
+        tx_first_planet: Sender<ExplorerToPlanet>,
     ) -> Self {
+        let mut tx_planets = HashMap::new();
+        let tx_first_planet = PlanetLoggingSender::new(tx_first_planet, id, current_planet_id);
+        tx_planets.insert(current_planet_id, tx_first_planet);
         CettoExplorer {
             id,
-            current_planet_id: current_planet,
+            current_planet_id,
             mode: ExplorerMode::Auto,
-            rx_orchestrator,
-            tx_orchestrator,
-            tx_planet: Some(tx_current_planet),
-            rx_planet,
+            rx_orchestrator: OrchestratorLoggingReceiver::new(rx_orchestrator, id, 0),
+            tx_orchestrator: OrchestratorLoggingSender::new(tx_orchestrator, id, 0),
+            rx_planet: PlanetLoggingReceiver::new(rx_planet, id, 1),
+            tx_planets,
             bag: Bag::default(),
             knowledge: ExplorerKnowledge::default(),
         }
@@ -77,15 +82,18 @@ impl Explorer for CettoExplorer {
 
     fn run(&mut self) -> Result<(), String> {
         loop {
-            match self.rx_orchestrator.recv() {
+            let orch_msg = self.rx_orchestrator.recv();
+
+            match orch_msg {
                 Ok(msg) => {
                     if let Err(e) = self.handle_orchestrator_message(msg) {
                         log::error!("Error handling orchestrator message: {e}");
+                        return Err(e);
                     }
-                }
+                },
                 Err(e) => {
                     log::error!("Error receiving message from orchestrator: {e}");
-                    Err(e.to_string())?;
+                    return Err(e.to_string());
                 }
             }
         }
@@ -94,6 +102,74 @@ impl Explorer for CettoExplorer {
 
 impl CettoExplorer {
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
+        if let Err(e) = self.handle_nonsense_requests(&msg) {
+            return Err(e);
+        }
+
+        match msg {
+            OrchestratorToExplorer::StartExplorerAI => {
+                self.mode = ExplorerMode::Auto;
+                self.tx_orchestrator.send(ExplorerToOrchestrator::StartExplorerAIResult { explorer_id: self.id })
+            },
+            OrchestratorToExplorer::StopExplorerAI => {
+                self.mode = ExplorerMode::Manual;
+                self.tx_orchestrator.send(ExplorerToOrchestrator::StopExplorerAIResult { explorer_id: self.id })
+            },
+            OrchestratorToExplorer::ResetExplorerAI => {
+                // Mode stays the same unless Killed
+                if self.mode == ExplorerMode::Killed {
+                    self.mode = ExplorerMode::Manual;
+                }
+                // Reset bag and knowledge
+                self.bag = Bag::default();
+                self.knowledge = ExplorerKnowledge::default();
+
+                self.tx_orchestrator.send(ExplorerToOrchestrator::ResetExplorerAIResult { explorer_id: self.id })
+            },
+            OrchestratorToExplorer::KillExplorer => {
+                self.mode = ExplorerMode::Killed;
+                self.tx_orchestrator.send(ExplorerToOrchestrator::KillExplorerResult {explorer_id: self.id })
+            },
+            OrchestratorToExplorer::CurrentPlanetRequest => {
+                self.tx_orchestrator.send(ExplorerToOrchestrator::CurrentPlanetResult {
+                    explorer_id: self.id,
+                    planet_id: self.current_planet_id
+                })
+            },
+            OrchestratorToExplorer::SupportedResourceRequest => {
+
+            },
+            OrchestratorToExplorer::SupportedCombinationRequest => {
+
+            },
+            OrchestratorToExplorer::GenerateResourceRequest { to_generate} => {
+
+            },
+            OrchestratorToExplorer::CombineResourceRequest { to_generate} => {
+
+            },
+            OrchestratorToExplorer::BagContentRequest => {
+
+            },
+            OrchestratorToExplorer::NeighborsResponse { neighbors} => {
+
+            },
+            OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id } => {
+
+            },
+        }
+    }
+
+    fn handle_nonsense_requests(&mut self, msg: &OrchestratorToExplorer) -> Result<(), String> {
+        if self.mode == ExplorerMode::Killed && !matches!(msg, OrchestratorToExplorer::ResetExplorerAI) {
+            return Err("Explorer is dead and is requested to do something".to_string());
+        }
+        // if self.mode == ExplorerMode::Auto && matches!(msg, OrchestratorToExplorer::StartExplorerAI){
+        //     return Err("ExplorerAI is already running and is requested to start".to_string());
+        // }
+        // if self.mode == ExplorerMode::Manual && matches!(msg, OrchestratorToExplorer::StopExplorerAI) {
+        //     return Err("ExplorerAI is already stopped and is requested to stop".to_string());
+        // }
         Ok(())
     }
 }

@@ -45,8 +45,8 @@ impl ExplorerKnowledge {
 }
 
 struct PlanetInfo {
-    basic_type: BasicResourceType,
-    complex_type: Some(ComplexResourceType),
+    basic_type: HashSet<BasicResourceType>,
+    complex_type: Option<ComplexResourceType>,
     energy_available: i32,
     is_destroyed: bool
 }
@@ -56,8 +56,8 @@ struct GalaxyInfo{
 
 impl PlanetInfo {
     fn new(
-        basic_type: BasicResourceType,
-        complex_type: ComplexResourceType,
+        basic_type: HashSet<BasicResourceType>,
+        complex_type: Option<ComplexResourceType>,
         energy_available: i32
     ) -> PlanetInfo {
         PlanetInfo {
