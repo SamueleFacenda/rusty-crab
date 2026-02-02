@@ -8,7 +8,7 @@ mod explorers_communication_center;
 mod logging_channel;
 mod planets_communication_center;
 
-pub(crate) use channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
-pub(crate) use communication_center::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
-pub(crate) use logging_channel::{ExplorerLoggingReceiver, ExplorerLoggingSender, PlanetLoggingReceiver,
+pub(super) use channel_demultiplexer::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
+pub(super) use communication_center::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
+pub(super) use logging_channel::{ExplorerLoggingReceiver, ExplorerLoggingSender, PlanetLoggingReceiver,
                                  PlanetLoggingSender};

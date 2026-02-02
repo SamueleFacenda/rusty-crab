@@ -9,7 +9,7 @@ use common_game::utils::ID;
 
 use crate::explorers::BagContent;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
-use crate::orchestrator::{OrchestratorState, ProbabilityCalculator};
+use crate::orchestrator::{OrchestratorManualAction, OrchestratorState, ProbabilityCalculator};
 
 pub(crate) struct AutoUpdateStrategy<'a> {
     explorers_not_passed: HashSet<ID>, // explorers that have not passed the turn yet
@@ -91,13 +91,14 @@ impl AutoUpdateStrategy<'_> {
 
     fn process_explorer_message(
         &mut self,
-        planet_id: ID,
+        explorer_id: ID,
         response: ExplorerToOrchestrator<BagContent>
     ) -> Result<(), String> {
         match response {
-            ExplorerToOrchestrator::BagContentResponse { explorer_id: _explorer_id, bag_content } => {
-                log::info!("Received bag content from explorer {planet_id}: {bag_content:?}");
-                self.explorers_not_passed.remove(&planet_id);
+            ExplorerToOrchestrator::BagContentResponse { explorer_id: _, bag_content } => {
+                log::info!("Received bag content from explorer {explorer_id}: {bag_content:?}");
+                self.explorers_not_passed.remove(&explorer_id);
+                self.state.explorer_bags.insert(explorer_id, bag_content);
                 Ok(())
             }
             ExplorerToOrchestrator::NeighborsRequest { explorer_id, current_planet_id } =>
@@ -105,7 +106,7 @@ impl AutoUpdateStrategy<'_> {
             ExplorerToOrchestrator::TravelToPlanetRequest { explorer_id, current_planet_id, dst_planet_id } =>
                 self.handle_travel_request(explorer_id, current_planet_id, dst_planet_id),
 
-            other => Err(format!("Unexpected response from explorer {planet_id}: {other:?}"))
+            other => Err(format!("Unexpected response from explorer {explorer_id}: {other:?}"))
         }
     }
 
@@ -186,8 +187,8 @@ impl AutoUpdateStrategy<'_> {
 impl OrchestratorUpdateStrategy for AutoUpdateStrategy<'_> {
     fn update(&mut self) -> Result<(), String> { self.execute_cycle() }
 
-    fn process_commands(&mut self) -> Result<(), String> {
-        log::warn!("AutoUpdateStrategy does not process commands");
+    fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String> {
+        log::warn!("AutoUpdateStrategy does not process commands: {command:?}");
         Ok(())
     }
 }

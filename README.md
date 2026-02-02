@@ -1,5 +1,11 @@
 # Rusty Crab advanced programming project
 
+## Run
+Use `cargo run` to execute the project. Inspect the available options
+with `cargu run -- -help`. You can supply a config file with
+`cargo run -- -c config.toml`, the default one is 
+available [here](./default_config.toml).
+
 ## Environment setup
 You can use [nix](https://nixos.org/explore/) to setup a developement environment, better with direnv.
 Just run `nix develop` to enter a shell with all the requirements available, or `nix build` to build
@@ -16,16 +22,17 @@ of the phases in a single turn:
 sequenceDiagram
     participant O as Orchestrator
     participant E as Explorer
+    participant P as Planet
     
     loop until there are alive planets
-        O->>+E: Sunray
-        E->>-O: Sunray Ack
-        O->>+E: Asteroid
-        E->>-O: Asteroid Ack
+        O->>+P: Sunray
+        P->>-O: Sunray Ack
+        O->>+P: Asteroid
+        P->>-O: Asteroid Ack
         
         O->>+E: BagContentRequest
         
-        Note over O, E: core turn actions (e.g. resource creation)
+        Note over O, P: core turn actions (e.g. resource creation)
         
         E->>-O: BagContentResponse
         
