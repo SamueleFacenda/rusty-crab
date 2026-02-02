@@ -9,7 +9,7 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 use std::collections::HashMap;
-use crate::explorers::allegory::explorer::ExplorerMode::Auto;
+use crate::explorers::allegory::explorer::ExplorerMode::{Auto, Retired};
 
 impl Explorer for AllegoryExplorer {
     fn new(
@@ -69,15 +69,14 @@ impl Explorer for AllegoryExplorer {
         loop {
             // Exit condition
             match self.mode {
-                ExplorerMode::Killed => {
-                    emit_info(self.id, "Explorer killed".to_string());
-                    break;
-                },
-                ExplorerMode::Retired => {
-                    emit_info(self.id, "Explorer killed".to_string());
+                ExplorerMode::Killed |  ExplorerMode::Retired => {
                     break;
                 },
                 _ => {}
+            }
+            if self.verify_win() {
+                self.mode = Retired;
+                break;
             }
             
             // Check for orchestrator commands first

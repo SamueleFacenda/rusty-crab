@@ -1,3 +1,4 @@
+use common_game::components::resource::ResourceType;
 use crate::explorers::BagContent;
 use crate::explorers::allegory::{knowledge::StrategyState::*, logging::emit_warning};
 use crate::explorers::allegory::knowledge::StrategyState;
@@ -15,6 +16,8 @@ impl AllegoryExplorer {
     pub fn run_loop(&mut self) -> Result<(), String> {
         self.explore();
         let n = self.knowledge.get_explored_planets().len();
+        // self.trivial_collecting()?;
+        // self.trivial_crafting()?;
         self.perform_next_step();
         self.go_to_safe_planet();
         self.conclude_turn()?;
@@ -107,13 +110,18 @@ impl AllegoryExplorer {
                 }
             },
             Crafting => {
-                if let Err(e) = self.execute_crafting() {
+                if let Err(e) = self.trivial_crafting() {
                     emit_warning(self.id, format!("Recoverable error in crafting strategy: {}", e));
                 }
             },
             Finished => {},
             Failed => {},
         }
+        if self.anything_left_on_the_shopping_list().is_none() {
+            emit_info(self.id, "Collected all basic resources".to_string());
+            self.change_state(Crafting);
+        }
+        
     }
 
     fn execute_collecting(&mut self) -> Result<(), String> {
@@ -200,8 +208,22 @@ impl AllegoryExplorer {
         Ok(())
     }
 
+    /// Easier version of collecting since the other one does not work
     fn trivial_collecting(&mut self) -> Result<(), String> {
+        let bag_content = BagContent::from_bag(&self.bag);
+        
         for resource in self.simple_resources_task.clone(){
+            // Check if we already have enough of this resource
+            let owned_count = bag_content
+                .content
+                .get(&ResourceType::Basic(resource.0))
+                .copied()
+                .unwrap_or(0);
+            
+            if owned_count >= resource.1 {
+                continue; // Skip if we have enough
+            }
+            
             match self.find_best_planet_for_resource(resource.0){
                 Some(planet) => {
                     self.move_to_planet(planet)?;
@@ -215,6 +237,31 @@ impl AllegoryExplorer {
         }
         Ok(())
     }
+
+    fn trivial_crafting(&mut self) -> Result<(), String> {
+    for resource in self.task.clone() {
+        match resource.0 {
+            ResourceType::Basic(_) => {}
+            ResourceType::Complex(complex_res) => {
+                // Find best planet for this combination
+                match self.find_best_planet_for_combination(complex_res) {
+                    Some(planet) => {
+                        self.move_to_planet(planet)?;
+                        if self.knowledge.get_planet_knowledge(self.current_planet_id).unwrap().get_latest_cells_number() <= 1 {
+                            continue;
+                        }
+                        // Attempt to combine the resource
+                        if let Err(e) = self.combine_resource(complex_res) {
+                            emit_warning(self.id, format!("Error combining resource: {}", e));
+                        }
+                    }
+                    None => continue,
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
     fn execute_crafting(&mut self) -> Result<(), String> {
         if self.verify_win() {
@@ -261,6 +308,24 @@ impl AllegoryExplorer {
         }
     }
     
+    fn verify_simple_resources_collected(&self) -> bool {
+        let bag_content = BagContent::from_bag(&self.bag);
+        
+        for (resource_type, &required_count) in &self.simple_resources_task {
+            let owned_count = bag_content
+                .content
+                .get(&ResourceType::Basic(*resource_type))
+                .copied()
+                .unwrap_or(0);
+            
+            if owned_count < required_count {
+                return false;
+            }
+        }
+        
+        true
+    }
+
     // Blocking Helpers
     fn gather_resource(&mut self, res: common_game::components::resource::BasicResourceType) -> Result<bool, String> {
         self.request_resource_generation(res);
