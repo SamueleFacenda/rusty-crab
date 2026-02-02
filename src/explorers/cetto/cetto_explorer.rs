@@ -194,19 +194,7 @@ impl CettoExplorer {
                 self.tx_orchestrator.send(ExplorerToOrchestrator::KillExplorerResult {explorer_id: self.id })
             },
             OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id } => {
-                // Update current_planet_id and its tx_planet, then respond.
-                // If the new sender is None, stay on the same planet
-                if let Some(tx_new_planet) = sender_to_new_planet {
-                    self.current_planet_id = planet_id;
-                    if !self.tx_planets.contains_key(&planet_id) {
-                        self.tx_planets.insert(planet_id, PlanetLoggingSender::new(tx_new_planet, self.id, planet_id));
-                    }
-                }
-                // Do nothing if the sender is None, just respond to the orch
-
-                self.tx_orchestrator.send(
-                    ExplorerToOrchestrator::MovedToPlanetResult { explorer_id: self.id, planet_id: self.current_planet_id }
-                )
+                self.handle_move_planet(sender_to_new_planet, planet_id)
             },
             OrchestratorToExplorer::CurrentPlanetRequest => {
                 self.tx_orchestrator.send(ExplorerToOrchestrator::CurrentPlanetResult {
@@ -299,26 +287,37 @@ impl CettoExplorer {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // FINAL: Go to a safe planet
-
-
-
+        // self.move_safest_planet();
         Ok(())
+    }
+
+    fn request_neighbors(&mut self) -> Result<(), String> {
+        self.tx_orchestrator.send(
+            ExplorerToOrchestrator::NeighborsRequest {
+                explorer_id: self.id,
+                current_planet_id: self.current_planet_id
+            }
+        )?;
+        let orch_response = self
+            .rx_orchestrator
+            .recv()
+            .map_err(|err| format!("Exception when waiting for orchestrator response: {err}"))?;
+        self.handle_orchestrator_message(orch_response)
+    }
+
+    fn move_explorer(&mut self, dst_planet_id: ID) -> Result<(), String> {
+        self.tx_orchestrator.send(
+            ExplorerToOrchestrator::TravelToPlanetRequest {
+                explorer_id: self.id,
+                current_planet_id: self.current_planet_id,
+                dst_planet_id
+            }
+        )?;
+        let orch_response = self
+            .rx_orchestrator
+            .recv()
+            .map_err(|err| format!("Exception when waiting for orchestrator response: {err}"))?;
+        self.handle_orchestrator_message(orch_response)
     }
 
     fn exploit_current_planet(&mut self) -> Result<(), String>{
@@ -416,7 +415,21 @@ impl CettoExplorer {
 
 
 
+    fn handle_move_planet(&mut self, sender_to_new_planet: Option<Sender<ExplorerToPlanet>>, planet_id: ID) -> Result<(), String> {
+        // Update current_planet_id and its tx_planet, then respond.
+        // If the new sender is None, stay on the same planet
+        if let Some(tx_new_planet) = sender_to_new_planet {
+            self.current_planet_id = planet_id;
+            if !self.tx_planets.contains_key(&planet_id) {
+                self.tx_planets.insert(planet_id, PlanetLoggingSender::new(tx_new_planet, self.id, planet_id));
+            }
+        }
+        // Do nothing if the sender is None, just respond to the orch
 
+        self.tx_orchestrator.send(
+            ExplorerToOrchestrator::MovedToPlanetResult { explorer_id: self.id, planet_id: self.current_planet_id }
+        )
+    }
 
     fn handle_combine_resource_request(&mut self, to_generate: ComplexResourceType) -> Result<(), String> {
         let comp_res_req = match to_generate {
