@@ -70,18 +70,40 @@ impl Explorer for AllegoryExplorer {
             }
             
             // Check for orchestrator commands first
+            let mut messages = Vec::new();
             match self.rx_orchestrator.recv() {
                 Ok(msg) => {
-                    self.handle_orchestrator_message(msg)?;
-                    // If killed or stopped, skip this turn
-                    match self.mode {
-                        ExplorerMode::Killed | ExplorerMode::Retired => break,
-                        ExplorerMode::Stopped => continue,
-                        _ => {}
+                    messages.push(msg);
+                    while let Ok(m) = self.rx_orchestrator.try_recv() {
+                        messages.push(m);
                     }
                 },
                 Err(_) => break // Channel closed
             }
+
+            // debug: priority Check for Kill 
+            // kept getting [ERROR] Orchestrator terminated with error: Expected explorer 8 to respond with KillExplorerResult, but got BagContentResponse { explorer_id: 8, bag_content: BagContent { content: {} } }
+            // If the orchestrator sent a Kill request,  prioritize it and ignore previous requests
+            if let Some(_) = messages.iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)) {
+                 let kill_msg = messages.into_iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)).unwrap();
+                 self.handle_orchestrator_message(kill_msg)?;
+                 break; // Break the outer loop immediately
+            }
+
+            // Normal processing
+            for msg in messages {
+                self.handle_orchestrator_message(msg)?;
+                 if matches!(self.mode, ExplorerMode::Killed | ExplorerMode::Retired) {
+                     break;
+                 }
+            }
+            
+             if matches!(self.mode, ExplorerMode::Killed | ExplorerMode::Retired) {
+                 break;
+             }
+             if matches!(self.mode, ExplorerMode::Stopped) {
+                 continue;
+             }
             
             // Run turn logic if in Auto mode
             if matches!(self.mode, ExplorerMode::Auto) {

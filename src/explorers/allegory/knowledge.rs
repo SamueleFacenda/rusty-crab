@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn test_planet_knowledge_creation() {
         let id: ID = 3;
-        let planet_type = PlanetType::C;
+        let planet_type = Some(PlanetType::C);
         let neighbors = HashSet::new();
         let resource_type = HashSet::new();
         let combinations = HashSet::new();
@@ -390,7 +390,7 @@ mod tests {
     fn test_explorer_knowledge_add_planet() {
         let mut explorer_knowledge = ExplorerKnowledge::default();
         let id: ID = 4;
-        let planet_type = PlanetType::A;
+        let planet_type = Some(PlanetType::A);
         let neighbors = HashSet::new();
         let resource_type = HashSet::new();
         let combinations = HashSet::new();
@@ -414,7 +414,7 @@ mod tests {
     fn test_get_resource_by_id() {
         let mut explorer_knowledge = ExplorerKnowledge::default();
         let id: ID = 5;
-        let planet_type = PlanetType::B;
+        let planet_type = Some(PlanetType::B);
         let neighbors = HashSet::new();
         let resource_type = HashSet::from([BasicResourceType::Carbon]);
         let combinations = HashSet::new();
@@ -438,7 +438,7 @@ mod tests {
     fn test_update_neighbors() {
         let mut explorer_knowledge = ExplorerKnowledge::default();
         let id: ID = 6;
-        let planet_type = PlanetType::D; // Replace with an actual variant
+        let planet_type = Some(PlanetType::D);
         let neighbors = HashSet::new();
         let resource_type = HashSet::new();
         let combinations = HashSet::new();
@@ -464,7 +464,7 @@ mod tests {
     fn test_update_killed_planet() {
         let mut explorer_knowledge = ExplorerKnowledge::default();
         let id: ID = 7;
-        let planet_type = PlanetType::A;
+        let planet_type = Some(PlanetType::A);
         let neighbors = HashSet::new();
         let resource_type = HashSet::new();
         let combinations = HashSet::new();
@@ -491,7 +491,7 @@ mod tests {
         // Planet 1 neighbors with 2 and 3
         let pk1 = PlanetKnowledge::new(
             1,
-            PlanetType::A,
+            Some(PlanetType::A),
             HashSet::from([2, 3]),
             HashSet::new(),
             HashSet::new(),
@@ -501,7 +501,7 @@ mod tests {
         // Planet 2 neighbors with 1
         let pk2 = PlanetKnowledge::new(
             2,
-            PlanetType::B,
+            Some(PlanetType::B),
             HashSet::from([1]),
             HashSet::new(),
             HashSet::new(),
@@ -511,7 +511,7 @@ mod tests {
          // Planet 3 neighbors with 1
          let pk3 = PlanetKnowledge::new(
             3,
-            PlanetType::C,
+            Some(PlanetType::C),
             HashSet::from([1]),
             HashSet::new(),
             HashSet::new(),

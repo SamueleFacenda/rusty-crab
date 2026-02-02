@@ -63,11 +63,28 @@ impl AllegoryExplorer {
                 }) {
                     Ok(_) => Ok(()),
                     Err(e) => {
-                         emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
                         Err("Failed to send KillExplorerResult to orchestrator".to_string())
                     }
                 }
             }
+            OrchestratorToExplorer::BagContentRequest => {
+                // If killed, do not answer.
+                if matches!(self.mode, ExplorerMode::Killed) {
+                    return Ok(());
+                }
+
+                match self.tx_orchestrator.send(ExplorerToOrchestrator::BagContentResponse {
+                    explorer_id: self.id,
+                    bag_content: BagContent::from_bag(&self.bag),
+                }) {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        Err("Failed to send BagContentResponse to orchestrator".to_string())
+                    }
+                }
+            },
             OrchestratorToExplorer::StopExplorerAI => {
                 self.mode = ExplorerMode::Stopped;
                 match self.tx_orchestrator.send(StopExplorerAIResult {
@@ -75,7 +92,7 @@ impl AllegoryExplorer {
                 }) {
                     Ok(_) => Ok(()),
                     Err(e) => {
-                         emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
                         Err("Failed to send StopExplorerAIResult to orchestrator".to_string())
                     }
                 }
@@ -228,18 +245,6 @@ impl AllegoryExplorer {
                     }
                 }
             }
-            OrchestratorToExplorer::BagContentRequest => {
-                match self.tx_orchestrator.send(ExplorerToOrchestrator::BagContentResponse {
-                    explorer_id: self.id,
-                    bag_content: BagContent::from_bag(&self.bag),
-                }) {
-                    Ok(_) => Ok(()),
-                    Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
-                        Err("Failed to send BagContentResponse to orchestrator".to_string())
-                    }
-                }
-            }, 
             OrchestratorToExplorer::NeighborsResponse { neighbors } => {
                 self.knowledge.update_neighbors(self.current_planet_id, HashSet::from_iter(neighbors));
                 Ok(())

@@ -14,13 +14,11 @@ use crate::explorers::allegory::logging::{emit_info};
 impl AllegoryExplorer {
     /// Function to execute a loop. Begins with galaxy exploration, then performs its algorithm.
     pub fn run_loop(&mut self) -> Result<(), String> {
-        emit_info(self.id, "Starting turn".to_string());
         self.explore();
         let n = self.knowledge.get_explored_planets().len();
         emit_info(self.id, format!("Exploration performed on {} planets. Collecting/crafting...", n));
         self.perform_next_step();
         self.conclude_turn()?;
-        emit_info(self.id, "Ending turn".to_string());
         Ok(())
     }
 
@@ -116,7 +114,17 @@ impl AllegoryExplorer {
     }
 
     fn conclude_turn(&mut self) -> Result<(), String> {
-        match self.tx_orchestrator.send(
+        match self.mode{
+            crate::explorers::allegory::explorer::ExplorerMode::Killed => {
+                match self.tx_orchestrator.send(
+            ExplorerToOrchestrator::KillExplorerResult { explorer_id: (self.id) }
+        ){
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Error sending to orchestrator: {}", e))
+        }
+            }
+            _ => {
+                match self.tx_orchestrator.send(
             BagContentResponse {
                 explorer_id: self.id,
                 bag_content: BagContent::from_bag(
@@ -127,6 +135,9 @@ impl AllegoryExplorer {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("Error sending to orchestrator: {}", e))
         }
+            }
+        }
+        
     }
 
     /// Deprecated version of next step for one communication per turn
