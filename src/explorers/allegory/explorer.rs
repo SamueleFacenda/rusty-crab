@@ -426,26 +426,29 @@ mod tests {
 
     #[test]
     fn test_supported_resource_flow_fails_due_to_missing_planet_knowledge() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
+        // Keep channels alive: rx_ex_to_orch (result receiver), tx_planet (to mock planet)
+        let (mut explorer, _, rx_ex_to_orch, tx_planet, _) = create_test_explorer();
 
         let mut resources = HashSet::new();
         resources.insert(BasicResourceType::Oxygen);
 
-        // 1. Update knowledge
-        let msg_planet = PlanetToExplorer::SupportedResourceResponse {
+        // Pre-fill the planet response so the explorer receives it when it calls recv()
+        tx_planet.send(PlanetToExplorer::SupportedResourceResponse {
             resource_list: resources.clone(),
-        };
-        explorer.handle_planet_message(msg_planet).unwrap();
+        }).unwrap();
 
-        // 2. Request from orchestrator
+        // Drop the orchestrator receiver to force the "send to orchestrator" failure
+        drop(rx_ex_to_orch);
+
+        // Request from orchestrator
         let res =
             explorer.handle_orchestrator_message(OrchestratorToExplorer::SupportedResourceRequest);
 
-        // Currently expected to fail because knowledge doesn't have the planet entry and cannot create it
+        // Verify it fails with the correct error message
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap(),
-            "Failed to send to orchestrator SupportedResourceResult: value unknown".to_string()
+            "Failed to send SupportedResourceResult to orchestrator".to_string()
         );
     }
 

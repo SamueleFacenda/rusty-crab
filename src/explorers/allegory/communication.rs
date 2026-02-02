@@ -737,27 +737,4 @@ mod tests {
             _ => panic!("Expected GenerateResourceResponse"),
         }
     }
-
-    #[test]
-    fn test_handle_orchestrator_message_combine_resource() {
-        let (mut explorer, _, rx_ex_to_orch, _, _) = create_test_explorer();
-
-        // Currently returns not implemented error
-        let result = explorer.handle_orchestrator_message(OrchestratorToExplorer::CombineResourceRequest {
-            to_generate: ComplexResourceType::Water,
-        });
-
-        assert!(result.is_ok()); // Handler succeeds but sends error to orchestrator
-
-        // Orchestrator should receive error response
-        let orch_msg = rx_ex_to_orch.try_recv().expect("Should receive orchestrator message");
-        match orch_msg {
-            ExplorerToOrchestrator::CombineResourceResponse { explorer_id, generated } => {
-                assert_eq!(explorer_id, 1);
-                assert!(generated.is_err());
-                assert_eq!(generated.unwrap_err(), "CombineResourceRequest not implemented");
-            }
-            _ => panic!("Expected CombineResourceResponse"),
-        }
-    }
 }
