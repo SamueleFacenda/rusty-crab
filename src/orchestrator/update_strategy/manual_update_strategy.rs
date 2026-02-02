@@ -240,15 +240,13 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
     fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String> {
         match command {
             OrchestratorManualAction::GenerateBasic { explorer_id, resource } =>
-                self.basic_resource_generation(explorer_id, resource)?,
+                self.basic_resource_generation(explorer_id, resource),
             OrchestratorManualAction::GenerateComplex { explorer_id, resource } =>
-                self.resource_combination(explorer_id, resource)?,
-            OrchestratorManualAction::SendAsteroid { planet_id } => self.handle_send_asteroid(planet_id)?,
-            OrchestratorManualAction::SendSunray { planet_id } => self.handle_send_sunray(planet_id)?,
+                self.resource_combination(explorer_id, resource),
+            OrchestratorManualAction::SendAsteroid { planet_id } => self.handle_send_asteroid(planet_id),
+            OrchestratorManualAction::SendSunray { planet_id } => self.handle_send_sunray(planet_id),
             OrchestratorManualAction::MoveExplorer { explorer_id, destination_planet_id } =>
-                self.handle_travel_request(explorer_id, destination_planet_id)?,
-        };
-
-        Ok(())
+                self.handle_travel_request(explorer_id, destination_planet_id),
+        }
     }
 }

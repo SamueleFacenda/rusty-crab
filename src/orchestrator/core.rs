@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::thread;
 
-use common_game::components::asteroid::Asteroid;
 use common_game::components::planet::{DummyPlanetState, Planet};
-use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
