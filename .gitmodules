@@ -1,0 +1,3 @@
+[submodule "src/gui/omc-gui"]
+	path = src/gui/omc-gui
+	url = https://github.com/SamueleFacenda/omc-gui.git

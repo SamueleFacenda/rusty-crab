@@ -1,0 +1,23 @@
+# Asteroid probability increase factor
+asteroid_probability = 0.01
+
+# Fixed probability of a sunray at every round
+sunray_probability = 0.3
+
+# Probability of getting an asteroid in the first round
+initial_asteroid_probability = 0.01
+
+# Timeout for messages acks
+max_wait_time_ms = 2000
+
+# For gui, the delay between each update
+game_tick_seconds = 0.6
+
+# Number of planets in the galaxy (created with a sequential pattern)
+number_of_planets = 12
+
+# List of explorers e.g. ["example", "example"]
+explorers = ["samufaz"]
+
+# Wether to show the gui or not. This changes the orchestrator mode from auto to manual
+show_gui = true
