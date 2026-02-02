@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use common_game::components::resource::ResourceType;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
@@ -5,23 +6,13 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 /// Simple DTO
 #[derive(Debug, Clone)]
 pub struct BagContent {
-    pub res: Vec<ResourceType>,
-}
-
-impl BagContent {
-    pub fn remove(&mut self, resource: &ResourceType) -> Option<ResourceType> {
-        if let Some(pos) = self.res.iter().position(|x| x == resource) {
-            Some(self.res.remove(pos))
-        } else {
-            None
-        }
-    }
+    pub content: HashMap<ResourceType, usize>
 }
 
 impl Default for BagContent {
     fn default() -> Self {
         BagContent {
-            res: Vec::new(),
+            content: HashMap::new(),
         }
     }
 }

@@ -40,7 +40,7 @@ impl Bag {
         let mut content = BagContent::default();
         for resources in self.res.values() {
             for resource in resources {
-                content.res.push(resource.get_type());
+                *content.content.entry(resource.get_type()).or_default() += 1;
             }
         }
         content

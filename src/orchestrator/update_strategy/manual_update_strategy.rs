@@ -71,7 +71,9 @@ impl ManualUpdateStrategy<'_> {
 
         if result.is_ok() {
             self.state.gui_events_buffer.basic_resource_generated(explorer_id, resource);
-            self.state.explorer_bags.entry(explorer_id).or_default().res.push(ResourceType::Basic(resource));
+            *self.state.explorer_bags
+                .entry(explorer_id).or_default()
+                .content.entry(ResourceType::Basic(resource)).or_default() += 1;
         }
 
         // if result.is_err() {
@@ -99,10 +101,10 @@ impl ManualUpdateStrategy<'_> {
         if result.is_ok() {
             self.state.gui_events_buffer.complex_resource_generated(explorer_id, complex);
             let bag = self.state.explorer_bags.entry(explorer_id).or_default();
-            bag.res.push(ResourceType::Complex(complex));
+            *bag.content.entry(ResourceType::Complex(complex)).or_default() += 1;
             let (a, b) = get_recipe(complex);
-            bag.remove(&a);
-            bag.remove(&b);
+            bag.content.entry(a).and_modify(|qty| *qty -= 1);
+            bag.content.entry(b).and_modify(|qty| *qty -= 1);
         }
 
         // if result.is_err() {
