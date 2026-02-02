@@ -26,6 +26,7 @@ pub(super) struct ExplorerState {
 
 pub struct HardwareAcceleratedExplorer {
     id: ID,
+    stopped: bool,
 
     state: ExplorerState,
 
@@ -44,6 +45,7 @@ impl Explorer for HardwareAcceleratedExplorer {
     ) -> Self {
         HardwareAcceleratedExplorer {
             id,
+            stopped: false,
             state: ExplorerState {
                 bag: Bag { res: HashMap::new() },
                 knowledge: None,
@@ -88,12 +90,22 @@ impl HardwareAcceleratedExplorer {
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<bool, String> {
         match msg {
             OrchestratorToExplorer::ResetExplorerAI => {
-                // TODO Handle reset explorer AI
+                self.state = ExplorerState {
+                    bag: Bag { res: HashMap::new() },
+                    knowledge: None,
+                    current_planet: self.state.current_planet,
+                    asteroid_probability_estimator: ProbabilityEstimator::new(),
+                    sunray_probability_estimator: ProbabilityEstimator::new()
+                };
                 self.orchestrator_communicator.send_reset_ack()?
             }
             OrchestratorToExplorer::StopExplorerAI => {
-                // TODO Handle stop explorer AI
+                self.stopped = true;
                 self.orchestrator_communicator.send_stop_ack()?
+            }
+            OrchestratorToExplorer::StartExplorerAI => {
+                self.stopped = false;
+                self.orchestrator_communicator.send_start_ack()?
             }
             OrchestratorToExplorer::KillExplorer => {
                 self.orchestrator_communicator.send_kill_ack()?;
@@ -145,8 +157,10 @@ impl HardwareAcceleratedExplorer {
                 }
             }
             OrchestratorToExplorer::BagContentRequest => {
-                RoundExecutor::new(&mut self.planets_communicator, &self.orchestrator_communicator, &mut self.state)
-                    .execute_round()?;
+                if !self.stopped { // Stop the autonomous decision-making if the explorer is stopped
+                    RoundExecutor::new(&mut self.planets_communicator, &self.orchestrator_communicator, &mut self.state)
+                        .execute_round()?;
+                }
                 self.orchestrator_communicator.send_bag_content_ack(self.state.bag.to_bag_content())?;
             }
             OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet: Some(sender), planet_id } => {

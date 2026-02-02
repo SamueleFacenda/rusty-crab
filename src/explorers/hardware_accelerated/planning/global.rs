@@ -6,6 +6,7 @@ const FINAL_RESOURCES: [ComplexResourceType; 2] = [
     ComplexResourceType::Dolphin,
 ];
 
+#[derive(Debug)]
 pub (crate) struct GlobalTask {
     pub resource: ComplexResourceType,
 }

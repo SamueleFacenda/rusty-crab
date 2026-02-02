@@ -11,10 +11,10 @@ initial_asteroid_probability = 0.01
 max_wait_time_ms = 2000
 
 # For gui, the delay between each update
-game_tick_seconds = 0.5
+game_tick_seconds = 1.0
 
 # Number of planets in the galaxy (created with a sequential pattern)
-number_of_planets = 10
+number_of_planets = 20
 
 # List of explorers e.g. ["example", "example"]
 explorers = ["hardware_accelerated", "hardware_accelerated"]
