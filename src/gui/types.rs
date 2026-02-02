@@ -67,10 +67,7 @@ impl Orchestrator {
                 }
             }
         }
-        
-        ExplorerInfoMap {
-            map: BTreeMap::new()
-        }
+        ExplorerInfoMap { map }
     }
 }
 
