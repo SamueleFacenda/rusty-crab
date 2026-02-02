@@ -163,7 +163,27 @@ impl CettoExplorer {
                 )
             },
             OrchestratorToExplorer::GenerateResourceRequest { to_generate} => {
+                // Ask the current planet, wait for response, save resource, respond to the orchestrator
+                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::GenerateResourceRequest {explorer_id: self.id, resource: to_generate})?;
+                let planet_response = self.rx_planet.recv()
+                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?;
 
+                // Add to the bag if produced
+                let data = planet_response.into_generate_resource_response().unwrap();
+                let explorer_response =
+                    if let Some(res) = data {
+                        self.bag.basic_resources.push(*res);
+                        Ok(())
+                    } else {
+                        Err("The resource could not be generated".to_string())
+                    };
+
+                self.tx_orchestrator.send(
+                    ExplorerToOrchestrator::GenerateResourceResponse {
+                        explorer_id: self.id,
+                        generated: explorer_response
+                    }
+                )
             },
             OrchestratorToExplorer::CombineResourceRequest { to_generate} => {
 
