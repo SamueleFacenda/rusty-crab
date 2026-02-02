@@ -1,6 +1,7 @@
 use std::thread;
-
+use common_game::components::asteroid::Asteroid;
 use common_game::components::planet::{DummyPlanetState, Planet};
+use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
@@ -204,6 +205,42 @@ impl Orchestrator {
                 )
                 .map(|res| res.into_internal_state_response().unwrap().1)
         ) // Unwrap safe due to the expected kind
+    }
+
+    pub fn get_alive_planets(&self) -> Vec<ID> {
+        self.state.galaxy.get_planets()
+    }
+
+    // TODO move away
+    pub fn send_sunray_from_gui(&mut self, targets: Vec<ID>) -> Result<(), String> {
+        for planet_id in targets {
+            self.get_gui_events_buffer().sunray_sent(planet_id);
+            self.state.planets_communication_center.req_ack(
+                planet_id,
+                OrchestratorToPlanet::Sunray(Sunray::default()),
+                PlanetToOrchestratorKind::SunrayAck)?;
+            self.get_gui_events_buffer().sunray_received(planet_id);
+        }
+        Ok(())
+    }
+
+    // TODO move away
+    pub fn send_asteroid_from_gui(&mut self, targets: Vec<ID>) -> Result<(), String> {
+        for planet_id in targets {
+            self.get_gui_events_buffer().asteroid_sent(planet_id);
+            let rocket = self.state.planets_communication_center.req_ack(
+                planet_id,
+                OrchestratorToPlanet::Asteroid(Asteroid::default()),
+                PlanetToOrchestratorKind::AsteroidAck)?
+                .into_asteroid_ack()
+                .unwrap()
+                .1; // Unwrap is safe due to expected kind
+
+            if rocket.is_none() {
+                self.state.handle_planet_destroyed(planet_id)?;
+            }
+        }
+        Ok(())
     }
 }
 
