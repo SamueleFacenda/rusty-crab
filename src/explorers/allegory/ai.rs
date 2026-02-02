@@ -1,7 +1,6 @@
 use common_game::components::resource::ResourceType;
 use crate::explorers::BagContent;
 use crate::explorers::allegory::{knowledge::StrategyState::*, logging::emit_warning};
-use crate::explorers::allegory::knowledge::StrategyState;
 use common_game::protocols::{
     orchestrator_explorer::{OrchestratorToExplorer},
     planet_explorer::PlanetToExplorer,
@@ -15,7 +14,6 @@ impl AllegoryExplorer {
     /// Function to execute a loop. Begins with galaxy exploration, then performs its algorithm.
     pub fn run_loop(&mut self) -> Result<(), String> {
         self.explore();
-        let n = self.knowledge.get_explored_planets().len();
         // self.trivial_collecting()?;
         // self.trivial_crafting()?;
         self.perform_next_step();
@@ -124,6 +122,8 @@ impl AllegoryExplorer {
         
     }
 
+    // Used trivial instead
+    /*
     fn execute_collecting(&mut self) -> Result<(), String> {
         
         // check requirements
@@ -207,6 +207,7 @@ impl AllegoryExplorer {
         
         Ok(())
     }
+    */
 
     /// Easier version of collecting since the other one does not work
     fn trivial_collecting(&mut self) -> Result<(), String> {
@@ -239,30 +240,32 @@ impl AllegoryExplorer {
     }
 
     fn trivial_crafting(&mut self) -> Result<(), String> {
-    for resource in self.task.clone() {
-        match resource.0 {
-            ResourceType::Basic(_) => {}
-            ResourceType::Complex(complex_res) => {
-                // Find best planet for this combination
-                match self.find_best_planet_for_combination(complex_res) {
-                    Some(planet) => {
-                        self.move_to_planet(planet)?;
-                        if self.knowledge.get_planet_knowledge(self.current_planet_id).unwrap().get_latest_cells_number() <= 1 {
-                            continue;
+        for resource in self.task.clone() {
+            match resource.0 {
+                ResourceType::Basic(_) => {}
+                ResourceType::Complex(complex_res) => {
+                    // Find best planet for this combination
+                    match self.find_best_planet_for_combination(complex_res) {
+                        Some(planet) => {
+                            self.move_to_planet(planet)?;
+                            if self.knowledge.get_planet_knowledge(self.current_planet_id).unwrap().get_latest_cells_number() <= 1 {
+                                continue;
+                            }
+                            // Attempt to combine the resource
+                            if let Err(e) = self.combine_resource(complex_res) {
+                                emit_warning(self.id, format!("Error combining resource: {}", e));
+                            }
                         }
-                        // Attempt to combine the resource
-                        if let Err(e) = self.combine_resource(complex_res) {
-                            emit_warning(self.id, format!("Error combining resource: {}", e));
-                        }
+                        None => continue,
                     }
-                    None => continue,
                 }
             }
         }
+        Ok(())
     }
-    Ok(())
-}
 
+    // Used trivial instead
+    /* 
     fn execute_crafting(&mut self) -> Result<(), String> {
         if self.verify_win() {
             self.change_state(Finished);
@@ -307,24 +310,9 @@ impl AllegoryExplorer {
             }
         }
     }
-    
-    fn verify_simple_resources_collected(&self) -> bool {
-        let bag_content = BagContent::from_bag(&self.bag);
-        
-        for (resource_type, &required_count) in &self.simple_resources_task {
-            let owned_count = bag_content
-                .content
-                .get(&ResourceType::Basic(*resource_type))
-                .copied()
-                .unwrap_or(0);
-            
-            if owned_count < required_count {
-                return false;
-            }
-        }
-        
-        true
-    }
+    */
+
+
 
     // Blocking Helpers
     fn gather_resource(&mut self, res: common_game::components::resource::BasicResourceType) -> Result<bool, String> {
