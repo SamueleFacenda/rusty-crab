@@ -137,7 +137,17 @@ impl CettoExplorer {
                 })
             },
             OrchestratorToExplorer::SupportedResourceRequest => {
+                // Ask the current planet, wait for response, and then respond to the orchestrator
+                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::SupportedResourceRequest { explorer_id: self.id })?;
+                let planet_response = self.rx_planet.recv()
+                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?;
 
+                self.tx_orchestrator.send(
+                    ExplorerToOrchestrator::SupportedResourceResult {
+                        explorer_id: self.id,
+                        supported_resources: planet_response.into_supported_resource_response().unwrap()
+                    }
+                )
             },
             OrchestratorToExplorer::SupportedCombinationRequest => {
 
