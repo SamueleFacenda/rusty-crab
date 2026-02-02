@@ -31,8 +31,6 @@ impl<'a> RoundExecutor<'a> {
 
         self.pursue_explorer_goal()?; // The main behavior is here
 
-        log::info!("Explorer bag: {:?}", self.state.bag);
-
         self.goto_safest_place()?;
         self.state.knowledge = Some(self.new_galaxy); // Update state at the end of the round
         Ok(())
@@ -109,7 +107,6 @@ impl<'a> RoundExecutor<'a> {
         let global_plan = GlobalPlanner::plan_next_task(self.state);
         let local_plan = LocalPlanner::get_execution_plan(global_plan, &self.state.bag);
         for task in local_plan {
-            println!("Executing task: {:?}", task);
             let executed = self.execute_task(task)?;
             if !executed {
                 break; // Cannot execute further tasks, it's ok (maybe it's too dangerous)

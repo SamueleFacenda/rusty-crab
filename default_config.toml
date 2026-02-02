@@ -2,7 +2,7 @@
 asteroid_probability = 0.01
 
 # Fixed probability of a sunray at every round
-sunray_probability = 0.1
+sunray_probability = 0.3
 
 # Probability of getting an asteroid in the first round
 initial_asteroid_probability = 0.01
@@ -17,7 +17,7 @@ game_tick_seconds = 0.5
 number_of_planets = 10
 
 # List of explorers e.g. ["example", "example"]
-explorers = ["hardware_accelerated"]
+explorers = ["hardware_accelerated", "hardware_accelerated"]
 
 # Wether to show the gui or not. This changes the orchestrator mode from auto to manual
 show_gui = true
