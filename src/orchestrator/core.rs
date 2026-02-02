@@ -12,6 +12,7 @@ use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetComm
 use crate::orchestrator::{ExplorerChannelDemultiplexer, ExplorerHandle, ExplorerLoggingReceiver,
                           ExplorerLoggingSender, GalaxyBuilder, OrchestratorState, OrchestratorUpdateFactory,
                           PlanetChannelDemultiplexer, PlanetHandle, PlanetLoggingReceiver, PlanetLoggingSender};
+use crate::orchestrator::state::OrchestratorManualAction;
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -20,7 +21,9 @@ pub(crate) struct Orchestrator {
     // Auto/manual
     mode: OrchestratorMode,
 
-    state: OrchestratorState
+    state: OrchestratorState,
+
+    pub manual_commands: Vec<OrchestratorManualAction>,
 }
 
 #[allow(dead_code)] // only one at a time is used
@@ -73,6 +76,7 @@ impl Orchestrator {
 
         Ok(Orchestrator {
             mode,
+            manual_commands: vec![],
             state: OrchestratorState {
                 time: 0,
                 galaxy: initial_galaxy.galaxy,
@@ -90,7 +94,7 @@ impl Orchestrator {
                         initial_galaxy.explorer_to_orchestrator_rx
                     ))
                 ),
-                gui_events_buffer: GuiEventBuffer::new()
+                gui_events_buffer: GuiEventBuffer::new(),
             }
         })
     }
@@ -125,7 +129,15 @@ impl Orchestrator {
     pub fn get_topology(&self) -> Vec<(ID, ID)> { self.state.galaxy.get_topology() }
 
     pub fn process_commands(&mut self) -> Result<(), String> {
-        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
+        let mut strategy = OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state);
+        for command in self.manual_commands.drain(..) {
+            strategy.process_command(command)?;
+        }
+        Ok(())
+    }
+    
+    pub fn schedule_manual_action(&mut self, action: OrchestratorManualAction) {
+        self.manual_commands.push(action);
     }
 
     #[allow(dead_code)] // implemented for future gui integrations
@@ -209,38 +221,6 @@ impl Orchestrator {
 
     pub fn get_alive_planets(&self) -> Vec<ID> {
         self.state.galaxy.get_planets()
-    }
-
-    // TODO move away
-    pub fn send_sunray_from_gui(&mut self, targets: Vec<ID>) -> Result<(), String> {
-        for planet_id in targets {
-            self.get_gui_events_buffer().sunray_sent(planet_id);
-            self.state.planets_communication_center.req_ack(
-                planet_id,
-                OrchestratorToPlanet::Sunray(Sunray::default()),
-                PlanetToOrchestratorKind::SunrayAck)?;
-            self.get_gui_events_buffer().sunray_received(planet_id);
-        }
-        Ok(())
-    }
-
-    // TODO move away
-    pub fn send_asteroid_from_gui(&mut self, targets: Vec<ID>) -> Result<(), String> {
-        for planet_id in targets {
-            self.get_gui_events_buffer().asteroid_sent(planet_id);
-            let rocket = self.state.planets_communication_center.req_ack(
-                planet_id,
-                OrchestratorToPlanet::Asteroid(Asteroid::default()),
-                PlanetToOrchestratorKind::AsteroidAck)?
-                .into_asteroid_ack()
-                .unwrap()
-                .1; // Unwrap is safe due to expected kind
-
-            if rocket.is_none() {
-                self.state.handle_planet_destroyed(planet_id)?;
-            }
-        }
-        Ok(())
     }
 }
 
