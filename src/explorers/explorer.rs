@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use common_game::components::resource::ResourceType;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
@@ -10,11 +11,7 @@ pub struct BagContent {
 }
 
 impl Default for BagContent {
-    fn default() -> Self {
-        BagContent {
-            content: HashMap::new(),
-        }
-    }
+    fn default() -> Self { BagContent { content: HashMap::new() } }
 }
 
 /// Trait defining the behavior of an Explorer,

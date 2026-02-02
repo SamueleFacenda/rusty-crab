@@ -19,9 +19,8 @@ pub(self) mod game;
 #[path = "omc-gui/src/utils/mod.rs"]
 pub(self) mod utils;
 
-
-mod routines;
 mod event_buffer;
+mod routines;
 pub(self) mod types;
 
 pub(crate) use event_buffer::GuiEventBuffer;

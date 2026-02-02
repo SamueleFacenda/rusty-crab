@@ -25,11 +25,11 @@ impl GuiEventBuffer {
     pub fn explorer_moved(&mut self, explorer_id: ID, destination: ID) {
         self.buffer.push(OrchestratorEvent::ExplorerMoved { explorer_id, destination });
     }
-    
+
     pub fn basic_resource_generated(&mut self, explorer_id: ID, resource: BasicResourceType) {
         self.buffer.push(OrchestratorEvent::BasicResourceGenerated { explorer_id, resource });
     }
-    
+
     pub fn complex_resource_generated(&mut self, explorer_id: ID, resource: ComplexResourceType) {
         self.buffer.push(OrchestratorEvent::ComplexResourceGenerated { explorer_id, resource });
     }
