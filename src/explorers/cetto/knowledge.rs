@@ -54,7 +54,7 @@ impl ExplorerKnowledge {
     }
 }
 
-struct PlanetInfo {
+pub struct PlanetInfo {
     basic_type: HashSet<BasicResourceType>,
     complex_type: Option<ComplexResourceType>,
     energy_available: i32,

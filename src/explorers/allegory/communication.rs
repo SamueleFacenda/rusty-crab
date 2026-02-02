@@ -26,9 +26,9 @@ impl AllegoryExplorer {
                 match self.tx_orchestrator.send(StartExplorerAIResult {
                     explorer_id: self.id,
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send StartExplorerAIResult to orchestrator".to_string())
                     }
                 }
@@ -46,9 +46,9 @@ impl AllegoryExplorer {
                 match self.tx_orchestrator.send(ResetExplorerAIResult {
                     explorer_id: self.id,
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send ResetExplorerAIResult to orchestrator".to_string())
                     }
                 }
@@ -58,9 +58,9 @@ impl AllegoryExplorer {
                 match self.tx_orchestrator.send(KillExplorerResult {
                     explorer_id: self.id,
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send KillExplorerResult to orchestrator".to_string())
                     }
                 }
@@ -75,9 +75,9 @@ impl AllegoryExplorer {
                     explorer_id: self.id,
                     bag_content: BagContent::from_bag(&self.bag),
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send BagContentResponse to orchestrator".to_string())
                     }
                 }
@@ -89,7 +89,7 @@ impl AllegoryExplorer {
                 }) {
                     Ok(_) => Ok(()),
                     Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                        emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send StopExplorerAIResult to orchestrator".to_string())
                     }
                 }
@@ -110,9 +110,9 @@ impl AllegoryExplorer {
                     explorer_id: self.id,
                     planet_id: self.current_planet_id,
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                         emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                         emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send MovedToPlanetResult to orchestrator".to_string())
                     }
                 }
@@ -123,9 +123,9 @@ impl AllegoryExplorer {
                     // In no case the explorer can answer this question before being placed in a planet
                     planet_id: self.current_planet_id,
                 }) {
-                    Ok(_) => Ok(()),
+                    Ok(()) => Ok(()),
                     Err(e) => {
-                         emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                         emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                         Err("Failed to send CurrentPlanetResult to orchestrator".to_string())
                     }
                 }
@@ -146,9 +146,9 @@ impl AllegoryExplorer {
                             explorer_id: self.id,
                             supported_resources: resource_list,
                         }) {
-                            Ok(_) => Ok(()),
+                            Ok(()) => Ok(()),
                             Err(e) => {
-                                emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                                emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                                 Err("Failed to send SupportedResourceResult to orchestrator".to_string())
                             }
                         }
@@ -157,7 +157,7 @@ impl AllegoryExplorer {
                         let _ = self.handle_planet_message(other);
                         Err("Unexpected planet response".to_string())
                     }
-                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
+                    Err(e) => Err(format!("Failed to receive from planet: {e}")),
                 }
             }
             OrchestratorToExplorer::SupportedCombinationRequest => {
@@ -177,9 +177,9 @@ impl AllegoryExplorer {
                             explorer_id: self.id,
                             combination_list,
                         }) {
-                            Ok(_) => Ok(()),
+                            Ok(()) => Ok(()),
                             Err(e) => {
-                                emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                                emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                                 Err("Failed to send SupportedCombinationResult to orchestrator".to_string())
                             }
                         }
@@ -188,7 +188,7 @@ impl AllegoryExplorer {
                         let _ = self.handle_planet_message(other);
                         Err("Unexpected planet response".to_string())
                     }
-                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
+                    Err(e) => Err(format!("Failed to receive from planet: {e}")),
                 }
             }
             OrchestratorToExplorer::GenerateResourceRequest { to_generate } => {
@@ -217,9 +217,9 @@ impl AllegoryExplorer {
                             explorer_id: self.id,
                             generated: result.clone(),
                         }) {
-                            Ok(_) => Ok(()),
+                            Ok(()) => Ok(()),
                             Err(e) => {
-                                emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                                emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
                                 Err("Failed to send GenerateResourceResponse to orchestrator".to_string())
                             }
                         }
@@ -229,7 +229,7 @@ impl AllegoryExplorer {
                         let _ = self.handle_planet_message(other);
                         Err("Unexpected planet response".to_string())
                     }
-                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
+                    Err(e) => Err(format!("Failed to receive from planet: {e}")),
                 }
             }
             OrchestratorToExplorer::CombineResourceRequest { to_generate } => {
@@ -237,7 +237,7 @@ impl AllegoryExplorer {
                 let complex_message = self.create_complex_request(to_generate);
                 let msg = match complex_message {
                     None => {
-                        emit_warning(self.id, format!("Recoverable error: failed to generate a resource request for resource {:?}. ", to_generate));
+                        emit_warning(self.id, format!("Recoverable error: failed to generate a resource request for resource {to_generate:?}. "));
                         return Ok(())
                     }
                     Some(msg) => {msg}
@@ -256,7 +256,7 @@ impl AllegoryExplorer {
                                 Ok(())
                             }
                             Err((str, res1, res2)) => {
-                                emit_warning(self.id, format!("Recoverable error: planet {} failed to generate a resource: {} ", self.current_planet_id, str));
+                                emit_warning(self.id, format!("Recoverable error: planet {} failed to generate a resource: {str} ", self.current_planet_id));
                                 match res1{
                                     GenericResource::BasicResources(basic) => {self.add_basic_to_bag(basic);}
                                     GenericResource::ComplexResources(complex) => {self.add_complex_to_bag(complex)}
@@ -274,9 +274,9 @@ impl AllegoryExplorer {
                             explorer_id: self.id,
                             generated: result.clone(),
                         }) {
-                            Ok(_) => Ok(()),
+                            Ok(()) => Ok(()),
                             Err(e) => {
-                                emit_error(self.id, format!("Failed to send CombineResourceResponse to orchestrator: {}", e));
+                                emit_error(self.id, format!("Failed to send CombineResourceResponse to orchestrator: {e}"));
                                 Err("Failed to send GenerateResourceResponse to orchestrator".to_string())
                             }
                         }
@@ -286,7 +286,7 @@ impl AllegoryExplorer {
                         let _ = self.handle_planet_message(other);
                         Err("Unexpected planet response".to_string())
                     }
-                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
+                    Err(e) => Err(format!("Failed to receive from planet: {e}")),
                 }
             }
             OrchestratorToExplorer::NeighborsResponse { neighbors } => {
@@ -324,7 +324,7 @@ impl AllegoryExplorer {
                 }
             },
             PlanetToExplorer::CombineResourceResponse { complex_response } => {
-                return match complex_response {
+                match complex_response {
                     Ok(complex_resource) => {
                         self.add_complex_to_bag(complex_resource);
                         Ok(())
@@ -340,11 +340,11 @@ impl AllegoryExplorer {
                             GenericResource::ComplexResources(r) => self.add_complex_to_bag(r),
                         }
                         Err(format!(
-                            "Planet {} failed to combine resources: {}",
-                            self.current_planet_id, error_msg
+                            "Planet {} failed to combine resources: {error_msg}",
+                            self.current_planet_id
                         ))
                     }
-                };
+                }
             }
             PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
                 self.knowledge
@@ -360,13 +360,13 @@ impl AllegoryExplorer {
     // Helper functions
     pub(crate) fn send_to_orchestrator(&self, msg: ExplorerToOrchestrator<BagContent>) {
         if let Err(e) = self.tx_orchestrator.send(msg) {
-             emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+             emit_error(self.id, format!("Failed to send to orchestrator: {e}"));
         }
     }
 
     pub(crate) fn send_to_planet(&self, msg: ExplorerToPlanet) {
         if let Err(e) = &self.tx_planet.send(msg) {
-             emit_error(self.id, format!("Failed to send to planet: {}", e));
+             emit_error(self.id, format!("Failed to send to planet: {e}"));
         }
     }
 
@@ -406,7 +406,7 @@ impl AllegoryExplorer {
                 explorer_id: self.id,
                 msg: to_generate,
             }) {
-            Ok(_) => Ok(()),
+            Ok(()) => Ok(()),
             Err(e) => Err(format!(
                 "Planet {} failed to generate resource: {}",
                 self.id,
@@ -435,7 +435,7 @@ impl AllegoryExplorer {
                                  if let Some(sender) = sender_to_new_planet {
                                      self.tx_planet = sender;
                                  }
-                                 emit_info(self.id, format!("Arrived at planet {}", new_id));
+                                 emit_info(self.id, format!("Arrived at planet {new_id}"));
                                  self.send_to_orchestrator(ExplorerToOrchestrator::MovedToPlanetResult {
                                      explorer_id: self.id,
                                      planet_id: self.current_planet_id,
@@ -452,7 +452,7 @@ impl AllegoryExplorer {
                                      explorer_id: self.id,
                                      planet_id: self.current_planet_id,
                                  });
-                                 return Err(format!("Unexpectedly moved to planet {} instead of {}", new_id, planet_id));
+                                 return Err(format!("Unexpectedly moved to planet {new_id} instead of {planet_id}"));
                              }
                         }
                         OrchestratorToExplorer::BagContentRequest => { 
@@ -464,7 +464,7 @@ impl AllegoryExplorer {
                         }
                      }
                  }
-                 Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
+                 Err(e) => return Err(format!("Orchestrator channel closed: {e}")),
              }
         }
     }
