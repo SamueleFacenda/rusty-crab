@@ -1,9 +1,9 @@
 //! Definition of explorers traits and export of explorer builders.
 //! All the different explorers lives in a submodule.
 
+mod cetto;
 mod example;
 mod explorer;
-mod cetto;
 
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 

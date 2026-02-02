@@ -70,7 +70,7 @@ impl<A: ActorMarker> LoggingSender<A> {
             Debug,
             Payload::from([("msg".to_string(), format!("{msg:?}"))])
         )
-            .emit();
+        .emit();
         self.sender.send(msg).map_err(|e| e.to_string())
     }
 }
@@ -107,7 +107,7 @@ impl<A: ActorMarker> LoggingReceiver<A> {
             Debug,
             Payload::from([("msg".to_string(), format!("{msg:?}"))])
         )
-            .emit();
+        .emit();
     }
 }
 
