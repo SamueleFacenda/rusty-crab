@@ -83,7 +83,6 @@ impl Bag {
 
     fn generate_bag_content_hashmap(&self) -> HashMap<ResourceType, usize> {
         let mut output: HashMap<ResourceType, usize> = HashMap::new();
-        let t: ResourceType = ResourceType::Basic(self.basic_resources[0].get_type());
 
         for basic in self.basic_resources {
             *output.entry(ResourceType::Basic(basic.get_type())).or_insert(0) += 1;
@@ -128,6 +127,7 @@ impl Explorer for CettoExplorer {
 
             match orch_msg {
                 Ok(msg) => {
+                    // If the message is ok but the explorer's actions create errors
                     if let Err(e) = self.handle_orchestrator_message(msg) {
                         log::error!("Error handling orchestrator message: {e}");
                         return Err(e);
@@ -260,7 +260,10 @@ impl CettoExplorer {
                 // Process response from Planet
                 let planet_response = self.rx_planet.recv()
                     .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
-                    .into_combine_resource_response()?;
+                    .into_combine_resource_response()
+                    .unwrap(); // It's safe because we know the type
+
+
                 match planet_response {
                     Ok(successful_response) => {
                         self.bag.complex_resources.push(successful_response);
@@ -279,7 +282,7 @@ impl CettoExplorer {
                 let content = BagContent {
                     content: self.bag.generate_bag_content_hashmap()
                 };
-                
+
                 self.tx_orchestrator.send(
                     ExplorerToOrchestrator::BagContentResponse {
                         explorer_id: self.id,
