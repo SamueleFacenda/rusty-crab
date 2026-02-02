@@ -1,5 +1,6 @@
+use std::ops::Add;
 use common_game::components::asteroid::Asteroid;
-use common_game::components::resource::{BasicResourceType, ComplexResourceType};
+use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
 use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
@@ -71,6 +72,10 @@ impl ManualUpdateStrategy<'_> {
 
         if result.is_ok() {
             self.state.gui_events_buffer.basic_resource_generated(explorer_id, resource);
+            self.state.explorer_bags
+                .entry(explorer_id).or_default()
+                .content.entry(ResourceType::Basic(resource)).or_default()
+                .add(1);
         }
 
         // if result.is_err() {
@@ -97,6 +102,11 @@ impl ManualUpdateStrategy<'_> {
 
         if result.is_ok() {
             self.state.gui_events_buffer.complex_resource_generated(explorer_id, complex);
+            let bag = self.state.explorer_bags.entry(explorer_id).or_default();
+            bag.content.entry(ResourceType::Complex(complex)).or_default().add(1);
+            let (a, b) = get_recipe(complex);
+            bag.content.entry(a).and_modify(|qty| *qty -= 1);
+            bag.content.entry(b).and_modify(|qty| *qty -= 1);
         }
 
         // if result.is_err() {
@@ -195,6 +205,37 @@ impl ManualUpdateStrategy<'_> {
         Ok(())
     }
 }
+
+/// Returns the two resource types needed to create this complex resource.
+pub fn get_recipe(complex: ComplexResourceType) -> (ResourceType, ResourceType) {
+    match complex {
+        ComplexResourceType::Water => (
+            ResourceType::Basic(BasicResourceType::Hydrogen),
+            ResourceType::Basic(BasicResourceType::Oxygen)
+        ),
+        ComplexResourceType::Diamond => (
+            ResourceType::Basic(BasicResourceType::Carbon),
+            ResourceType::Basic(BasicResourceType::Carbon)
+        ),
+        ComplexResourceType::Life => (
+            ResourceType::Complex(ComplexResourceType::Water),
+            ResourceType::Basic(BasicResourceType::Carbon)
+        ),
+        ComplexResourceType::Robot => (
+            ResourceType::Basic(BasicResourceType::Silicon),
+            ResourceType::Complex(ComplexResourceType::Life)
+        ),
+        ComplexResourceType::Dolphin => (
+            ResourceType::Complex(ComplexResourceType::Water),
+            ResourceType::Complex(ComplexResourceType::Life)
+        ),
+        ComplexResourceType::AIPartner => (
+            ResourceType::Complex(ComplexResourceType::Robot),
+            ResourceType::Complex(ComplexResourceType::Diamond)
+        ),
+    }
+}
+
 
 impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
     fn update(&mut self) -> Result<(), String> {
