@@ -149,7 +149,7 @@ impl AllegoryExplorer {
         &self,
     ) -> Option<HashMap<ComplexResourceType, usize>> {
         let mut missing = HashMap::new();
-        let bag_content = BagContent::from_bag(&self.bsag);
+        let bag_content = BagContent::from_bag(&self.bag);
 
         // Iterate through simple_resources_task, find what's needed and get how much there is
         for (resource_type, &needed_count) in &self.task {
