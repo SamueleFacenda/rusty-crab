@@ -150,7 +150,17 @@ impl CettoExplorer {
                 )
             },
             OrchestratorToExplorer::SupportedCombinationRequest => {
+                // Ask the current planet, wait for response, and then respond to the orchestrator
+                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: self.id })?;
+                let planet_response = self.rx_planet.recv()
+                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?;
 
+                self.tx_orchestrator.send(
+                    ExplorerToOrchestrator::SupportedCombinationResult {
+                        explorer_id: self.id,
+                        combination_list: planet_response.into_supported_combination_response().unwrap()
+                    }
+                )
             },
             OrchestratorToExplorer::GenerateResourceRequest { to_generate} => {
 
