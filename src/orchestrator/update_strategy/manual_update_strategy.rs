@@ -1,4 +1,3 @@
-use std::ops::Add;
 use common_game::components::asteroid::Asteroid;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
 use common_game::components::sunray::Sunray;
@@ -72,10 +71,9 @@ impl ManualUpdateStrategy<'_> {
 
         if result.is_ok() {
             self.state.gui_events_buffer.basic_resource_generated(explorer_id, resource);
-            self.state.explorer_bags
+            *self.state.explorer_bags
                 .entry(explorer_id).or_default()
-                .content.entry(ResourceType::Basic(resource)).or_default()
-                .add(1);
+                .content.entry(ResourceType::Basic(resource)).or_default() += 1;
         }
 
         // if result.is_err() {
@@ -103,7 +101,7 @@ impl ManualUpdateStrategy<'_> {
         if result.is_ok() {
             self.state.gui_events_buffer.complex_resource_generated(explorer_id, complex);
             let bag = self.state.explorer_bags.entry(explorer_id).or_default();
-            bag.content.entry(ResourceType::Complex(complex)).or_default().add(1);
+            *bag.content.entry(ResourceType::Complex(complex)).or_default() += 1;
             let (a, b) = get_recipe(complex);
             bag.content.entry(a).and_modify(|qty| *qty -= 1);
             bag.content.entry(b).and_modify(|qty| *qty -= 1);
