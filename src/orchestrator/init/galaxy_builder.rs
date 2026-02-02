@@ -28,7 +28,7 @@ pub const PLANET_ORDER: [PlanetType; 7] = [
     PlanetType::TheCompilerStrikesBack,
     PlanetType::Rustrelli,
     PlanetType::Carbonium,
-    PlanetType::OneMillionCrabs,
+    PlanetType::OneMillionCrabs, // Warning: maybe reports wrong number of charged cells
     PlanetType::HoustonWeHaveABorrow,
     PlanetType::RustEze
 ];
