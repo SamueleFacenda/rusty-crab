@@ -25,7 +25,7 @@ impl LocalPlanner {
     pub fn get_execution_plan(task: GlobalTask, bag: &Bag) -> Vec<LocalTask> {
         let complete_plan = Self::get_tree_plan_for_task(Produce(task.resource));
         let mut reserved: HashMap<ResourceType, usize> = HashMap::new(); // Count resources reserved in bag
-        let pruned_plan = Self::prune_plan(Rc::new(complete_plan), bag, &mut reserved);
+        let pruned_plan = Self::prune_plan(Rc::new(complete_plan), bag, &mut reserved, true);
 
         Self::sorted_topsort(pruned_plan)
     }
@@ -49,14 +49,14 @@ impl LocalPlanner {
         }
     }
 
-    fn prune_plan(tree: Rc<TaskTree>, bag: &Bag, reserved: &mut HashMap<ResourceType, usize>) -> TaskTree {
+    fn prune_plan(tree: Rc<TaskTree>, bag: &Bag, reserved: &mut HashMap<ResourceType, usize>, is_first: bool) -> TaskTree {
         match &*tree {
             TaskTree::None => TaskTree::None, // Should not happen
             Leaf(res_type) => {
                 let res_type_enum = ResourceType::Basic(*res_type);
                 let available_count = bag.res.get(&res_type_enum).map(|v| v.len()).unwrap_or(0);
                 let reserved_count = *reserved.get(&res_type_enum).unwrap_or(&0);
-                if available_count > reserved_count {
+                if available_count > reserved_count && !is_first {
                     reserved.entry(res_type_enum).and_modify(|e| *e += 1).or_insert(1);
                     TaskTree::None // Resource already available, no need to generate
                 } else {
@@ -67,15 +67,15 @@ impl LocalPlanner {
                 let complex_type_enum = ResourceType::Complex(*complex_type);
                 let available_count = bag.res.get(&complex_type_enum).map(|v| v.len()).unwrap_or(0);
                 let reserved_count = *reserved.get(&complex_type_enum).unwrap_or(&0);
-                if available_count > reserved_count {
+                if available_count > reserved_count && !is_first {
                     reserved.entry(complex_type_enum).and_modify(|e| *e += 1).or_insert(1);
                     TaskTree::None // Both resources are available, no need to produce
                 } else {
                     // Recursively prune left and right subtrees
                     TaskTree::Node(
                         *complex_type,
-                        Rc::new(Self::prune_plan(Rc::clone(left), bag, reserved)),
-                        Rc::new(Self::prune_plan(Rc::clone(right), bag, reserved))
+                        Rc::new(Self::prune_plan(Rc::clone(left), bag, reserved, false)),
+                        Rc::new(Self::prune_plan(Rc::clone(right), bag, reserved, false))
                     )
                 }
             }
