@@ -16,16 +16,17 @@ of the phases in a single turn:
 sequenceDiagram
     participant O as Orchestrator
     participant E as Explorer
+    participant P as Planet
     
     loop until there are alive planets
-        O->>+E: Sunray
-        E->>-O: Sunray Ack
-        O->>+E: Asteroid
-        E->>-O: Asteroid Ack
+        O->>+P: Sunray
+        P->>-O: Sunray Ack
+        O->>+P: Asteroid
+        P->>-O: Asteroid Ack
         
         O->>+E: BagContentRequest
         
-        Note over O, E: core turn actions (e.g. resource creation)
+        Note over O, P: core turn actions (e.g. resource creation)
         
         E->>-O: BagContentResponse
         
