@@ -8,6 +8,7 @@ mod cetto;
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
 pub(crate) type ExampleExplorerBuilder = explorer::ExplorerBuilderImpl<example::ExampleExplorer>;
+pub(crate) type CettoExplorerBuilder = explorer::ExplorerBuilderImpl<cetto::CettoExplorer>;
 
 pub(crate) struct ExplorerFactory;
 
@@ -16,6 +17,7 @@ impl ExplorerFactory {
         #[allow(clippy::single_match_else)] // more explorers are added in personal branches
         match type_name.to_ascii_lowercase().as_str() {
             "example" => Box::new(ExampleExplorerBuilder::new()),
+            "cetto" => Box::new(CettoExplorerBuilder::new()),
             _ => {
                 log::warn!("Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer.");
                 Box::new(ExampleExplorerBuilder::new())

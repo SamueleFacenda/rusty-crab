@@ -291,7 +291,7 @@ impl CettoExplorer {
             return Ok(());
         }
 
-        // CASE 2: Visit all planets and exploit them
+        // CASE 2: Visit all reachable planets and exploit them
 
         let mut visited = HashSet::new();
         visited.insert(self.current_planet_id);
@@ -302,7 +302,7 @@ impl CettoExplorer {
 
 
 
-        Ok(())
+
 
 
 
@@ -318,7 +318,7 @@ impl CettoExplorer {
 
 
 
-
+        Ok(())
     }
 
     fn exploit_current_planet(&mut self) -> Result<(), String>{
