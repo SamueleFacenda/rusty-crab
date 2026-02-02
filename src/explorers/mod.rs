@@ -4,11 +4,14 @@
 mod cetto;
 mod example;
 mod explorer;
+mod samufaz;
 
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
 pub(crate) type ExampleExplorerBuilder = explorer::ExplorerBuilderImpl<example::ExampleExplorer>;
 pub(crate) type CettoExplorerBuilder = explorer::ExplorerBuilderImpl<cetto::CettoExplorer>;
+pub(crate) type SamuFazExplorerBuilder =
+    explorer::ExplorerBuilderImpl<samufaz::SamuFazExplorer>;
 
 pub(crate) struct ExplorerFactory;
 
@@ -18,6 +21,7 @@ impl ExplorerFactory {
         match type_name.to_ascii_lowercase().as_str() {
             "example" => Box::new(ExampleExplorerBuilder::new()),
             "cetto" => Box::new(CettoExplorerBuilder::new()),
+            "samufaz" => Box::new(SamuFazExplorerBuilder::new()),
             _ => {
                 log::warn!("Explorer type '{type_name}' not recognized. Defaulting to 'example' explorer.");
                 Box::new(ExampleExplorerBuilder::new())

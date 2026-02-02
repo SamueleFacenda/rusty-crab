@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::thread;
 
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::Sender;
 
+use crate::explorers::BagContent;
 use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 use crate::orchestrator::galaxy::Galaxy;
@@ -40,7 +42,17 @@ pub(crate) struct OrchestratorState {
     pub planets_communication_center: PlanetCommunicationCenter,
     pub explorers_communication_center: ExplorerCommunicationCenter,
 
-    pub gui_events_buffer: GuiEventBuffer
+    pub gui_events_buffer: GuiEventBuffer,
+    pub explorer_bags: HashMap<ID, BagContent> // Used by GUI to show explorer bags
+}
+
+#[derive(Debug)]
+pub(crate) enum OrchestratorManualAction {
+    SendSunray { planet_id: ID },
+    SendAsteroid { planet_id: ID },
+    GenerateBasic { explorer_id: ID, resource: BasicResourceType },
+    GenerateComplex { explorer_id: ID, resource: ComplexResourceType },
+    MoveExplorer { explorer_id: ID, destination_planet_id: ID }
 }
 
 impl OrchestratorState {
