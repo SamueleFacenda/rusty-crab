@@ -144,11 +144,11 @@ impl AllegoryExplorer {
         &self,
     ) -> Option<HashMap<BasicResourceType, usize>> {
         let mut missing = HashMap::new();
+        let bag_content = BagContent::from_bag(&self.bag);
 
         // Iterate through simple_resources_task, find what's needed and get how much there is
         for (resource_type, &needed_count) in &self.simple_resources_task {
-            let have_count = self
-                .bag_content
+            let have_count = bag_content
                 .content
                 .get(&ResourceType::Basic(*resource_type))
                 .copied()
@@ -173,14 +173,14 @@ impl AllegoryExplorer {
         &self,
     ) -> Option<HashMap<ComplexResourceType, usize>> {
         let mut missing = HashMap::new();
+        let bag_content = BagContent::from_bag(&self.bag);
 
         // Iterate through simple_resources_task, find what's needed and get how much there is
         for (resource_type, &needed_count) in &self.task {
             match resource_type {
                 ResourceType::Basic(_) => continue,
                 ResourceType::Complex(complex) => {
-                    let have_count = self
-                        .bag_content
+                    let have_count = bag_content
                         .content
                         .get(&ResourceType::Complex(*complex))
                         .copied()
@@ -204,11 +204,11 @@ impl AllegoryExplorer {
     /// Checks the task and the bag content to verify if everything required for retirement was collected / crafted
     pub(crate) fn verify_win(&self) -> bool {
         // Compare each element of task with Bag; if not enough, early return false
+        let bag_content = BagContent::from_bag(&self.bag);
         for (resource_type, &required_count) in &self.task {
             match resource_type {
                 ResourceType::Basic(basic) => {
-                    let owned_count = self
-                        .bag_content
+                    let owned_count = bag_content
                         .content
                         .get(&ResourceType::Basic(*basic))
                         .copied()
@@ -218,8 +218,7 @@ impl AllegoryExplorer {
                     }
                 }
                 ResourceType::Complex(complex) => {
-                    let owned_count = self
-                        .bag_content
+                    let owned_count = bag_content
                         .content
                         .get(&ResourceType::Complex(*complex))
                         .copied()
@@ -235,7 +234,7 @@ impl AllegoryExplorer {
     }
 
     /// Produces a list of basic resource types based on the initial task
-    fn complex_to_simple_list(&mut self) {
+    pub(crate) fn complex_to_simple_list(&mut self) {
         let mut map: HashMap<BasicResourceType, usize> = HashMap::new();
         for (resource, count) in &self.task {
             match resource {
@@ -276,6 +275,34 @@ impl AllegoryExplorer {
             }
         }
         self.simple_resources_task = map;
+    }
+
+    /// Sets to 0 the energy cell content of planets with no useful materials
+    pub(crate) fn remove_extra_planets(&mut self) {
+        let required_simple = self.anything_left_on_the_shopping_list();
+        let required_complex = self.anything_left_on_the_crafting_list();
+        
+        for planet in &mut self.knowledge.planets {
+            let mut useful = false;
+
+            if let Some(list) = &required_simple {
+                if list.keys().any(|r| planet.get_resource_type().contains(r)) {
+                    useful = true;
+                }
+            }
+            
+            if !useful {
+                if let Some(list) = &required_complex {
+                     if list.keys().any(|c| planet.get_combinations().contains(c)) {
+                        useful = true;
+                    }
+                }
+            }
+            
+            if !useful {
+                planet.set_latest_cells_number(0);
+            }
+        }
     }
 
     /// Creates a complex resource request with bag resources
@@ -625,7 +652,7 @@ mod tests {
         let neighbors = HashSet::from([2]);
         let pk1 = PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             neighbors,
             HashSet::new(),
             HashSet::new(),
@@ -647,7 +674,7 @@ mod tests {
         // Setup: chain of planets 1 -> 2 -> 3, where 3 is the target (unexplored)
         let pk1 = PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             HashSet::from([2]),
             HashSet::new(),
             HashSet::new(),
@@ -656,7 +683,7 @@ mod tests {
 
         let pk2 = PlanetKnowledge::new(
             2,
-            common_game::components::planet::PlanetType::B,
+            Some(common_game::components::planet::PlanetType::B),
             HashSet::from([1, 3]),
             HashSet::new(),
             HashSet::new(),
@@ -711,7 +738,7 @@ mod tests {
         // Should return 3 because it's a direct neighbor (closer)
         let pk1 = PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             HashSet::from([2, 3]),
             HashSet::new(),
             HashSet::new(),
@@ -720,7 +747,7 @@ mod tests {
 
         let pk2 = PlanetKnowledge::new(
             2,
-            common_game::components::planet::PlanetType::B,
+            Some(common_game::components::planet::PlanetType::B),
             HashSet::from([1, 4]),
             HashSet::new(),
             HashSet::new(),
@@ -748,7 +775,7 @@ mod tests {
         // Setup: current planet has one neighbor which is the target
         let pk1 = PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             HashSet::from([10]),
             HashSet::new(),
             HashSet::new(),

@@ -26,7 +26,8 @@ impl Explorer for AllegoryExplorer {
             (ResourceType::Basic(BasicResourceType::Hydrogen), 4),
             (ResourceType::Basic(BasicResourceType::Oxygen), 2),
         ]);
-        AllegoryExplorer {
+
+        let mut explorer = AllegoryExplorer {
             id,
             current_planet_id: current_planet,
             mode: ExplorerMode::Stopped,
@@ -39,7 +40,10 @@ impl Explorer for AllegoryExplorer {
             knowledge: Default::default(),
             task,
             simple_resources_task: HashMap::new(),
-        }
+        };
+        explorer.complex_to_simple_list();
+        println!("{:?}", explorer.simple_resources_task);
+        explorer
     }
 
     fn run(&mut self) -> Result<(), String> {
@@ -65,7 +69,14 @@ impl Explorer for AllegoryExplorer {
         loop {
             // Exit condition
             match self.mode {
-                ExplorerMode::Killed | ExplorerMode::Retired => break,
+                ExplorerMode::Killed => {
+                    emit_info(self.id, "Explorer killed".to_string());
+                    break;
+                },
+                ExplorerMode::Retired => {
+                    emit_info(self.id, "Explorer killed".to_string());
+                    break;
+                },
                 _ => {}
             }
             

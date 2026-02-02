@@ -15,7 +15,6 @@ pub struct ExplorerKnowledge {
 
 #[derive(Debug, PartialEq)]
 pub enum StrategyState {
-    Exploring, // Obsolete with new orchestrator structure
     Collecting,
     Crafting,
     Finished,
@@ -86,6 +85,10 @@ impl PlanetKnowledge {
     pub(crate) fn get_latest_cells_number(&self) -> u32 {
         self.latest_cells_number
     }
+    
+    pub(crate) fn set_latest_cells_number(&mut self, n: u32) {
+        self.latest_cells_number = n;
+    }
 
 
 }
@@ -93,7 +96,7 @@ impl PlanetKnowledge {
 impl Default for ExplorerKnowledge {
     fn default() -> Self {
         ExplorerKnowledge {
-            current_state: StrategyState::Exploring,
+            current_state: StrategyState::Collecting,
             current_target_planet: None,
             planets: vec![],
         }
@@ -124,6 +127,28 @@ impl ExplorerKnowledge {
             None => None,
             Some(planet_knowledge) => Some(planet_knowledge.combinations.clone()),
         }
+    }
+
+    /// Returns all the energy cells the explorer knows of
+    pub(crate) fn get_total_energy_cells(&self) -> u32{
+        let mut count= 0;
+        for planet in &self.planets{
+            count += planet.get_latest_cells_number()
+        }
+        count
+    }
+
+    pub(crate) fn consume_energy_cell(&mut self, planet: ID) {
+        if let Some(planet_knowledge) = self.planets.iter_mut().find(|p| p.id == planet) {
+            if planet_knowledge.latest_cells_number > 0 {
+                planet_knowledge.latest_cells_number -= 1;
+            }
+        }
+    }
+    
+
+    pub (crate) fn wipe_planets(&mut self){
+        self.planets = Default::default();
     }
 
     pub(crate) fn update_neighbors(&mut self, planet_id: ID, neighbors: HashSet<ID>) {
@@ -382,7 +407,7 @@ mod tests {
     fn test_explorer_knowledge_default() {
         let explorer_knowledge = ExplorerKnowledge::default();
 
-        assert_eq!(explorer_knowledge.current_state, StrategyState::Exploring);
+        assert_eq!(explorer_knowledge.current_state, StrategyState::Collecting);
         assert!(explorer_knowledge.planets.is_empty());
     }
 

@@ -4,7 +4,7 @@ use common_game::components::resource::{
 };
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::{
     CurrentPlanetResult, KillExplorerResult, MovedToPlanetResult, ResetExplorerAIResult,
-    StartExplorerAIResult, StopExplorerAIResult, SupportedResourceResult,
+    StartExplorerAIResult, StopExplorerAIResult,
 };
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
@@ -133,31 +133,34 @@ impl AllegoryExplorer {
                     }
                 }
             }
-            OrchestratorToExplorer::SupportedResourceRequest => {
-                match self.knowledge.get_resource_by_id(self.current_planet_id) {
-                    None => {
-                        // TODO!
-                         emit_error(self.id, format!(
-                            "Failed to send to orchestrator SupportedResourceResult: value unknown"
-                        ));
-                        Err(
-                            "Failed to send to orchestrator SupportedResourceResult: value unknown"
-                                .to_string(),
-                        )
-                    }
-                    Some(returned_resources) => {
-                        match self.tx_orchestrator.send(SupportedResourceResult {
+            OrchestratorToExplorer::SupportedResourceRequest => {// Send request to planet to get available combinations
+                self.send_to_planet(ExplorerToPlanet::SupportedResourceRequest {
+                    explorer_id: self.id,
+                });
+
+                // Wait for planet response
+                match self.rx_planet.recv() {
+                    Ok(PlanetToExplorer::SupportedResourceResponse { resource_list }) => {
+                        // Update knowledge with received combinations
+                        self.knowledge.update_planet_resource(self.current_planet_id, resource_list.clone());
+
+                        // Forward result to orchestrator
+                        match self.tx_orchestrator.send(ExplorerToOrchestrator::SupportedResourceResult {
                             explorer_id: self.id,
-                            supported_resources: returned_resources,
+                            supported_resources: resource_list,
                         }) {
                             Ok(_) => Ok(()),
                             Err(e) => {
-                                 emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
-                                Err("Failed to send SupportedResourceResult to orchestrator"
-                                    .to_string())
+                                emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
+                                Err("Failed to send SupportedResourceResult to orchestrator".to_string())
                             }
                         }
                     }
+                    Ok(other) => {
+                        let _ = self.handle_planet_message(other);
+                        Err("Unexpected planet response".to_string())
+                    }
+                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
                 }
             }
             OrchestratorToExplorer::SupportedCombinationRequest => {
@@ -217,7 +220,7 @@ impl AllegoryExplorer {
                             explorer_id: self.id,
                             generated: result.clone(),
                         }) {
-                            Ok(_) => result,
+                            Ok(_) => Ok(()),
                             Err(e) => {
                                 emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
                                 Err("Failed to send GenerateResourceResponse to orchestrator".to_string())
@@ -232,17 +235,61 @@ impl AllegoryExplorer {
                     Err(e) => Err(format!("Failed to receive from planet: {}", e)),
                 }
             }
-            OrchestratorToExplorer::CombineResourceRequest { .. } => {
-                // TODO: Implement combination logic
-                match self.tx_orchestrator.send(ExplorerToOrchestrator::CombineResourceResponse {
-                    explorer_id: self.id,
-                    generated: Err("CombineResourceRequest not implemented".to_string()),
-                }) {
-                    Ok(_) => Ok(()),
-                    Err(e) => {
-                        emit_error(self.id, format!("Failed to send to orchestrator: {}", e));
-                        Err("Failed to send response".to_string())
+            OrchestratorToExplorer::CombineResourceRequest { to_generate } => {
+                // Send request to planet
+                let complex_message = self.create_complex_request(to_generate);
+                let msg = match complex_message {
+                    None => {
+                        emit_warning(self.id, format!("Recoverable error: failed to generate a resource request for resource {:?}. ", to_generate));
+                        return Ok(())
                     }
+                    Some(msg) => {msg}
+                };
+                self.send_to_planet(ExplorerToPlanet::CombineResourceRequest {
+                    explorer_id: self.id,
+                    msg,
+                });
+
+                // Wait for planet response
+                match self.rx_planet.recv() {
+                    Ok(PlanetToExplorer::CombineResourceResponse { complex_response }) => {
+                        let result = match complex_response {
+                            Ok(res) => {
+                                self.add_complex_to_bag(res);
+                                Ok(())
+                            }
+                            Err((str, res1, res2)) => {
+                                emit_warning(self.id, format!("Recoverable error: planet {} failed to generate a resource: {} ", self.current_planet_id, str));
+                                match res1{
+                                    GenericResource::BasicResources(basic) => {self.add_basic_to_bag(basic);}
+                                    GenericResource::ComplexResources(complex) => {self.add_complex_to_bag(complex)}
+                                }
+                                match res2{
+                                    GenericResource::BasicResources(basic) => {self.add_basic_to_bag(basic);}
+                                    GenericResource::ComplexResources(complex) => {self.add_complex_to_bag(complex)}
+                                }
+                                Err(format!("Planet {} failed to generate a resource: {} ", self.current_planet_id, str)) // Returning an OK anyways to prevent a soft error from causing an interruption
+                            },
+                        };
+
+                        // Forward result to orchestrator
+                        match self.tx_orchestrator.send(ExplorerToOrchestrator::CombineResourceResponse {
+                            explorer_id: self.id,
+                            generated: result.clone(),
+                        }) {
+                            Ok(_) => Ok(()),
+                            Err(e) => {
+                                emit_error(self.id, format!("Failed to send CombineResourceResponse to orchestrator: {}", e));
+                                Err("Failed to send GenerateResourceResponse to orchestrator".to_string())
+                            }
+                        }
+                    }
+                    Ok(other) => {
+                        // Unexpected planet message
+                        let _ = self.handle_planet_message(other);
+                        Err("Unexpected planet response".to_string())
+                    }
+                    Err(e) => Err(format!("Failed to receive from planet: {}", e)),
                 }
             }
             OrchestratorToExplorer::NeighborsResponse { neighbors } => {
@@ -269,10 +316,15 @@ impl AllegoryExplorer {
                     self.add_basic_to_bag(res);
                     Ok(())
                 }
-                None => Err(format!(
-                    "Planet {} failed to generate resource",
-                    self.current_planet_id
-                )),
+                None =>{
+                    emit_warning(self.id, format!("Recoverable error: planet {} failed to generate a resource. ", self.current_planet_id));
+                    Ok(())
+                    // Used to be:
+                    // Err(format!(
+                    //     "Planet {} failed to generate resource",
+                    //     self.current_planet_id
+                    // ))
+                }
             },
             PlanetToExplorer::CombineResourceResponse { complex_response } => {
                 return match complex_response {
@@ -304,7 +356,6 @@ impl AllegoryExplorer {
             }
             PlanetToExplorer::Stopped => {
                 self.knowledge.update_killed_planet(self.current_planet_id);
-                // todo: take extra action, like move out
                 Ok(())
             }
         };
@@ -420,8 +471,7 @@ impl AllegoryExplorer {
                              }
                         }
                         OrchestratorToExplorer::BagContentRequest => { 
-                             // not handling this here causes errors
-                             log::warn!("Ignoring BagContentRequest during movement handshake to prevent protocol error");
+                            // not handling this here, done at the end of each turn
                         }
                         _ => {
                             // Delegate other messages

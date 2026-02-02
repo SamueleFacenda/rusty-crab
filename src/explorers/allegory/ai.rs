@@ -1,15 +1,14 @@
-use crate::explorers::allegory::knowledge::StrategyState::*;
+use crate::explorers::BagContent;
+use crate::explorers::allegory::{knowledge::StrategyState::*, logging::emit_warning};
 use crate::explorers::allegory::knowledge::StrategyState;
-use common_game::components::resource::ResourceType;
 use common_game::protocols::{
     orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer},
-    planet_explorer::{ExplorerToPlanet, PlanetToExplorer},
+    planet_explorer::PlanetToExplorer,
 };
-use crossbeam_channel::{Receiver, Sender, select};
-use std::collections::{HashMap, HashSet};
+use crossbeam_channel::select;
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::BagContentResponse;
 use crate::explorers::allegory::explorer::AllegoryExplorer;
-use crate::explorers::allegory::logging::{emit_info};
+use crate::explorers::allegory::logging::{emit_error, emit_info};
 
 impl AllegoryExplorer {
     /// Function to execute a loop. Begins with galaxy exploration, then performs its algorithm.
@@ -18,27 +17,23 @@ impl AllegoryExplorer {
         let n = self.knowledge.get_explored_planets().len();
         emit_info(self.id, format!("Exploration performed on {} planets. Collecting/crafting...", n));
         self.perform_next_step();
+        emit_info(self.id, "Collected. Leaving...".to_string());
+        
+        self.go_to_safe_planet();
         self.conclude_turn()?;
+        emit_info(self.id, "Concluded turn".to_string());
         Ok(())
     }
 
 
     fn explore(&mut self) {
-        let mut explored_this_round = HashSet::new();
+        self.knowledge.wipe_planets();
+        let mut explored_planets = 0;
+        // For each planet:
         loop {
-            // Check termination condition
-            let unexplored = self.knowledge.get_unexplored_planets();
-            if unexplored.is_empty() {
-                // If we haven't explored anything yet, we must start somewhere (here).
-                if !self.knowledge.get_explored_planets().is_empty() {
-                    return;
-                }
-            }
-
-            // Request info for current planet: neighbors, cells, resources and combination if needed
+            explored_planets += 1;
+            // 1. Query 
             self.query_planet();
-            explored_this_round.insert(self.current_planet_id);
-
             // Wait for neighbors answer
             loop {
                 select! {
@@ -52,34 +47,53 @@ impl AllegoryExplorer {
                                 if is_neighbors_response {
                                     break;
                                 }
+                                if matches!(self.mode, crate::explorers::allegory::explorer::ExplorerMode::Killed | crate::explorers::allegory::explorer::ExplorerMode::Retired) {
+                                    return;
+                                }
                             },
-                            Err(_) => return, // Should not happen
+                            Err(e) => {
+                                log::error!("Orchestrator channel closed: {}", e);
+                                return;
+                            }
                         }
                     },
-                     recv(self.rx_planet) -> msg => {
+                    recv(self.rx_planet) -> msg => {
                         match msg {
                             Ok(m) => {
                                 if let Err(e) = self.handle_planet_message(m) {
                                     log::error!("Error handling planet message: {}", e);
                                 }
                             },
-                            Err(_) => return,
+                            Err(e) => {
+                                log::error!("Planet channel closed: {}", e);
+                                return;
+                            }
                         }
                     }
                 }
             }
 
-            // Move when neighbors information is updated to next unexplored planet
-            let unexplored = self.knowledge.get_unexplored_from_hash(&explored_this_round);
+            // 2. Exit check
+            let unexplored = self.knowledge.get_unexplored_planets();
+            if explored_planets >= 7 {
+                emit_info(self.id, "Explored all planets".to_string());
+                break;
+            }
+            if unexplored.is_empty(){
+                emit_info(self.id, "Finished exploring the solar system".to_string());
+            }
+
+            // 3. Move to next 
             match self.find_first_unexplored(&unexplored) {
-                None => return, // done exploring
+                None => {
+                    // Should not happen from previous condition but break
+                    // emit_info(self.id, "Reached a supposedly unreachable condition".to_string());
+                    break; 
+                }, 
                 Some(id) => {
-                    self.knowledge.set_destination(Some(id));
-                    let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
-                    
-                    if let Err(e) = self.move_to_planet(next_hop) {
-                        log::error!("Movement failed: {}", e);
-                        return;
+                    match self.move_to_planet(id) {
+                        Ok(_) => {},
+                        Err(e) => emit_warning(self.id, format!("Failed to move to planet {}: {}", id, e)),
                     }
                 }
             }
@@ -87,41 +101,224 @@ impl AllegoryExplorer {
     }
 
     /// Explorer AI: decides what to do next
-    /// - Exploring: Visits all planets, storing the specific information in the planet knowledge
-    /// - Collecting: calculate the necessary resources to craft all the complex resources, sum it to the simple resources,
-    /// travel along the planets to collect what needed to fulfill the task
-    /// - crafting: create stuff from the list
-    /// Should be called if the explorer is in automatic mode only
-    fn perform_next_step(&mut self){
-        let state = self.knowledge.get_current_state();
-        // Manually cloning state to avoid borrow checker issues with self.knowledge
-        let state = match state {
-            StrategyState::Exploring => StrategyState::Exploring,
-            StrategyState::Collecting => StrategyState::Collecting,
-            StrategyState::Crafting => StrategyState::Crafting,
-            StrategyState::Finished => StrategyState::Finished,
-            StrategyState::Failed => StrategyState::Failed,
-        };
-
-        let (or_msg, pl_msg) = self.next_step(state);
-
-        if let Some(msg) = or_msg {
-            self.send_to_orchestrator(msg);
-        }
-        if let Some(msg) = pl_msg {
-            self.send_to_planet(msg);
+    /// - Collecting: Moves to planets with resources and gathers them.
+    /// - Crafting: Moves to planets with combinations and crafts complex resources.
+    fn perform_next_step(&mut self) {
+        match self.knowledge.get_current_state() {
+             Collecting => {
+                 if let Err(e) = self.execute_collecting() {
+                     emit_warning(self.id, format!("Recoverable error in collecting strategy: {}", e));
+                 }
+             },
+             Crafting => {
+                  if let Err(e) = self.execute_crafting() {
+                      emit_warning(self.id, format!("Recoverable error in crafting strategy: {}", e));
+                 }
+             },
+             Finished => {},
+             Failed => {},
         }
     }
 
+    fn execute_collecting(&mut self) -> Result<(), String> {
+        let mut iterations = 0;
+        self.remove_extra_planets();
+        while self.knowledge.get_total_energy_cells() > 0 && iterations < 20 {
+            iterations += 1;
+            return match self.anything_left_on_the_shopping_list() {
+                None => {
+                    self.change_state(Crafting);
+                    Ok(())
+                }
+                Some(list) => {
+                    // Check if current planet has a resource we need
+                    let current_resources = self.knowledge
+                        .get_planet_knowledge(self.current_planet_id)
+                        .map(|pk| pk.get_resource_type().clone())
+                        .unwrap_or_default();
+
+                    // Find needed resource on current planet
+                    let needed_here = list.iter().find(|(res, _)| current_resources.contains(res));
+
+                    if let Some((&res, _)) = needed_here {
+                        // Collect it
+                        let success = self.gather_resource(res).expect("Should never happen");
+                        self.knowledge.consume_energy_cell(self.current_planet_id);
+                        
+                        if !success {
+                             if let Some(pk) = self.knowledge.planets.iter_mut().find(|p| p.get_id() == self.current_planet_id) {
+                                 pk.set_latest_cells_number(0);
+                             }
+                        }
+                        continue;
+                    } else {
+                        // Need to move
+                        if let Some((&res, _)) = list.iter().max_by_key(|&(_, count)| count) {
+                            let target = self.find_best_planet_for_resource(res);
+                            if let Some(t) = target {
+                                // Move towards it
+                                self.knowledge.set_destination(Some(t));
+                                let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
+                                self.move_to_planet(next_hop)
+                            } else {
+                                self.change_state(Failed);
+                                emit_info(self.id, format!("No planet found for required material: {:?}", res));
+                                Err("No planet found with required resource".to_string())
+                            }
+                        } else {
+                            continue
+                        }
+                    }
+
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn execute_crafting(&mut self) -> Result<(), String> {
+        if self.verify_win() {
+            self.change_state(StrategyState::Finished);
+            return Ok(());
+        }
+
+        match self.anything_left_on_the_crafting_list() {
+            None => {
+                // If crafting list empty but not win, maybe we missed something? Back to collecting?
+                if self.anything_left_on_the_shopping_list().is_some() {
+                    self.change_state(StrategyState::Collecting);
+                }
+                Ok(())
+            },
+            Some(list) => {
+                // Check if current planet can craft something we need
+                let current_combinations = self.knowledge
+                    .get_planet_knowledge(self.current_planet_id)
+                    .map(|pk| pk.get_combinations().clone())
+                    .unwrap_or_default();
+                
+                let craftable_here = list.iter().find(|(res, _)| current_combinations.contains(res));
+
+                if let Some((&res, _)) = craftable_here {
+                    // Craft it
+                    self.combine_resource(res)
+                } else {
+                    // Move
+                    if let Some((&res, _)) = list.iter().max_by_key(|&(_, count)| count) {
+                        let target = self.find_best_planet_for_combination(res);
+                        if let Some(t) = target {
+                            self.knowledge.set_destination(Some(t));
+                            let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
+                            self.move_to_planet(next_hop)
+                        } else {
+                            Err("No planet found with required combination".to_string())
+                        }
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
+        }
+    }
+    
+    // Blocking Helpers
+    fn gather_resource(&mut self, res: common_game::components::resource::BasicResourceType) -> Result<bool, String> {
+        self.request_resource_generation(res);
+        // Wait for response
+        loop {
+            select! {
+                recv(self.rx_planet) -> msg => {
+                    match msg {
+                        Ok(m) => {
+                            let (is_response, success) = match &m {
+                                PlanetToExplorer::GenerateResourceResponse { resource } => (true, resource.is_some()),
+                                _ => (false, false),
+                            };
+                            
+                            if let Err(e) = self.handle_planet_message(m) {
+                                emit_error(self.id, format!("Error handling planet message: {}", e));
+                            }
+                            if is_response { return Ok(success); }
+                        },
+                        Err(e) => return Err(format!("Planet channel closed: {}", e)),
+                    }
+                },
+                recv(self.rx_orchestrator) -> msg => {
+                    match msg {
+                        Ok(m) => {
+                             // Handle interruptions
+                             self.handle_orchestrator_message(m)?;
+                             if matches!(self.mode, crate::explorers::allegory::explorer::ExplorerMode::Killed | crate::explorers::allegory::explorer::ExplorerMode::Retired) {
+                                 return Ok(false);
+                             }
+                        },
+                        Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
+                    }
+                }
+            }
+        }
+    }
+
+    fn combine_resource(&mut self, res: common_game::components::resource::ComplexResourceType) -> Result<(), String> {
+         let request = self.create_complex_request(res).ok_or("Failed to create request")?;
+         if let Err(e) = self.request_resource_combination(request) {
+             return Err(e);
+         }
+         
+        // Wait for response
+        loop {
+            select! {
+                recv(self.rx_planet) -> msg => {
+                     match msg {
+                        Ok(m) => {
+                            let is_response = matches!(m, PlanetToExplorer::CombineResourceResponse{..});
+                            if let Err(e) = self.handle_planet_message(m) {
+                                log::error!("Error handling planet message: {}", e);
+                            }
+                            if is_response { return Ok(()); }
+                        },
+                        Err(e) => return Err(format!("Planet channel closed: {}", e)),
+                    }
+                },
+                recv(self.rx_orchestrator) -> msg => {
+                     match msg {
+                        Ok(m) => {
+                            self.handle_orchestrator_message(m)?;
+                            if matches!(self.mode, crate::explorers::allegory::explorer::ExplorerMode::Killed | crate::explorers::allegory::explorer::ExplorerMode::Retired) {
+                                return Ok(());
+                            }
+                        },
+                        Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
+                    }
+                }
+            }
+        }
+    }
+    
+    // Helper search functions
+    /// Looks for the planet with the most energy cells producing a given resource
+    fn find_best_planet_for_resource(&self, res: common_game::components::resource::BasicResourceType) -> Option<common_game::utils::ID> {
+        self.knowledge.planets.iter()
+            .filter(|p| p.get_resource_type().contains(&res))
+            .max_by_key(|p| p.get_latest_cells_number())
+            .map(|p| p.get_id())
+    }
+
+    fn find_best_planet_for_combination(&self, res: common_game::components::resource::ComplexResourceType) -> Option<common_game::utils::ID> {
+        self.knowledge.planets.iter()
+            .filter(|p| p.get_combinations().contains(&res))
+            .max_by_key(|p| p.get_latest_cells_number())
+            .map(|p| p.get_id())
+    }
+
     fn conclude_turn(&mut self) -> Result<(), String> {
+        while let Ok(msg) = self.rx_orchestrator.try_recv() {
+            self.handle_orchestrator_message(msg)?;
+        }
+
         match self.mode{
             crate::explorers::allegory::explorer::ExplorerMode::Killed => {
-                match self.tx_orchestrator.send(
-            ExplorerToOrchestrator::KillExplorerResult { explorer_id: (self.id) }
-        ){
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Error sending to orchestrator: {}", e))
-        }
+                Ok(())
             }
             _ => {
                 match self.tx_orchestrator.send(
@@ -140,562 +337,19 @@ impl AllegoryExplorer {
         
     }
 
-    /// Deprecated version of next step for one communication per turn
-    pub fn next_step(
-        &mut self,
-        state: StrategyState,
-    ) -> (
-        Option<ExplorerToOrchestrator<BagContent>>,
-        Option<ExplorerToPlanet>,
-    ) {
-        let mut destination = self.knowledge.get_target_planet();
-        // Duplicating match to save one turn in case destination is reached
-        match destination {
-            Some(id) => {
-                if id == self.current_planet_id {
-                    destination = None;
-                    self.knowledge.set_destination(None);
-                }
-            }
-            _ => {}
-        }
-        match destination {
-            None => {
-                // If not travelling, decide what to do next
-                match state {
-                    Exploring => {
-                        // Gather information on current planet if missing; otherwise, move
-                        if let Some(pk) =
-                            self.knowledge.get_planet_knowledge(self.current_planet_id)
-                        {
-                            if pk.get_neighbors().is_empty() {
-                                return (
-                                    Some(ExplorerToOrchestrator::NeighborsRequest {
-                                        explorer_id: self.id,
-                                        current_planet_id: self.current_planet_id,
-                                    }),
-                                    None,
-                                );
-                            }
-                            if pk.get_resource_type().is_empty() {
-                                return (
-                                    None,
-                                    Some(ExplorerToPlanet::SupportedResourceRequest {
-                                        explorer_id: self.id,
-                                    }),
-                                );
-                            }
-                            if pk.get_combinations().is_empty() {
-                                return (
-                                    None,
-                                    Some(ExplorerToPlanet::SupportedCombinationRequest {
-                                        explorer_id: self.id,
-                                    }),
-                                );
-                            }
-                        } else {
-                            // Fallback if we somehow don't have the PK
-                            return (
-                                Some(ExplorerToOrchestrator::NeighborsRequest {
-                                    explorer_id: self.id,
-                                    current_planet_id: self.current_planet_id,
-                                }),
-                                None,
-                            );
-                        }
-
-                        // Decide where to move or change state if everything is explored
-                        let unexplored = self.knowledge.get_unexplored_planets();
-                        match self.find_first_unexplored(&unexplored) {
-                            None => {
-                                // All planets are explored
-                                self.change_state(Collecting);
-                            }
-                            Some(id) => {
-                                self.knowledge.set_destination(Some(id));
-                                let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
-                                return (
-                                    Some(ExplorerToOrchestrator::TravelToPlanetRequest {
-                                        explorer_id: self.id,
-                                        current_planet_id: self.current_planet_id,
-                                        dst_planet_id: next_hop,
-                                    }),
-                                    None,
-                                );
-                            }
-                        }
-                        (None, None)
-                    }
-                    Collecting => {
-                        // If there is something left to collect:
-                        // Check if current planet has the required resource;
-                        // If not, check neighbors;
-                        // If not, find another planet
-                        match self.anything_left_on_the_shopping_list() {
-                            None => {
-                                self.change_state(StrategyState::Crafting);
-                                (None, None) // Idle for one turn to run the cycle again
-                            }
-                            Some(list) => {
-                                // check current planet
-                                let current_resources = self
-                                    .knowledge
-                                    .get_planet_knowledge(self.current_planet_id)
-                                    .unwrap() // This is safe because all planets have been explored in step 1
-                                    .get_resource_type();
-
-                                // Check if current planet has any required resources
-                                let mut compatible_resources = list
-                                    .iter()
-                                    .filter(|(resource_type, _)| {
-                                        current_resources.contains(resource_type)
-                                    })
-                                    .map(|(resource_type, _)| *resource_type)
-                                    .collect::<Vec<_>>();
-
-                                // If there are some:
-                                if !compatible_resources.is_empty() {
-                                    // Request resources from current planet
-                                    return (
-                                        None,
-                                        Some(ExplorerToPlanet::GenerateResourceRequest {
-                                            explorer_id: self.id,
-                                            resource: compatible_resources.pop().unwrap(), // safe because it cannot be empty
-                                        }),
-                                    );
-                                } else {
-                                    // Find another planet
-                                    // Look in list what resource I need the most
-                                    if let Some((&needed_resource, _)) =
-                                        list.iter().max_by_key(|&(_, count)| count)
-                                    {
-                                        // Filter known planets that have the resource
-                                        let candidates: Vec<&crate::explorers::allegory::knowledge::PlanetKnowledge> =
-                                            self.knowledge
-                                                .planets
-                                                .iter()
-                                                .filter(|p| {
-                                                    p.get_resource_type().contains(&needed_resource)
-                                                })
-                                                .collect();
-
-                                        // Planets of type A have the prioriy
-                                        let target_planet = candidates
-                                            .iter()
-                                            .find(|p| {
-                                                matches!(
-                                                    p.get_planet_type(),
-                                                    Some(common_game::components::planet::PlanetType::A)
-                                                )
-                                            })
-                                            .or_else(|| candidates.first()); // otherwise any works
-
-                                        if let Some(target) = target_planet {
-                                            let target_id = target.get_id();
-                                            self.knowledge.set_destination(Some(target_id));
-                                            let next_hop =
-                                                self.knowledge.get_next_hop(self.current_planet_id);
-
-                                            // Move there
-                                            (
-                                                Some(
-                                                    ExplorerToOrchestrator::TravelToPlanetRequest {
-                                                        explorer_id: self.id,
-                                                        current_planet_id: self.current_planet_id,
-                                                        dst_planet_id: next_hop,
-                                                    },
-                                                ),
-                                                None,
-                                            )
-                                        } else {
-                                            // No planet has the needed resource - collection impossible
-                                            log::warn!(
-                                                "No planet found with resource {:?}",
-                                                needed_resource
-                                            );
-                                            self.change_state(StrategyState::Failed);
-                                            return (None, None);
-                                        }
-                                    } else {
-                                        // Empty shopping list (shouldn't happen)
-                                        self.change_state(StrategyState::Crafting);
-                                        (None, None)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Crafting => {
-                        // Verify if with last turn the task is finished
-                        if self.verify_win() {
-                            self.change_state(Finished);
-                            return (None, None);
-                        }
-
-                        // If not, :(, apply the same logic as collecting but with crafting
-
-                        match self.anything_left_on_the_crafting_list() {
-                            None => {
-                                // Should never  happen (just checked) but go back to collecting
-                                if self.anything_left_on_the_shopping_list().is_some() {
-                                    self.change_state(Collecting);
-                                }
-                                (None, None)
-                            }
-                            Some(list) => {
-                                // Check current planet first
-                                for item in &list {
-                                    if self.knowledge.can_planet_produce(
-                                        self.current_planet_id,
-                                        ResourceType::Complex(*item.0),
-                                    ) {
-                                        if self
-                                            .knowledge
-                                            .get_planet_knowledge(self.current_planet_id)
-                                            .unwrap()
-                                            .get_latest_cells_number()
-                                            > 0
-                                        {
-                                            return (
-                                                None,
-                                                Some(ExplorerToPlanet::CombineResourceRequest {
-                                                    explorer_id: self.id,
-                                                    msg: self
-                                                        .create_complex_request(*item.0)
-                                                        .unwrap(),
-                                                }), // Since all resources are collected before this state, there should always be enough not to have a None
-                                            );
-                                        } else {
-                                        }
-                                    }
-                                }
-                                // check current planet
-                                let current_combinations = self
-                                    .knowledge
-                                    .get_planet_knowledge(self.current_planet_id)
-                                    .unwrap()
-                                    .get_combinations();
-
-                                // Check if current planet has any required combinations
-                                let mut compatible_combinations = list
-                                    .iter()
-                                    .filter(|(complex_type, _)| {
-                                        current_combinations.contains(complex_type)
-                                    })
-                                    .map(|(complex_type, _)| *complex_type)
-                                    .collect::<Vec<_>>();
-
-                                if !compatible_combinations.is_empty() {
-                                    let req_type = compatible_combinations.pop().unwrap();
-                                    let request = match self.create_complex_request(req_type) {
-                                        None => {
-                                            // Should never happen
-                                            self.change_state(StrategyState::Collecting);
-                                            return (None, None);
-                                        }
-                                        Some(request) => request,
-                                    };
-
-                                    (
-                                        None,
-                                        Some(ExplorerToPlanet::CombineResourceRequest {
-                                            explorer_id: self.id,
-                                            msg: request,
-                                        }),
-                                    )
-                                } else {
-                                    // Find another planet
-                                    if let Some((&needed_complex, _)) =
-                                        list.iter().max_by_key(|&(_, count)| count)
-                                    {
-                                        let candidates: Vec<&crate::explorers::allegory::knowledge::PlanetKnowledge> =
-                                            self.knowledge
-                                                .planets
-                                                .iter()
-                                                .filter(|p| {
-                                                    p.get_combinations().contains(&needed_complex)
-                                                })
-                                                .collect();
-
-                                        // Priority is given to C type planets
-                                        let target_planet = candidates
-                                            .iter()
-                                            .find(|p| {
-                                                matches!(
-                                                    p.get_planet_type(),
-                                                    Some(common_game::components::planet::PlanetType::C)
-                                                )
-                                            })
-                                            .or_else(|| candidates.first());
-
-                                        if let Some(target) = target_planet {
-                                            let target_id = target.get_id();
-                                            self.knowledge.set_destination(Some(target_id));
-                                            let next_hop =
-                                                self.knowledge.get_next_hop(self.current_planet_id);
-
-                                            (
-                                                Some(
-                                                    ExplorerToOrchestrator::TravelToPlanetRequest {
-                                                        explorer_id: self.id,
-                                                        current_planet_id: self.current_planet_id,
-                                                        dst_planet_id: next_hop,
-                                                    },
-                                                ),
-                                                None,
-                                            )
-                                        } else {
-                                            // There is no way of achieving the goal
-                                            self.change_state(Failed);
-                                            (None, None)
-                                        }
-                                    } else {
-                                        (None, None)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Finished | Failed => {
-                        // Should never happen, but do nothing
-                        (None, None)
-                    }
-                }
-            }
-            Some(_) => {
-                (
-                    Some(ExplorerToOrchestrator::TravelToPlanetRequest {
-                        explorer_id: self.id,
-                        current_planet_id: self.current_planet_id,
-                        dst_planet_id: self.knowledge.get_next_hop(self.current_planet_id), // destination is used internally
-                    }),
-                    None,
-                )
+    fn go_to_safe_planet(&mut self) {
+        if let Some(safe_planet) = self
+            .knowledge
+            .planets
+            .iter()
+            .find(|p| matches!(p.get_planet_type(), Some(common_game::components::planet::PlanetType::C)))
+            .map(|p| p.get_id())
+        {
+            if safe_planet != self.current_planet_id {
+                let _ = self.move_to_planet(safe_planet);
             }
         }
     }
-}
 
-use crate::explorers::BagContent;
 
-mod test {
-    use std::collections::HashSet;
-    use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-    use super::*;
-    use crossbeam_channel::unbounded;
-
-    pub fn create_test_explorer() -> (
-        AllegoryExplorer,
-        Sender<OrchestratorToExplorer>,
-        Receiver<ExplorerToOrchestrator<BagContent>>,
-        Sender<PlanetToExplorer>,
-        Receiver<ExplorerToPlanet>,
-    ) {
-        let (tx_orch, rx_orch) = unbounded();
-        let (tx_ex_to_orch, rx_ex_to_orch) = unbounded();
-        let (tx_planet, rx_planet) = unbounded();
-        let (tx_ex_to_planet, rx_ex_to_planet) = unbounded();
-
-        let explorer = AllegoryExplorer::new_complete(
-            1,
-            1,
-            rx_orch,
-            tx_ex_to_orch,
-            tx_ex_to_planet,
-            rx_planet,
-            HashMap::new(),
-        );
-
-        (explorer, tx_orch, rx_ex_to_orch, tx_planet, rx_ex_to_planet)
-    }
-
-    #[test]
-    fn test_next_step_exploring_no_knowledge() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        let (orch_msg, planet_msg) = explorer.next_step(Exploring);
-
-        // When no knowledge exists for current planet, should request neighbors
-        assert!(orch_msg.is_some());
-        assert!(planet_msg.is_none());
-
-        match orch_msg {
-            Some(ExplorerToOrchestrator::NeighborsRequest {
-                explorer_id,
-                current_planet_id,
-            }) => {
-                assert_eq!(explorer_id, 1);
-                assert_eq!(current_planet_id, 1);
-            }
-            _ => panic!("Expected NeighborsRequest"),
-        }
-    }
-
-    #[test]
-    fn test_next_step_exploring_missing_resources() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        // Add planet knowledge with neighbors but no resources
-        let neighbors = HashSet::from([2, 3]);
-        let pk = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
-            1,
-            Some(common_game::components::planet::PlanetType::A),
-            neighbors,
-            HashSet::new(), // empty resources
-            HashSet::new(),
-            0,
-        );
-        explorer.knowledge.planets.push(pk);
-
-        let (orch_msg, planet_msg) = explorer.next_step(Exploring);
-
-        // Should request resource information
-        assert!(orch_msg.is_none());
-        assert!(planet_msg.is_some());
-
-        match planet_msg {
-            Some(ExplorerToPlanet::SupportedResourceRequest { explorer_id }) => {
-                assert_eq!(explorer_id, 1);
-            }
-            _ => panic!("Expected SupportedResourceRequest"),
-        }
-    }
-
-    #[test]
-    fn test_next_step_exploring_missing_combinations() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        // Add planet knowledge with neighbors and resources but no combinations
-        let neighbors = HashSet::from([2, 3]);
-        let resources = HashSet::from([BasicResourceType::Oxygen, BasicResourceType::Silicon]);
-        let pk = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
-            1,
-            Some(common_game::components::planet::PlanetType::A),
-            neighbors,
-            resources,
-            HashSet::new(), // empty combinations
-            0,
-        );
-        explorer.knowledge.planets.push(pk);
-
-        let (orch_msg, planet_msg) = explorer.next_step(Exploring);
-
-        // Should request combination information
-        assert!(orch_msg.is_none());
-        assert!(planet_msg.is_some());
-
-        match planet_msg {
-            Some(ExplorerToPlanet::SupportedCombinationRequest { explorer_id }) => {
-                assert_eq!(explorer_id, 1);
-            }
-            _ => panic!("Expected SupportedCombinationRequest"),
-        }
-    }
-
-    #[test]
-    fn test_next_step_exploring_complete_knowledge_all_explored() {
-        pub fn create_test_explorer() -> (
-            AllegoryExplorer,
-            Sender<OrchestratorToExplorer>,
-            Receiver<ExplorerToOrchestrator<BagContent>>,
-            Sender<PlanetToExplorer>,
-            Receiver<ExplorerToPlanet>,
-        ) {
-            let (tx_orch, rx_orch) = unbounded();
-            let (tx_ex_to_orch, rx_ex_to_orch) = unbounded();
-            let (tx_planet, rx_planet) = unbounded();
-            let (tx_ex_to_planet, rx_ex_to_planet) = unbounded();
-
-            let explorer = AllegoryExplorer::new_complete(
-                1,
-                1,
-                rx_orch,
-                tx_ex_to_orch,
-                tx_ex_to_planet,
-                rx_planet,
-                HashMap::new(),
-            );
-
-            (explorer, tx_orch, rx_ex_to_orch, tx_planet, rx_ex_to_planet)
-        }
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        // Add complete planet knowledge and all neighbors are also known
-        let neighbors = HashSet::from([2, 3]);
-        let resources = HashSet::from([BasicResourceType::Oxygen, BasicResourceType::Silicon]);
-        let combinations = HashSet::from([ComplexResourceType::Water]);
-
-        let pk1 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
-            1,
-            Some(common_game::components::planet::PlanetType::A),
-            neighbors,
-            resources,
-            combinations,
-            10,
-        );
-
-        let pk2 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
-            2,
-            Some(common_game::components::planet::PlanetType::B),
-            HashSet::new(),
-            HashSet::new(),
-            HashSet::new(),
-            0,
-        );
-
-        let pk3 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
-            3,
-            Some(common_game::components::planet::PlanetType::C),
-            HashSet::new(),
-            HashSet::new(),
-            HashSet::new(),
-            0,
-        );
-
-        explorer.knowledge.planets.push(pk1);
-        explorer.knowledge.planets.push(pk2);
-        explorer.knowledge.planets.push(pk3);
-
-        let (orchestrator_message, planet_msg) =
-            explorer.next_step(Exploring);
-
-        // All planets are explored, so no action should be taken
-        assert!(orchestrator_message.is_none());
-        assert!(planet_msg.is_none());
-    }
-
-    #[test]
-    fn test_next_step_collecting() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        let (orchestrator_message, planet_msg) =
-            explorer.next_step(Collecting);
-
-        // TODO!
-        assert!(orchestrator_message.is_none());
-        assert!(planet_msg.is_none());
-    }
-
-    #[test]
-    fn test_next_step_finished() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        let (orchestrator_message, planet_msg) =
-            explorer.next_step(Finished);
-
-        // Finished state should do nothing
-        assert!(orchestrator_message.is_none());
-        assert!(planet_msg.is_none());
-    }
-
-    #[test]
-    fn test_next_step_failed() {
-        let (mut explorer, _, _, _, _) = create_test_explorer();
-
-        let (orchestrator_message, planet_msg) = explorer.next_step(Failed);
-
-        // Failed state should do nothing
-        assert!(orchestrator_message.is_none());
-        assert!(planet_msg.is_none());
-    }
 }
