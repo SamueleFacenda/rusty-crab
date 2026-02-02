@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
+
 use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
 use common_game::utils::ID;
 
 pub struct ExplorerKnowledge {
     pub galaxy: GalaxyInfo,
     planets: HashMap<ID, PlanetInfo>,
-    goal: HashMap<ResourceType, i32>  // All the resources he needs to Mine&Craft
+    goal: HashMap<ResourceType, i32> // All the resources he needs to Mine&Craft
 }
 
 impl Default for ExplorerKnowledge {
@@ -22,26 +23,16 @@ impl Default for ExplorerKnowledge {
         goal.insert(ResourceType::Complex(ComplexResourceType::Dolphin), 1);
         goal.insert(ResourceType::Complex(ComplexResourceType::AIPartner), 1);
 
-        ExplorerKnowledge {
-            galaxy: GalaxyInfo::default(),
-            planets: HashMap::new(),
-            goal
-        }
+        ExplorerKnowledge { galaxy: GalaxyInfo::default(), planets: HashMap::new(), goal }
     }
 }
 
 impl ExplorerKnowledge {
-    pub fn update_planet(&mut self, id: ID, planet_info: PlanetInfo) {
-        self.planets.insert(id, planet_info);
-    }
+    pub fn update_planet(&mut self, id: ID, planet_info: PlanetInfo) { self.planets.insert(id, planet_info); }
 
-    pub fn add_bi_connection(&mut self, a: ID, b: ID) {
-        self.galaxy.add_bi_connection(a, b);
-    }
+    pub fn add_bi_connection(&mut self, a: ID, b: ID) { self.galaxy.add_bi_connection(a, b); }
 
-    pub fn remove_bi_connection(&mut self, a: ID, b: ID) {
-        self.galaxy.remove_bi_connection(&a, &b);
-    }
+    pub fn remove_bi_connection(&mut self, a: ID, b: ID) { self.galaxy.remove_bi_connection(&a, &b); }
 
     pub fn decrease_from_goal(&mut self, resource_type: ResourceType) {
         if let Some(value) = self.goal.get_mut(&resource_type) {
@@ -50,8 +41,8 @@ impl ExplorerKnowledge {
     }
 
     pub fn goal_completed(&self) -> bool {
-        self.goal[ResourceType::Complex(ComplexResourceType::AIPartner)] == 0 &&
-            self.goal[ResourceType::Complex(ComplexResourceType::Dolphin)] == 0
+        self.goal[ResourceType::Complex(ComplexResourceType::AIPartner)] == 0
+            && self.goal[ResourceType::Complex(ComplexResourceType::Dolphin)] == 0
     }
 
     pub fn complex_goal_completed(&self, resource_type: ComplexResourceType) -> bool {
@@ -61,7 +52,6 @@ impl ExplorerKnowledge {
     pub fn basic_goal_completed(&self, resource_type: BasicResourceType) -> bool {
         self.goal[ResourceType::Basic(resource_type)] == 0
     }
-
 }
 
 struct PlanetInfo {
@@ -70,7 +60,7 @@ struct PlanetInfo {
     energy_available: i32,
     is_destroyed: bool
 }
-struct GalaxyInfo{
+struct GalaxyInfo {
     pub connections: HashMap<ID, HashSet<ID>>
 }
 
@@ -80,37 +70,20 @@ impl PlanetInfo {
         complex_type: Option<ComplexResourceType>,
         energy_available: i32
     ) -> PlanetInfo {
-        PlanetInfo {
-            basic_type,
-            complex_type,
-            energy_available,
-            is_destroyed: false
-        }
+        PlanetInfo { basic_type, complex_type, energy_available, is_destroyed: false }
     }
 
-    fn update(&mut self, energy: i32) {
-        self.energy_available = energy;
-    }
+    fn update(&mut self, energy: i32) { self.energy_available = energy; }
 }
 
 impl Default for GalaxyInfo {
-    fn default() -> Self {
-        GalaxyInfo {
-            connections: HashMap::new()
-        }
-    }
+    fn default() -> Self { GalaxyInfo { connections: HashMap::new() } }
 }
 
 impl GalaxyInfo {
     fn add_bi_connection(&mut self, a: ID, b: ID) {
-        self.connections
-            .entry(a)
-            .or_insert_with(HashSet::new)
-            .insert(b);
-        self.connections
-            .entry(b)
-            .or_insert_with(HashSet::new)
-            .insert(a);
+        self.connections.entry(a).or_insert_with(HashSet::new).insert(b);
+        self.connections.entry(b).or_insert_with(HashSet::new).insert(a);
     }
 
     // Used when planets get destroyed, it removes the connection both ways
