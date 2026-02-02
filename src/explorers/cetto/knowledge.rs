@@ -41,16 +41,16 @@ impl ExplorerKnowledge {
     }
 
     pub fn goal_completed(&self) -> bool {
-        self.goal[ResourceType::Complex(ComplexResourceType::AIPartner)] == 0
-            && self.goal[ResourceType::Complex(ComplexResourceType::Dolphin)] == 0
+        self.goal[&ResourceType::Complex(ComplexResourceType::AIPartner)] == 0
+            && self.goal[&ResourceType::Complex(ComplexResourceType::Dolphin)] == 0
     }
 
     pub fn complex_goal_completed(&self, resource_type: ComplexResourceType) -> bool {
-        self.goal[ResourceType::Complex(resource_type)] == 0
+        self.goal[&ResourceType::Complex(resource_type)] == 0
     }
 
     pub fn basic_goal_completed(&self, resource_type: BasicResourceType) -> bool {
-        self.goal[ResourceType::Basic(resource_type)] == 0
+        self.goal[&ResourceType::Basic(resource_type)] == 0
     }
 }
 
@@ -60,7 +60,7 @@ struct PlanetInfo {
     energy_available: i32,
     is_destroyed: bool
 }
-struct GalaxyInfo {
+pub struct GalaxyInfo {
     pub connections: HashMap<ID, HashSet<ID>>
 }
 
