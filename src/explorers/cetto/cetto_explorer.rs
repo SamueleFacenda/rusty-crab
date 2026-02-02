@@ -246,7 +246,7 @@ impl CettoExplorer {
             },
             OrchestratorToExplorer::BagContentRequest => {
                 // Play the turn and then respond
-                self.play_turn();
+                self.play_turn()?;
 
                 // Respond
                 let content = BagContent {
@@ -269,11 +269,6 @@ impl CettoExplorer {
         }
     }
 
-
-
-
-
-
     fn play_turn(&mut self) -> Result<(), String> {
         if self.mode == ExplorerMode::Manual || self.knowledge.goal_completed() {
             return Ok(());
@@ -281,9 +276,6 @@ impl CettoExplorer {
 
         let mut visited = HashSet::new();
         self.dfs(&mut visited)?;
-
-
-
 
         // self.move_safest_planet();
         Ok(())

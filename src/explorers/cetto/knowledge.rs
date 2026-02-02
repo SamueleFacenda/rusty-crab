@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use bevy::ecs::query::EcsAccessType::Resource;
-use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType, ResourceType};
+use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
 use common_game::utils::ID;
 
 pub struct ExplorerKnowledge {
