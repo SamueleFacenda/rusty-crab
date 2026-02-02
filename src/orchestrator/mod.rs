@@ -14,5 +14,5 @@ pub(crate) use communication::{ExplorerChannelDemultiplexer, ExplorerLoggingRece
 pub(crate) use galaxy::Galaxy;
 pub(crate) use init::{GalaxyBuilder, PLANET_ORDER, PlanetFactory, PlanetType};
 pub(crate) use probability::ProbabilityCalculator;
-pub(crate) use state::{ExplorerHandle, OrchestratorState, PlanetHandle};
+pub(crate) use state::{ExplorerHandle, OrchestratorState, PlanetHandle, OrchestratorManualAction};
 pub(crate) use update_strategy::OrchestratorUpdateFactory;

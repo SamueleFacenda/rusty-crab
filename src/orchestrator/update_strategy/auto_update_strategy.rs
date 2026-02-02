@@ -9,7 +9,7 @@ use common_game::utils::ID;
 
 use crate::explorers::BagContent;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
-use crate::orchestrator::{OrchestratorState, ProbabilityCalculator};
+use crate::orchestrator::{OrchestratorManualAction, OrchestratorState, ProbabilityCalculator};
 
 pub(crate) struct AutoUpdateStrategy<'a> {
     explorers_not_passed: HashSet<ID>, // explorers that have not passed the turn yet
@@ -186,8 +186,8 @@ impl AutoUpdateStrategy<'_> {
 impl OrchestratorUpdateStrategy for AutoUpdateStrategy<'_> {
     fn update(&mut self) -> Result<(), String> { self.execute_cycle() }
 
-    fn process_commands(&mut self) -> Result<(), String> {
-        log::warn!("AutoUpdateStrategy does not process commands");
+    fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String> {
+        log::warn!("AutoUpdateStrategy does not process commands: {command:?}");
         Ok(())
     }
 }

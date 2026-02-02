@@ -1,15 +1,18 @@
+use common_game::components::asteroid::Asteroid;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
+use common_game::components::sunray::Sunray;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::OrchestratorState;
+use crate::orchestrator::{OrchestratorManualAction, OrchestratorState};
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 
 pub(crate) struct ManualUpdateStrategy<'a> {
     state: &'a mut OrchestratorState
 }
 
-#[allow(dead_code)] // implemented for future gui integrations
+#[allow(dead_code)] // not all functions are implemented in GUI, but they will be in the future
 impl ManualUpdateStrategy<'_> {
     pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> { ManualUpdateStrategy { state } }
 
@@ -129,6 +132,45 @@ impl ManualUpdateStrategy<'_> {
 
         Ok(())
     }
+    
+    fn handle_send_asteroid(&mut self, planet_id: ID) -> Result<(), String> {
+        self.check_planet_id(planet_id)?;
+        self.state.gui_events_buffer.asteroid_sent(planet_id);
+        let rocket = self
+            .state
+            .planets_communication_center
+            .req_ack(
+                planet_id,
+                OrchestratorToPlanet::Asteroid(Asteroid::default()),
+                PlanetToOrchestratorKind::AsteroidAck
+            )?
+            .into_asteroid_ack()
+            .unwrap().1; // Unwrap is safe due to expected kind
+        
+        if rocket.is_none() {
+            self.state.handle_planet_destroyed(planet_id)?;
+        }
+        
+        Ok(())
+    }
+    
+    fn handle_send_sunray(&mut self, planet_id: ID) -> Result<(), String> {
+        self.check_planet_id(planet_id)?;
+        self.state.gui_events_buffer.sunray_sent(planet_id);
+        self
+            .state
+            .planets_communication_center
+            .req_ack(
+                planet_id,
+                OrchestratorToPlanet::Sunray(Sunray::default()),
+                PlanetToOrchestratorKind::SunrayAck
+            )?
+            .into_sunray_ack()
+            .unwrap(); // Unwrap is safe due to expected kind
+        
+        self.state.gui_events_buffer.sunray_received(planet_id);
+        Ok(())
+    }
 
     fn check_planet_id(&self, id: ID) -> Result<(), String> {
         if !self.state.planets.contains_key(&id) {
@@ -151,7 +193,20 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
         Ok(())
     }
 
-    fn process_commands(&mut self) -> Result<(), String> {
-        Ok(()) // TODO
+    fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String> {
+        match command {
+            OrchestratorManualAction::GenerateBasic {explorer_id, resource} =>
+                self.basic_resource_generation(explorer_id, resource)?,
+            OrchestratorManualAction::GenerateComplex {explorer_id, resource} =>
+                self.resource_combination(explorer_id, resource)?,
+            OrchestratorManualAction::SendAsteroid {planet_id} => 
+                self.handle_send_asteroid(planet_id)?,
+            OrchestratorManualAction::SendSunray {planet_id} => 
+                self.handle_send_sunray(planet_id)?,
+            OrchestratorManualAction::MoveExplorer {explorer_id, destination_planet_id} =>
+                self.handle_travel_request(explorer_id, destination_planet_id)?,
+        };
+        
+        Ok(())
     }
 }
