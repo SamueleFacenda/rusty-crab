@@ -80,6 +80,19 @@ impl Bag {
             }
         }
     }
+
+    fn generate_bag_content_hashmap(&self) -> HashMap<ResourceType, usize> {
+        let mut output: HashMap<ResourceType, usize> = HashMap::new();
+        let t: ResourceType = ResourceType::Basic(self.basic_resources[0].get_type());
+
+        for basic in self.basic_resources {
+            *output.entry(ResourceType::Basic(basic.get_type())).or_insert(0) += 1;
+        }
+        for complex in self.complex_resources {
+            *output.entry(ResourceType::Complex(complex.get_type())).or_insert(0) += 1;
+        }
+        output
+    }
 }
 
 
@@ -259,14 +272,20 @@ impl CettoExplorer {
                         return Err(format!("The combination has failed: {err}"))
                     }
                 }
-
                 // Respond to Orchestrator
                 self.tx_orchestrator.send(ExplorerToOrchestrator::CombineResourceResponse {explorer_id: self.id, generated: Ok(()) })
-
-
             },
             OrchestratorToExplorer::BagContentRequest => {
-
+                let content = BagContent {
+                    content: self.bag.generate_bag_content_hashmap()
+                };
+                
+                self.tx_orchestrator.send(
+                    ExplorerToOrchestrator::BagContentResponse {
+                        explorer_id: self.id,
+                        bag_content: content
+                    }
+                )
             },
             OrchestratorToExplorer::NeighborsResponse { neighbors} => {
                 // Update galaxyKnowledge

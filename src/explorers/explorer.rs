@@ -5,7 +5,7 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 
 #[derive(Debug)]
 pub struct BagContent{
-    content: HashMap<ResourceType, usize>
+    pub content: HashMap<ResourceType, usize>
 }
 
 /// Trait defining the behavior of an Explorer,
