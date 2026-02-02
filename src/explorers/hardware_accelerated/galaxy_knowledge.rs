@@ -4,6 +4,7 @@ use std::hash::Hash;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
 
+#[derive(Debug)]
 struct PlanetKnowledge {
     basic_resources: HashSet<BasicResourceType>,
     complex_resources: HashSet<ComplexResourceType>,
@@ -17,6 +18,7 @@ impl PlanetKnowledge {
 }
 
 /// Topology and state of the planets
+#[derive(Debug)]
 pub(super) struct GalaxyKnowledge {
     connections: HashMap<ID, HashSet<ID>>,
     planets_knowledge: HashMap<ID, PlanetKnowledge>,
@@ -143,6 +145,26 @@ impl GalaxyKnowledge {
         } else {
             false
         }
+    }
+    
+    pub fn produces_basic_resource(&self, id: ID, res: BasicResourceType) -> bool {
+        if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
+            planet_knowledge.basic_resources.contains(&res)
+        } else {
+            false
+        }
+    }
+    
+    pub fn supports_combination_rule(&self, id: ID, rule: ComplexResourceType) -> bool {
+        if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
+            planet_knowledge.complex_resources.contains(&rule)
+        } else {
+            false
+        }
+    }
+    
+    pub fn get_n_charged_cells(&self, id: ID) -> u32 {
+        self.planets_knowledge.get(&id).map_or(0, |pk| pk.n_charged_cells)
     }
 }
 

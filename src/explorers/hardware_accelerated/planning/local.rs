@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
-use crate::explorers::hardware_accelerated::explorer::Bag;
+use crate::explorers::hardware_accelerated::Bag;
 use crate::explorers::hardware_accelerated::planning::local::LocalTask::{Generate, Produce};
 use crate::explorers::hardware_accelerated::planning::local::TaskTree::Leaf;
 use super::{get_resource_recipe, GlobalTask};

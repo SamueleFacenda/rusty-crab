@@ -1,8 +1,8 @@
 use std::collections::{HashSet, VecDeque};
-
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
-use crate::explorers::hardware_accelerated::planning::LocalTask;
-use super::{GlobalPlanner, LocalPlanner};
+use crate::explorers::hardware_accelerated::planning::{get_resource_recipe, get_resource_request};
+use super::{GlobalPlanner, LocalPlanner, LocalTask};
 use super::{GalaxyKnowledge, OrchestratorCommunicator, PlanetsCommunicator, ExplorerState};
 
 pub(super) struct RoundExecutor<'a> {
@@ -12,6 +12,9 @@ pub(super) struct RoundExecutor<'a> {
     new_galaxy: GalaxyKnowledge
 }
 
+/// Executes a full round for the explorer
+/// Stateless, managed by the global and local planners,
+/// tries to build as many dolphins and AI partners as possible
 impl<'a> RoundExecutor<'a> {
     pub fn new(
         planets_communicator: &'a mut PlanetsCommunicator,
@@ -26,7 +29,9 @@ impl<'a> RoundExecutor<'a> {
         self.explore_galaxy()?; // The only way to get complete galaxy information
         self.update_probabilities(); // Compare with previous state
 
-        self.do_fun_activities()?; // The main behavior is here
+        self.pursue_explorer_goal()?; // The main behavior is here
+
+        log::info!("Explorer bag: {:?}", self.state.bag);
 
         self.goto_safest_place()?;
         self.state.knowledge = Some(self.new_galaxy); // Update state at the end of the round
@@ -55,50 +60,14 @@ impl<'a> RoundExecutor<'a> {
     /// Prefer planets with many connection with explored ones (to explore more on clusters)
     /// Simple BFS
     fn get_best_nearest_unexplored_planet(&self, explored: &HashSet<ID>) -> Option<ID> {
-        let mut unexplored: Vec<ID> = Vec::new();
-        let mut best_distance = i32::MAX;
-
-        let mut queue: VecDeque<(ID, i32)> = VecDeque::new();
-        queue.push_back((self.state.current_planet, 0));
-        let mut visited: HashSet<ID> = HashSet::new();
-        while !queue.is_empty() {
-            let (planet_id, distance) = queue.pop_front().unwrap();
-            if distance > best_distance {
-                continue; // Drain the queue with all the same distance planets
-            }
-            if visited.contains(&planet_id) {
-                continue;
-            }
-            visited.insert(planet_id);
-
-            if !explored.contains(&planet_id) {
-                unexplored.push(planet_id);
-                best_distance = distance; // Update best distance
-                continue;
-            }
-
-            if let Some(neighbors) = self.new_galaxy.get_planet_neighbours(planet_id) {
-                for &neighbor in neighbors {
-                    if !visited.contains(&neighbor) {
-                        queue.push_back((neighbor, distance + 1));
-                    }
-                }
-            }
-        }
-
-        unexplored
-            .into_iter()
-            .map(|pid| {
-                (
-                    pid,
-                    self.new_galaxy
-                        .get_planet_neighbours(pid) // Count connections with explored planets
-                        .map(|neighbors| neighbors.iter().filter(|n| explored.contains(n)).count())
-                        .unwrap_or(0)
-                )
-            }) // If no neighbors, 0 connections
-            .max_by(|a, b| a.1.cmp(&b.1))
-            .map(|(pid, _)| pid)
+        self.find_nearest_planet(
+            |pid| !explored.contains(&pid),
+            |pid| {
+                self.new_galaxy
+                    .get_planet_neighbours(*pid) // Count connections with explored planets
+                    .map(|neighbors| neighbors.iter().filter(|n| explored.contains(n)).count())
+                    .unwrap_or(0) // If no neighbors, 0 connections
+            })
     }
 
     fn inspect_current_planet(&mut self) -> Result<(), String> {
@@ -136,14 +105,128 @@ impl<'a> RoundExecutor<'a> {
         self.goto_planet(safest)
     }
 
-    fn do_fun_activities(&mut self) -> Result<(), String> {
+    fn pursue_explorer_goal(&mut self) -> Result<(), String> {
         let global_plan = GlobalPlanner::plan_next_task(self.state);
         let local_plan = LocalPlanner::get_execution_plan(global_plan, &self.state.bag);
+        for task in local_plan {
+            println!("Executing task: {:?}", task);
+            let executed = self.execute_task(task)?;
+            if !executed {
+                break; // Cannot execute further tasks, it's ok (maybe it's too dangerous)
+            }
+        }
         Ok(())
     }
-    
-    fn execute_task(&mut self, task: LocalTask) -> Result<(), String> {
-        Ok(())
+
+    /// Returns Ok(true) if it was possible to execute the task
+    fn execute_task(&mut self, task: LocalTask) -> Result<bool, String> {
+        match task {
+            LocalTask::Produce(resource) => self.produce_resource(resource),
+            LocalTask::Generate(resource) => self.generate_resource(resource)
+        }
+    }
+
+    fn generate_resource(&mut self, resource: BasicResourceType) -> Result<bool, String> {
+        let dest = self.find_nearest_planet(
+            |planet_id| self.new_galaxy.produces_basic_resource(planet_id, resource)&&
+                self.new_galaxy.get_n_charged_cells(planet_id) > 0,
+            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id));// Prefer planets with more energy cells
+
+        if dest.is_none() {
+            return Ok(false); // No planet can produce the resource
+        }
+
+        self.goto_planet(dest.unwrap())?;
+
+        let mut generated = self.planets_communicator.generate_basic_resource(self.state.current_planet, resource)?;
+        self.inspect_current_planet()?; // Update planet state
+        if let Some(resource) = generated.take() {
+            self.state.bag.insert_basic(resource);
+            Ok(true)
+        } else {
+            // Something changed in the galaxy, try again after inspection (made above)
+            self.generate_resource(resource)
+        }
+    }
+
+    fn produce_resource(&mut self, resource: ComplexResourceType) -> Result<bool, String> {
+        let dest = self.find_nearest_planet(
+            |planet_id| self.new_galaxy.supports_combination_rule(planet_id, resource) &&
+                          self.new_galaxy.get_n_charged_cells(planet_id) > 0,
+            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id));// Prefer planets with more energy cells
+
+        if dest.is_none() {
+            return Ok(false); // No planet can produce the resource
+        }
+
+        self.goto_planet(dest.unwrap())?;
+
+        let ingredients = self.state.bag.get_recipe_ingredients(resource);
+        if ingredients.is_none() {
+            return Ok(false); // Not enough resources to combine
+        }
+        let (a, b) = ingredients.unwrap();
+        let msg = get_resource_request(resource, a, b);
+        let generated = self.planets_communicator.combine_resources(self.state.current_planet, msg)?;
+
+        self.inspect_current_planet()?; // Update planet state
+        match generated {
+            Ok(resource) => {
+                self.state.bag.insert_complex(resource);
+                Ok(true)
+            },
+            Err((_comm_err, res_a, res_b)) => {
+                 // Combination failed, re-insert resources back into bag
+                 self.state.bag.res.entry(res_a.get_type()).or_default().push(res_a);
+                 self.state.bag.res.entry(res_b.get_type()).or_default().push(res_b);
+                 // Something changed in the galaxy, try again after inspection (made above)
+                 self.produce_resource(resource)
+            }
+        }
+    }
+
+    /// BFS to find nearest planet satisfying predicate, then select the best one according to discriminant (max by)
+    fn find_nearest_planet<B: Ord>(&self, predicate: impl Fn(ID) -> bool, discriminant: impl Fn(&ID) -> B) -> Option<ID> {
+        let mut candidates: Vec<ID> = Vec::new();
+        let mut best_distance = i32::MAX;
+
+        let mut queue: VecDeque<(ID, i32)> = VecDeque::new();
+        queue.push_back((self.state.current_planet, 0));
+        let mut visited: HashSet<ID> = HashSet::new();
+        while !queue.is_empty() {
+            let (planet_id, distance) = queue.pop_front().unwrap();
+            if distance > best_distance {
+                continue; // Drain the queue with all the same distance planets
+            }
+            if visited.contains(&planet_id) {
+                continue;
+            }
+            visited.insert(planet_id);
+
+            if predicate(planet_id) {
+                candidates.push(planet_id);
+                best_distance = distance; // Update best distance
+                continue;
+            }
+
+            if let Some(neighbors) = self.new_galaxy.get_planet_neighbours(planet_id) {
+                for &neighbor in neighbors {
+                    if !visited.contains(&neighbor) {
+                        queue.push_back((neighbor, distance + 1));
+                    }
+                }
+            }
+        }
+
+        candidates
+            .into_iter()
+            .max_by_key(discriminant)
+    }
+
+    /// Evaluate the risk of using energy on a planet
+    fn evaluate_energy_usage_risk(&self, planet_id: ID) -> f32 {
+        // Placeholder for actual risk evaluation logic
+        0.0
     }
 
     fn goto_planet(&mut self, planet_id: ID) -> Result<(), String> {

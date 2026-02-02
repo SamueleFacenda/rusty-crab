@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use common_game::components::resource::{ComplexResourceRequest, ComplexResourceType,
-                                        GenericResource, ResourceType};
+use common_game::components::resource::{ComplexResource, ComplexResourceType, GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -14,7 +13,7 @@ use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
 use crate::explorers::hardware_accelerated::{GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver,
                                              OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetsCommunicator};
 use crate::explorers::{BagContent, Explorer};
-use super::{get_resource_request, get_resource_recipe};
+use super::{get_resource_request, Bag};
 
 // DTO for the explorer's state
 pub(super) struct ExplorerState {
@@ -32,22 +31,6 @@ pub struct HardwareAcceleratedExplorer {
 
     orchestrator_communicator: OrchestratorCommunicator,
     planets_communicator: PlanetsCommunicator
-}
-
-pub(super) struct Bag {
-    pub(super) res: HashMap<ResourceType, Vec<GenericResource>>
-}
-
-impl Bag {
-    pub fn to_bag_content(&self) -> BagContent {
-        let mut content = BagContent::default();
-        for resources in self.res.values() {
-            for resource in resources {
-                *content.content.entry(resource.get_type()).or_default() += 1;
-            }
-        }
-        content
-    }
 }
 
 impl Explorer for HardwareAcceleratedExplorer {
@@ -134,45 +117,23 @@ impl HardwareAcceleratedExplorer {
                     .send_generation_ack(generated.as_ref().map(|_| ()).ok_or("Cannot create resource".to_string()))?;
 
                 if let Some(resource) = generated.take() {
-                    self.state
-                        .bag
-                        .res
-                        .entry(ResourceType::Basic(resource.get_type()))
-                        .or_default()
-                        .push(GenericResource::BasicResources(resource));
+                    self.state.bag.insert_basic(resource);
                 }
             }
             OrchestratorToExplorer::CombineResourceRequest { to_generate } => {
-                let (a, b) = get_resource_recipe(&to_generate);
-                let res_a = self.state.bag.res.entry(a).or_default();
-                if res_a.is_empty() {
-                    // Not enough resources to combine
+                let ingredients = self.state.bag.get_recipe_ingredients(to_generate);
+                if ingredients.is_none() {
                     self.orchestrator_communicator
                         .send_combination_ack(Err("Not enough resources to combine".to_string()))?;
                     return Ok(true);
                 }
-                let a_resource = res_a.pop().unwrap();
-                let res_b = self.state.bag.res.entry(b).or_default();
-                if res_b.is_empty() {
-                    // Not enough resources to combine, put back a_resource
-                    self.state.bag.res.entry(a).or_default().push(a_resource);
-                    self.orchestrator_communicator
-                        .send_combination_ack(Err("Not enough resources to combine".to_string()))?;
-                    return Ok(true);
-                }
-                let b_resource = res_b.pop().unwrap();
-
-                let req = get_resource_request(to_generate, a_resource, b_resource);
+                let (a, b) = ingredients.unwrap();
+                let req = get_resource_request(to_generate, a, b);
 
                 match self.planets_communicator.combine_resources(self.state.current_planet, req)? {
                     Ok(res) => {
                         // Store generated resource in bag
-                        self.state
-                            .bag
-                            .res
-                            .entry(ResourceType::Complex(res.get_type()))
-                            .or_default()
-                            .push(GenericResource::ComplexResources(res));
+                        self.state.bag.insert_complex(res);
                         self.orchestrator_communicator.send_combination_ack(Ok(()))?;
                     }
                     Err((e, a, b)) => {

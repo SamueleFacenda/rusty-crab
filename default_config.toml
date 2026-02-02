@@ -8,7 +8,7 @@ sunray_probability = 0.1
 initial_asteroid_probability = 0.01
 
 # Timeout for messages acks
-max_wait_time_ms = 200000
+max_wait_time_ms = 2000
 
 # For gui, the delay between each update
 game_tick_seconds = 0.5
