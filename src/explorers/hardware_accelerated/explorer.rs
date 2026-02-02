@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use bevy_tweening::AnimTargetKind::Resource;
-use common_game::components::resource::BasicResource::Carbon;
-use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType,
+use common_game::components::resource::{ComplexResourceRequest, ComplexResourceType,
                                         GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
@@ -16,6 +14,7 @@ use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
 use crate::explorers::hardware_accelerated::{GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver,
                                              OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetsCommunicator};
 use crate::explorers::{BagContent, Explorer};
+use super::{get_resource_request, get_resource_recipe};
 
 // DTO for the explorer's state
 pub(super) struct ExplorerState {
@@ -35,8 +34,8 @@ pub struct HardwareAcceleratedExplorer {
     planets_communicator: PlanetsCommunicator
 }
 
-struct Bag {
-    res: HashMap<ResourceType, Vec<GenericResource>>
+pub(super) struct Bag {
+    pub(super) res: HashMap<ResourceType, Vec<GenericResource>>
 }
 
 impl Bag {
@@ -198,38 +197,5 @@ impl HardwareAcceleratedExplorer {
             _ => return Err(format!("Unexpected message type: {:?}", msg))
         }
         Ok(true)
-    }
-}
-
-fn get_resource_recipe(resource: &ComplexResourceType) -> (ResourceType, ResourceType) {
-    match resource {
-        ComplexResourceType::Water =>
-            (ResourceType::Basic(BasicResourceType::Hydrogen), ResourceType::Basic(BasicResourceType::Oxygen)),
-        ComplexResourceType::Diamond =>
-            (ResourceType::Basic(BasicResourceType::Carbon), ResourceType::Basic(BasicResourceType::Carbon)),
-        ComplexResourceType::Life =>
-            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Basic(BasicResourceType::Carbon)),
-        ComplexResourceType::Robot =>
-            (ResourceType::Basic(BasicResourceType::Silicon), ResourceType::Complex(ComplexResourceType::Life)),
-        ComplexResourceType::Dolphin =>
-            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Complex(ComplexResourceType::Life)),
-        ComplexResourceType::AIPartner =>
-            (ResourceType::Complex(ComplexResourceType::Robot), ResourceType::Complex(ComplexResourceType::Diamond)),
-    }
-}
-
-fn get_resource_request(
-    res_type: ComplexResourceType,
-    a: GenericResource,
-    b: GenericResource
-) -> ComplexResourceRequest {
-    match res_type {
-        ComplexResourceType::Water => ComplexResourceRequest::Water(a.to_hydrogen().unwrap(), b.to_oxygen().unwrap()),
-        ComplexResourceType::Diamond => ComplexResourceRequest::Diamond(a.to_carbon().unwrap(), b.to_carbon().unwrap()),
-        ComplexResourceType::Life => ComplexResourceRequest::Life(a.to_water().unwrap(), b.to_carbon().unwrap()),
-        ComplexResourceType::Robot => ComplexResourceRequest::Robot(a.to_silicon().unwrap(), b.to_life().unwrap()),
-        ComplexResourceType::Dolphin => ComplexResourceRequest::Dolphin(a.to_water().unwrap(), b.to_life().unwrap()),
-        ComplexResourceType::AIPartner =>
-            ComplexResourceRequest::AIPartner(a.to_robot().unwrap(), b.to_diamond().unwrap()),
     }
 }

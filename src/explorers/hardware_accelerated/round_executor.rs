@@ -1,10 +1,9 @@
 use std::collections::{HashSet, VecDeque};
 
 use common_game::utils::ID;
-
-use super::{GalaxyKnowledge, OrchestratorCommunicator, PlanetsCommunicator};
-use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
-use crate::explorers::hardware_accelerated::explorer::ExplorerState;
+use crate::explorers::hardware_accelerated::planning::LocalTask;
+use super::{GlobalPlanner, LocalPlanner};
+use super::{GalaxyKnowledge, OrchestratorCommunicator, PlanetsCommunicator, ExplorerState};
 
 pub(super) struct RoundExecutor<'a> {
     planets_communicator: &'a mut PlanetsCommunicator,
@@ -138,7 +137,12 @@ impl<'a> RoundExecutor<'a> {
     }
 
     fn do_fun_activities(&mut self) -> Result<(), String> {
-        // Placeholder for fun activities
+        let global_plan = GlobalPlanner::plan_next_task(self.state);
+        let local_plan = LocalPlanner::get_execution_plan(global_plan, &self.state.bag);
+        Ok(())
+    }
+    
+    fn execute_task(&mut self, task: LocalTask) -> Result<(), String> {
         Ok(())
     }
 
