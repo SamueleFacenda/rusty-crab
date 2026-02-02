@@ -48,31 +48,6 @@ pub enum ExplorerMode {
 }
 
 impl AllegoryExplorer {
-    pub fn new_complete(
-        id: ID,
-        current_planet_id: ID,
-        rx_orchestrator: Receiver<OrchestratorToExplorer>,
-        tx_orchestrator: Sender<ExplorerToOrchestrator<BagContent>>,
-        tx_planet: Sender<ExplorerToPlanet>,
-        rx_planet: Receiver<PlanetToExplorer>,
-        task: HashMap<ResourceType, usize>,
-    ) -> Self {
-        AllegoryExplorer {
-            id,
-            current_planet_id,
-            mode: ExplorerMode::Stopped,
-            rx_orchestrator,
-            tx_orchestrator,
-            tx_planet,
-            rx_planet,
-            bag: Default::default(),
-            bag_content: BagContent{content: HashMap::new()},
-            knowledge: Default::default(),
-            task,
-            simple_resources_task: HashMap::new(),
-        }
-    }
-
     pub(crate) fn add_basic_to_bag(&mut self, resource: BasicResource) {
         let resource_type = resource.get_type();
         self.bag
@@ -234,6 +209,7 @@ impl AllegoryExplorer {
     }
 
     /// Produces a list of basic resource types based on the initial task
+    /// Could not find any better way than hardcoding
     pub(crate) fn complex_to_simple_list(&mut self) {
         let mut map: HashMap<BasicResourceType, usize> = HashMap::new();
         for (resource, count) in &self.task {
@@ -275,34 +251,6 @@ impl AllegoryExplorer {
             }
         }
         self.simple_resources_task = map;
-    }
-
-    /// Sets to 0 the energy cell content of planets with no useful materials
-    pub(crate) fn remove_extra_planets(&mut self) {
-        let required_simple = self.anything_left_on_the_shopping_list();
-        let required_complex = self.anything_left_on_the_crafting_list();
-        
-        for planet in &mut self.knowledge.planets {
-            let mut useful = false;
-
-            if let Some(list) = &required_simple {
-                if list.keys().any(|r| planet.get_resource_type().contains(r)) {
-                    useful = true;
-                }
-            }
-            
-            if !useful {
-                if let Some(list) = &required_complex {
-                     if list.keys().any(|c| planet.get_combinations().contains(c)) {
-                        useful = true;
-                    }
-                }
-            }
-            
-            if !useful {
-                planet.set_latest_cells_number(0);
-            }
-        }
     }
 
     /// Creates a complex resource request with bag resources
@@ -414,7 +362,7 @@ mod tests {
         BasicResource, BasicResourceType, Diamond, Hydrogen, Life, Oxygen, Water,
     };
     use crossbeam_channel::unbounded;
-    use crate::explorers::allegory::knowledge::PlanetKnowledge;
+    use crate::explorers::{Explorer, allegory::knowledge::PlanetKnowledge};
 
     pub fn create_test_explorer() -> (
         AllegoryExplorer,
@@ -428,14 +376,13 @@ mod tests {
         let (tx_planet, rx_planet) = unbounded();
         let (tx_ex_to_planet, rx_ex_to_planet) = unbounded();
 
-        let explorer = AllegoryExplorer::new_complete(
+        let explorer = AllegoryExplorer::new(
             1,
             1,
             rx_orch,
             tx_ex_to_orch,
             tx_ex_to_planet,
             rx_planet,
-            HashMap::new(),
         );
 
         (explorer, tx_orch, rx_ex_to_orch, tx_planet, rx_ex_to_planet)

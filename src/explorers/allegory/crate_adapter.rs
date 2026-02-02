@@ -21,10 +21,10 @@ impl Explorer for AllegoryExplorer {
         rx_planet: Receiver<PlanetToExplorer>,
     ) -> Self {
         let task = HashMap::from([
-            (ResourceType::Complex(Dolphin), 2),
-            (ResourceType::Complex(Water), 4),
-            (ResourceType::Basic(BasicResourceType::Hydrogen), 4),
-            (ResourceType::Basic(BasicResourceType::Oxygen), 2),
+            (ResourceType::Complex(Dolphin), 1),
+            (ResourceType::Complex(Water), 1),
+            (ResourceType::Basic(BasicResourceType::Hydrogen), 2),
+            (ResourceType::Basic(BasicResourceType::Oxygen), 1),
         ]);
 
         let mut explorer = AllegoryExplorer {
@@ -32,7 +32,7 @@ impl Explorer for AllegoryExplorer {
             current_planet_id: current_planet,
             mode: ExplorerMode::Stopped,
             rx_orchestrator,
-            tx_orchestrator, // Currently not fixable
+            tx_orchestrator,
             tx_planet: tx_first_planet,
             rx_planet,
             bag: Default::default(),
@@ -104,17 +104,14 @@ impl Explorer for AllegoryExplorer {
             // Normal processing
             for msg in messages {
                 self.handle_orchestrator_message(msg)?;
-                 if matches!(self.mode, ExplorerMode::Killed | ExplorerMode::Retired) {
-                     break;
-                 }
+                if matches!(self.mode, ExplorerMode::Killed | ExplorerMode::Retired) {
+                    break;
+                }
             }
-            
-             if matches!(self.mode, ExplorerMode::Killed | ExplorerMode::Retired) {
-                 break;
-             }
-             if matches!(self.mode, ExplorerMode::Stopped) {
-                 continue;
-             }
+
+            if matches!(self.mode, ExplorerMode::Stopped) {
+            continue;
+            }
             
             // Run turn logic if in Auto mode
             if matches!(self.mode, ExplorerMode::Auto) {
@@ -122,6 +119,14 @@ impl Explorer for AllegoryExplorer {
             }
         }
         // If retired or killed, terminate execution
+        if matches!(self.mode, ExplorerMode::Retired) {
+            emit_info(self.id, "Concluded execution: retired".to_string());
+            return Ok(())
+        } else if matches!(self.mode, ExplorerMode::Killed) {
+            emit_info(self.id, "Concluded execution: killed".to_string());
+            return Ok(())
+        }  
+        emit_info(self.id, "Concluded execution".to_string());
         Ok(())
     }
 }

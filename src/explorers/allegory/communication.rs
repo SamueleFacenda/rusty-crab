@@ -2,6 +2,7 @@ use crate::explorers::BagContent;
 use common_game::components::resource::{
     BasicResourceType, ComplexResourceRequest, GenericResource,
 };
+use crate::explorers::Explorer;
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::{
     CurrentPlanetResult, KillExplorerResult, MovedToPlanetResult, ResetExplorerAIResult,
     StartExplorerAIResult, StopExplorerAIResult,
@@ -392,18 +393,6 @@ impl AllegoryExplorer {
             });
     }
 
-    pub(crate) fn query_planet_resources(&mut self) {
-        self.send_to_planet(ExplorerToPlanet::SupportedResourceRequest {
-            explorer_id: self.id,
-        });
-    }
-
-    pub(crate) fn query_planet_combinations(&mut self) {
-        self.send_to_planet(ExplorerToPlanet::SupportedCombinationRequest {
-            explorer_id: self.id,
-        });
-    }
-
     pub(crate) fn request_resource_generation(&mut self, resource: BasicResourceType) {
         self.send_to_planet(ExplorerToPlanet::GenerateResourceRequest {
             explorer_id: self.id,
@@ -492,7 +481,6 @@ mod tests {
         BasicResource, BasicResourceType, ComplexResourceType, Hydrogen, Oxygen, ResourceType
     };
     use crossbeam_channel::{Receiver, Sender, unbounded};
-    use std::collections::HashMap;
 
     pub fn create_test_explorer() -> (
         AllegoryExplorer,
@@ -506,14 +494,13 @@ mod tests {
         let (tx_planet, rx_planet) = unbounded();
         let (tx_ex_to_planet, rx_ex_to_planet) = unbounded();
 
-        let explorer = AllegoryExplorer::new_complete(
+        let explorer = AllegoryExplorer::new(
             1,
             1,
             rx_orch,
             tx_ex_to_orch,
             tx_ex_to_planet,
             rx_planet,
-            HashMap::new(),
         );
 
         (explorer, tx_orch, rx_ex_to_orch, tx_planet, rx_ex_to_planet)

@@ -2,7 +2,7 @@ use crate::explorers::BagContent;
 use crate::explorers::allegory::{knowledge::StrategyState::*, logging::emit_warning};
 use crate::explorers::allegory::knowledge::StrategyState;
 use common_game::protocols::{
-    orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer},
+    orchestrator_explorer::{OrchestratorToExplorer},
     planet_explorer::PlanetToExplorer,
 };
 use crossbeam_channel::select;
@@ -15,13 +15,9 @@ impl AllegoryExplorer {
     pub fn run_loop(&mut self) -> Result<(), String> {
         self.explore();
         let n = self.knowledge.get_explored_planets().len();
-        emit_info(self.id, format!("Exploration performed on {} planets. Collecting/crafting...", n));
         self.perform_next_step();
-        emit_info(self.id, "Collected. Leaving...".to_string());
-        
         self.go_to_safe_planet();
         self.conclude_turn()?;
-        emit_info(self.id, "Concluded turn".to_string());
         Ok(())
     }
 
@@ -105,72 +101,116 @@ impl AllegoryExplorer {
     /// - Crafting: Moves to planets with combinations and crafts complex resources.
     fn perform_next_step(&mut self) {
         match self.knowledge.get_current_state() {
-             Collecting => {
-                 if let Err(e) = self.execute_collecting() {
-                     emit_warning(self.id, format!("Recoverable error in collecting strategy: {}", e));
-                 }
-             },
-             Crafting => {
-                  if let Err(e) = self.execute_crafting() {
-                      emit_warning(self.id, format!("Recoverable error in crafting strategy: {}", e));
-                 }
-             },
-             Finished => {},
-             Failed => {},
+            Collecting => {
+                if let Err(e) = self.trivial_collecting() {
+                    emit_warning(self.id, format!("Recoverable error in collecting strategy: {}", e));
+                }
+            },
+            Crafting => {
+                if let Err(e) = self.execute_crafting() {
+                    emit_warning(self.id, format!("Recoverable error in crafting strategy: {}", e));
+                }
+            },
+            Finished => {},
+            Failed => {},
         }
     }
 
     fn execute_collecting(&mut self) -> Result<(), String> {
-        let mut iterations = 0;
-        self.remove_extra_planets();
-        while self.knowledge.get_total_energy_cells() > 0 && iterations < 20 {
-            iterations += 1;
-            return match self.anything_left_on_the_shopping_list() {
+        
+        // check requirements
+        let mut shopping_list = match self.anything_left_on_the_shopping_list() {
+            Some(l) => l,
+            None => {
+                self.change_state(Crafting);
+                return Ok(());
+            }
+        };
+
+        // Find useful planets
+        let useful_planets: Vec<common_game::utils::ID> = self.knowledge.planets.iter()
+            .filter(|p| {
+                p.get_latest_cells_number() > 0 && 
+                shopping_list.keys().any(|res| p.get_resource_type().contains(res))
+            })
+            .map(|p| p.get_id())
+            .collect();
+
+        if useful_planets.is_empty() {
+             emit_info(self.id, "No useful planets found for collecting.".to_string());
+             // Return Ok to retry next turn or maybe switch mode? 
+             // Logic suggests if we can't collect, we might be stuck, but existing logic didn't fail hard immediately.
+             return Ok(());
+        }
+
+        // Visit planets
+        for planet_id in useful_planets {
+            // Check alive status since you apparently can't do that enough
+            if matches!(self.mode, crate::explorers::allegory::explorer::ExplorerMode::Killed | crate::explorers::allegory::explorer::ExplorerMode::Retired) {
+                return Ok(());
+            }
+
+            // Re-evaluate shopping list (optimization: skip if we got everything)
+            shopping_list = match self.anything_left_on_the_shopping_list() {
+                Some(l) => l,
                 None => {
                     self.change_state(Crafting);
-                    Ok(())
+                    return Ok(());
                 }
-                Some(list) => {
-                    // Check if current planet has a resource we need
-                    let current_resources = self.knowledge
-                        .get_planet_knowledge(self.current_planet_id)
-                        .map(|pk| pk.get_resource_type().clone())
-                        .unwrap_or_default();
-
-                    // Find needed resource on current planet
-                    let needed_here = list.iter().find(|(res, _)| current_resources.contains(res));
-
-                    if let Some((&res, _)) = needed_here {
-                        // Collect it
-                        let success = self.gather_resource(res).expect("Should never happen");
-                        self.knowledge.consume_energy_cell(self.current_planet_id);
-                        
-                        if !success {
-                             if let Some(pk) = self.knowledge.planets.iter_mut().find(|p| p.get_id() == self.current_planet_id) {
-                                 pk.set_latest_cells_number(0);
-                             }
-                        }
-                        continue;
-                    } else {
-                        // Need to move
-                        if let Some((&res, _)) = list.iter().max_by_key(|&(_, count)| count) {
-                            let target = self.find_best_planet_for_resource(res);
-                            if let Some(t) = target {
-                                // Move towards it
-                                self.knowledge.set_destination(Some(t));
-                                let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
-                                self.move_to_planet(next_hop)
-                            } else {
-                                self.change_state(Failed);
-                                emit_info(self.id, format!("No planet found for required material: {:?}", res));
-                                Err("No planet found with required resource".to_string())
+            };
+            
+            // Travel to planet
+            self.move_to_planet(planet_id)?;
+            
+            // If we arrived
+            if self.current_planet_id == planet_id {
+                 // Determine what to collect
+                let planet_resources_opt = self.knowledge.get_planet_knowledge(self.current_planet_id)
+                    .map(|pk| pk.get_resource_type().clone());
+                
+                if let Some(planet_resources) = planet_resources_opt {
+                    let resource_to_collect = shopping_list.keys()
+                        .find(|r| planet_resources.contains(r));
+                    
+                    if let Some(res) = resource_to_collect {
+                        // Attempt extraction ONCE
+                        match self.gather_resource(*res) {
+                            Ok(success) => {
+                                if success {
+                                    self.knowledge.consume_energy_cell(self.current_planet_id);
+                                } else {
+                                    // Mark empty if failed
+                                    if let Some(pk) = self.knowledge.planets.iter_mut().find(|p| p.get_id() == self.current_planet_id) {
+                                         pk.set_latest_cells_number(0);
+                                    }
+                                }
                             }
-                        } else {
-                            continue
+                            Err(e) => emit_warning(self.id, format!("Error gathering resource: {}", e)),
                         }
                     }
-
                 }
+            }
+        }
+        
+        // Final check
+        if self.anything_left_on_the_shopping_list().is_none() {
+            self.change_state(Crafting);
+        }
+        
+        Ok(())
+    }
+
+    fn trivial_collecting(&mut self) -> Result<(), String> {
+        for resource in self.simple_resources_task.clone(){
+            match self.find_best_planet_for_resource(resource.0){
+                Some(planet) => {
+                    self.move_to_planet(planet)?;
+                    if self.knowledge.get_planet_knowledge(self.current_planet_id).unwrap().get_latest_cells_number() <= 1 {
+                        continue;
+                    }
+                    self.request_resource_generation(resource.0);
+                }
+                None => continue,
             }
         }
         Ok(())
@@ -178,7 +218,7 @@ impl AllegoryExplorer {
 
     fn execute_crafting(&mut self) -> Result<(), String> {
         if self.verify_win() {
-            self.change_state(StrategyState::Finished);
+            self.change_state(Finished);
             return Ok(());
         }
 
@@ -224,6 +264,10 @@ impl AllegoryExplorer {
     // Blocking Helpers
     fn gather_resource(&mut self, res: common_game::components::resource::BasicResourceType) -> Result<bool, String> {
         self.request_resource_generation(res);
+
+        // Some planets time out and cause full orchestrator crash, trying to avoid that
+        let timeout = crossbeam_channel::after(std::time::Duration::from_millis(500));
+        
         // Wait for response
         loop {
             select! {
@@ -254,6 +298,10 @@ impl AllegoryExplorer {
                         },
                         Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
                     }
+                },
+                recv(timeout) -> _ => {
+                    emit_warning(self.id, "Timeout waiting for planet resource generation".to_string());
+                    return Ok(false);
                 }
             }
         }
@@ -265,6 +313,8 @@ impl AllegoryExplorer {
              return Err(e);
          }
          
+         let timeout = crossbeam_channel::after(std::time::Duration::from_millis(500));
+
         // Wait for response
         loop {
             select! {
@@ -290,6 +340,10 @@ impl AllegoryExplorer {
                         },
                         Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
                     }
+                },
+                recv(timeout) -> _ => {
+                    emit_warning(self.id, "Timeout waiting for planet resource combination".to_string());
+                    return Err("Timeout waiting for planet resource combination".to_string());
                 }
             }
         }
