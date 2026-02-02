@@ -3,12 +3,12 @@ mod manual_update_strategy;
 
 use crate::orchestrator::{OrchestratorManualAction, OrchestratorMode, OrchestratorState};
 
-pub trait OrchestratorUpdateStrategy {
+pub(super) trait OrchestratorUpdateStrategy {
     fn update(&mut self) -> Result<(), String>;
     fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String>;
 }
 
-pub struct OrchestratorUpdateFactory;
+pub(super) struct OrchestratorUpdateFactory;
 
 impl OrchestratorUpdateFactory {
     pub fn get_strategy(
