@@ -60,7 +60,17 @@ static CONFIG: OnceLock<AppConfig> = OnceLock::new();
 
 impl AppConfig {
     pub fn init() {
-        let args = CliArgs::parse();
+        // Changed to allow for testing; previous version prevented tests from running with unexpected argument 
+        let args = if cfg!(test) {
+            CliArgs {
+                config: "config.toml".to_string(),
+                log_level: "info".to_string(),
+                log_file: None,
+            }
+        } else {
+            CliArgs::parse()
+        };
+
         let settings = Config::builder()
             .add_source(File::with_name(&args.config).required(false))
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))

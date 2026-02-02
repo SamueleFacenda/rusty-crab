@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType};
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
@@ -17,7 +17,7 @@ pub trait Explorer {
         rx_orchestrator: crossbeam_channel::Receiver<OrchestratorToExplorer>,
         tx_orchestrator: crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
         tx_first_planet: crossbeam_channel::Sender<ExplorerToPlanet>,
-        rx_planet: crossbeam_channel::Receiver<common_game::protocols::planet_explorer::PlanetToExplorer>
+        rx_planet: crossbeam_channel::Receiver<PlanetToExplorer>
     ) -> Self
     where
         Self: Sized;

@@ -4,7 +4,6 @@
 mod example;
 mod explorer;
 mod allegory;
-mod allegory_adapter;
 
 pub(crate) use explorer::{BagContent, Explorer, ExplorerBuilder};
 
