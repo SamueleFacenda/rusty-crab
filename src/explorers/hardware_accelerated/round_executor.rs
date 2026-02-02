@@ -1,9 +1,11 @@
 use std::collections::{HashSet, VecDeque};
+
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
+
+use super::{ExplorerState, GalaxyKnowledge, GlobalPlanner, LocalPlanner, LocalTask, OrchestratorCommunicator,
+            PlanetsCommunicator};
 use crate::explorers::hardware_accelerated::planning::{get_resource_recipe, get_resource_request};
-use super::{GlobalPlanner, LocalPlanner, LocalTask};
-use super::{GalaxyKnowledge, OrchestratorCommunicator, PlanetsCommunicator, ExplorerState};
 
 pub(super) struct RoundExecutor<'a> {
     planets_communicator: &'a mut PlanetsCommunicator,
@@ -65,7 +67,8 @@ impl<'a> RoundExecutor<'a> {
                     .get_planet_neighbours(*pid) // Count connections with explored planets
                     .map(|neighbors| neighbors.iter().filter(|n| explored.contains(n)).count())
                     .unwrap_or(0) // If no neighbors, 0 connections
-            })
+            }
+        )
     }
 
     fn inspect_current_planet(&mut self) -> Result<(), String> {
@@ -125,9 +128,12 @@ impl<'a> RoundExecutor<'a> {
 
     fn generate_resource(&mut self, resource: BasicResourceType) -> Result<bool, String> {
         let dest = self.find_nearest_planet(
-            |planet_id| self.new_galaxy.produces_basic_resource(planet_id, resource)&&
-                self.new_galaxy.get_n_charged_cells(planet_id) > 0,
-            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id));// Prefer planets with more energy cells
+            |planet_id| {
+                self.new_galaxy.produces_basic_resource(planet_id, resource)
+                    && self.new_galaxy.get_n_charged_cells(planet_id) > 0
+            },
+            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id)
+        ); // Prefer planets with more energy cells
 
         if dest.is_none() {
             return Ok(false); // No planet can produce the resource
@@ -148,9 +154,12 @@ impl<'a> RoundExecutor<'a> {
 
     fn produce_resource(&mut self, resource: ComplexResourceType) -> Result<bool, String> {
         let dest = self.find_nearest_planet(
-            |planet_id| self.new_galaxy.supports_combination_rule(planet_id, resource) &&
-                          self.new_galaxy.get_n_charged_cells(planet_id) > 0,
-            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id));// Prefer planets with more energy cells
+            |planet_id| {
+                self.new_galaxy.supports_combination_rule(planet_id, resource)
+                    && self.new_galaxy.get_n_charged_cells(planet_id) > 0
+            },
+            |planet_id| self.new_galaxy.get_n_charged_cells(*planet_id)
+        ); // Prefer planets with more energy cells
 
         if dest.is_none() {
             return Ok(false); // No planet can produce the resource
@@ -171,19 +180,24 @@ impl<'a> RoundExecutor<'a> {
             Ok(resource) => {
                 self.state.bag.insert_complex(resource);
                 Ok(true)
-            },
+            }
             Err((_comm_err, res_a, res_b)) => {
-                 // Combination failed, re-insert resources back into bag
-                 self.state.bag.res.entry(res_a.get_type()).or_default().push(res_a);
-                 self.state.bag.res.entry(res_b.get_type()).or_default().push(res_b);
-                 // Something changed in the galaxy, try again after inspection (made above)
-                 self.produce_resource(resource)
+                // Combination failed, re-insert resources back into bag
+                self.state.bag.res.entry(res_a.get_type()).or_default().push(res_a);
+                self.state.bag.res.entry(res_b.get_type()).or_default().push(res_b);
+                // Something changed in the galaxy, try again after inspection (made above)
+                self.produce_resource(resource)
             }
         }
     }
 
-    /// BFS to find nearest planet satisfying predicate, then select the best one according to discriminant (max by)
-    fn find_nearest_planet<B: Ord>(&self, predicate: impl Fn(ID) -> bool, discriminant: impl Fn(&ID) -> B) -> Option<ID> {
+    /// BFS to find nearest planet satisfying predicate, then select the best one according to discriminant
+    /// (max by)
+    fn find_nearest_planet<B: Ord>(
+        &self,
+        predicate: impl Fn(ID) -> bool,
+        discriminant: impl Fn(&ID) -> B
+    ) -> Option<ID> {
         let mut candidates: Vec<ID> = Vec::new();
         let mut best_distance = i32::MAX;
 
@@ -215,9 +229,7 @@ impl<'a> RoundExecutor<'a> {
             }
         }
 
-        candidates
-            .into_iter()
-            .max_by_key(discriminant)
+        candidates.into_iter().max_by_key(discriminant)
     }
 
     /// Evaluate the risk of using energy on a planet

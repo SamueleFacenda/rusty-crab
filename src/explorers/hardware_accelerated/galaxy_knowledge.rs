@@ -146,7 +146,7 @@ impl GalaxyKnowledge {
             false
         }
     }
-    
+
     pub fn produces_basic_resource(&self, id: ID, res: BasicResourceType) -> bool {
         if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
             planet_knowledge.basic_resources.contains(&res)
@@ -154,7 +154,7 @@ impl GalaxyKnowledge {
             false
         }
     }
-    
+
     pub fn supports_combination_rule(&self, id: ID, rule: ComplexResourceType) -> bool {
         if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
             planet_knowledge.complex_resources.contains(&rule)
@@ -162,7 +162,7 @@ impl GalaxyKnowledge {
             false
         }
     }
-    
+
     pub fn get_n_charged_cells(&self, id: ID) -> u32 {
         self.planets_knowledge.get(&id).map_or(0, |pk| pk.n_charged_cells)
     }

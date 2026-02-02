@@ -1,23 +1,24 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+
 use common_game::components::resource::{BasicResourceType, ComplexResourceType, ResourceType};
+
+use super::{GlobalTask, get_resource_recipe};
 use crate::explorers::hardware_accelerated::Bag;
 use crate::explorers::hardware_accelerated::planning::local::LocalTask::{Generate, Produce};
 use crate::explorers::hardware_accelerated::planning::local::TaskTree::Leaf;
-use super::{get_resource_recipe, GlobalTask};
 
 #[derive(Clone, Debug)]
 pub(crate) enum LocalTask {
     Generate(BasicResourceType),
-    Produce(ComplexResourceType),
+    Produce(ComplexResourceType)
 }
 
 enum TaskTree {
     None,
     Leaf(BasicResourceType),
-    Node(ComplexResourceType, Rc<TaskTree>, Rc<TaskTree>), // Task, Left Subtree, Right Subtree
+    Node(ComplexResourceType, Rc<TaskTree>, Rc<TaskTree>) // Task, Left Subtree, Right Subtree
 }
-
 
 pub(crate) struct LocalPlanner;
 
@@ -45,11 +46,16 @@ impl LocalPlanner {
     fn get_tree_plan_for_resource(res_type: ResourceType) -> TaskTree {
         match res_type {
             ResourceType::Basic(basic_type) => Self::get_tree_plan_for_task(Generate(basic_type)),
-            ResourceType::Complex(complex_type) => Self::get_tree_plan_for_task(Produce(complex_type)),
+            ResourceType::Complex(complex_type) => Self::get_tree_plan_for_task(Produce(complex_type))
         }
     }
 
-    fn prune_plan(tree: Rc<TaskTree>, bag: &Bag, reserved: &mut HashMap<ResourceType, usize>, is_first: bool) -> TaskTree {
+    fn prune_plan(
+        tree: Rc<TaskTree>,
+        bag: &Bag,
+        reserved: &mut HashMap<ResourceType, usize>,
+        is_first: bool
+    ) -> TaskTree {
         match &*tree {
             TaskTree::None => TaskTree::None, // Should not happen
             Leaf(res_type) => {
@@ -103,19 +109,23 @@ impl LocalPlanner {
 
         levels.reverse();
 
-        levels.into_iter().flat_map(|level| {
-            let mut mapped = level.into_iter().filter_map(|node|
-                    match &*node {
+        levels
+            .into_iter()
+            .flat_map(|level| {
+                let mut mapped = level
+                    .into_iter()
+                    .filter_map(|node| match &*node {
                         TaskTree::Leaf(res_type) => Some(Generate(*res_type)),
                         TaskTree::Node(complex_type, _, _) => Some(Produce(*complex_type)),
-                        _ => None,
+                        _ => None
                     })
-                .collect::<Vec<LocalTask>>();
-            mapped.sort_by_key(|a| match a {
+                    .collect::<Vec<LocalTask>>();
+                mapped.sort_by_key(|a| match a {
                     Generate(res_type) => *res_type as u8,
-                    Produce(complex_type) => *complex_type as u8,
+                    Produce(complex_type) => *complex_type as u8
                 });
-            mapped
-        }).collect()
+                mapped
+            })
+            .collect()
     }
 }

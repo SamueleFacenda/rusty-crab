@@ -1,7 +1,10 @@
 use std::collections::HashMap;
-use common_game::components::resource::{BasicResource, ComplexResource, ComplexResourceType, GenericResource, ResourceType};
-use crate::explorers::BagContent;
+
+use common_game::components::resource::{BasicResource, ComplexResource, ComplexResourceType, GenericResource,
+                                        ResourceType};
+
 use super::get_resource_recipe;
+use crate::explorers::BagContent;
 
 #[derive(Debug)]
 pub(super) struct Bag {
@@ -23,7 +26,10 @@ impl Bag {
             .push(GenericResource::ComplexResources(resource));
     }
 
-    pub fn get_recipe_ingredients(&mut self, resource_type: ComplexResourceType) -> Option<(GenericResource, GenericResource)> {
+    pub fn get_recipe_ingredients(
+        &mut self,
+        resource_type: ComplexResourceType
+    ) -> Option<(GenericResource, GenericResource)> {
         let (a, b) = get_resource_recipe(&resource_type);
         let res_a = self.res.entry(a).or_default();
         if res_a.is_empty() {

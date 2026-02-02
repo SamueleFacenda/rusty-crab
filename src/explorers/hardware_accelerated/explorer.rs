@@ -7,13 +7,13 @@ use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 use log::info;
 
+use super::{Bag, get_resource_request};
 use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
 use crate::explorers::hardware_accelerated::probability_estimator::ProbabilityEstimator;
 use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
 use crate::explorers::hardware_accelerated::{GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver,
                                              OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetsCommunicator};
 use crate::explorers::{BagContent, Explorer};
-use super::{get_resource_request, Bag};
 
 // DTO for the explorer's state
 pub(super) struct ExplorerState {
@@ -157,9 +157,14 @@ impl HardwareAcceleratedExplorer {
                 }
             }
             OrchestratorToExplorer::BagContentRequest => {
-                if !self.stopped { // Stop the autonomous decision-making if the explorer is stopped
-                    RoundExecutor::new(&mut self.planets_communicator, &self.orchestrator_communicator, &mut self.state)
-                        .execute_round()?;
+                if !self.stopped {
+                    // Stop the autonomous decision-making if the explorer is stopped
+                    RoundExecutor::new(
+                        &mut self.planets_communicator,
+                        &self.orchestrator_communicator,
+                        &mut self.state
+                    )
+                    .execute_round()?;
                 }
                 self.orchestrator_communicator.send_bag_content_ack(self.state.bag.to_bag_content())?;
             }

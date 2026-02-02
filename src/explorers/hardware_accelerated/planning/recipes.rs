@@ -1,4 +1,5 @@
-use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType, GenericResource, ResourceType};
+use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType,
+                                        GenericResource, ResourceType};
 
 pub fn get_resource_recipe(resource: &ComplexResourceType) -> (ResourceType, ResourceType) {
     match resource {
