@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResourceType};
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer,
                                                     OrchestratorToExplorerKind};
 use common_game::protocols::planet_explorer::ExplorerToPlanet;
@@ -119,9 +119,7 @@ impl OrchestratorCommunicator {
         self.orchestrator_tx.send(ExplorerToOrchestrator::KillExplorerResult { explorer_id: self.explorer_id })
     }
 
-    fn send(&self, msg: ExplorerToOrchestrator<BagContent>) -> Result<(), String> {
-        self.orchestrator_tx.send(msg).map_err(|e| e.to_string())
-    }
+    fn send(&self, msg: ExplorerToOrchestrator<BagContent>) -> Result<(), String> { self.orchestrator_tx.send(msg) }
 
     fn req_ack(
         &self,

@@ -23,12 +23,12 @@ pub(crate) struct GalaxyBuilder {
     planet_to_orchestrator: (Sender<PlanetToOrchestrator>, Receiver<PlanetToOrchestrator>)
 }
 
-pub const PLANET_ORDER: [PlanetType; 6] = [
+pub const PLANET_ORDER: [PlanetType; 7] = [
     PlanetType::PanicOutOfOxygen,
     PlanetType::TheCompilerStrikesBack,
     PlanetType::Rustrelli,
     PlanetType::Carbonium,
-    // PlanetType::OneMillionCrabs,
+    PlanetType::OneMillionCrabs, // Warning: maybe reports wrong number of charged cells
     PlanetType::HoustonWeHaveABorrow,
     PlanetType::RustEze
 ];

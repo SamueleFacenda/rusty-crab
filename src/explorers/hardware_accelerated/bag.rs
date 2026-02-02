@@ -30,7 +30,7 @@ impl Bag {
         &mut self,
         resource_type: ComplexResourceType
     ) -> Option<(GenericResource, GenericResource)> {
-        let (a, b) = get_resource_recipe(&resource_type);
+        let (a, b) = get_resource_recipe(resource_type);
         let res_a = self.res.entry(a).or_default();
         if res_a.is_empty() {
             return None;

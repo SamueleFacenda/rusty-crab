@@ -96,9 +96,7 @@ impl PlanetsCommunicator {
             .unwrap()) // Safe unwrap since we checked the kind
     }
 
-    fn send(&self, planet_id: ID, msg: ExplorerToPlanet) -> Result<(), String> {
-        self.to_planets[&planet_id].send(msg).map_err(|e| e.to_string())
-    }
+    fn send(&self, planet_id: ID, msg: ExplorerToPlanet) -> Result<(), String> { self.to_planets[&planet_id].send(msg) }
 
     fn req_ack(
         &self,

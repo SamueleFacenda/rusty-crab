@@ -1,12 +1,13 @@
 use crate::app::AppConfig;
 
-pub(crate) struct ProbabilityEstimator {
+pub(super) struct ProbabilityEstimator {
     estimate: f32
 }
 
 impl ProbabilityEstimator {
     pub fn new() -> Self { ProbabilityEstimator { estimate: -1.0 } }
 
+    #[allow(clippy::cast_precision_loss)] // f32 is precise enough for our needs
     pub fn update(&mut self, n_planets: u32, n_affected: u32) {
         let new_prob = n_affected as f32 / n_planets as f32;
         let sensibility = if self.estimate < 0f32 { 1.0 } else { Self::get_sensibility() };

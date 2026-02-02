@@ -1,18 +1,15 @@
 use std::collections::HashMap;
 
-use common_game::components::resource::{ComplexResource, ComplexResourceType, GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 use log::info;
 
-use super::{Bag, get_resource_request};
-use crate::explorers::hardware_accelerated::communication::PlanetLoggingSender;
-use crate::explorers::hardware_accelerated::probability_estimator::ProbabilityEstimator;
+use super::{Bag, GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
+            PlanetLoggingReceiver, PlanetLoggingSender, PlanetsCommunicator, ProbabilityEstimator,
+            get_resource_request};
 use crate::explorers::hardware_accelerated::round_executor::RoundExecutor;
-use crate::explorers::hardware_accelerated::{GalaxyKnowledge, OrchestratorCommunicator, OrchestratorLoggingReceiver,
-                                             OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetsCommunicator};
 use crate::explorers::{BagContent, Explorer};
 
 // DTO for the explorer's state
@@ -81,7 +78,7 @@ impl HardwareAcceleratedExplorer {
     fn wait_for_start(&mut self) -> Result<(), String> {
         let msg = self.orchestrator_communicator.recv()?;
         if !msg.is_start_explorer_ai() {
-            return Err(format!("Expected explorer AI start message, got {:?}", msg));
+            return Err(format!("Expected explorer AI start message, got {msg:?}"));
         }
         self.orchestrator_communicator.send_start_ack()
     }
@@ -97,15 +94,15 @@ impl HardwareAcceleratedExplorer {
                     asteroid_probability_estimator: ProbabilityEstimator::new(),
                     sunray_probability_estimator: ProbabilityEstimator::new()
                 };
-                self.orchestrator_communicator.send_reset_ack()?
+                self.orchestrator_communicator.send_reset_ack()?;
             }
             OrchestratorToExplorer::StopExplorerAI => {
                 self.stopped = true;
-                self.orchestrator_communicator.send_stop_ack()?
+                self.orchestrator_communicator.send_stop_ack()?;
             }
             OrchestratorToExplorer::StartExplorerAI => {
                 self.stopped = false;
-                self.orchestrator_communicator.send_start_ack()?
+                self.orchestrator_communicator.send_start_ack()?;
             }
             OrchestratorToExplorer::KillExplorer => {
                 self.orchestrator_communicator.send_kill_ack()?;
@@ -174,7 +171,7 @@ impl HardwareAcceleratedExplorer {
                 self.state.current_planet = planet_id;
                 self.orchestrator_communicator.send_move_ack(planet_id)?;
             }
-            _ => return Err(format!("Unexpected message type: {:?}", msg))
+            _ => return Err(format!("Unexpected message type: {msg:?}"))
         }
         Ok(true)
     }

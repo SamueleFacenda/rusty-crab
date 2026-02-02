@@ -1,7 +1,7 @@
 use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType,
                                         GenericResource, ResourceType};
 
-pub fn get_resource_recipe(resource: &ComplexResourceType) -> (ResourceType, ResourceType) {
+pub fn get_resource_recipe(resource: ComplexResourceType) -> (ResourceType, ResourceType) {
     match resource {
         ComplexResourceType::Water =>
             (ResourceType::Basic(BasicResourceType::Hydrogen), ResourceType::Basic(BasicResourceType::Oxygen)),

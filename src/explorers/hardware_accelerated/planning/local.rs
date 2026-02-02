@@ -23,44 +23,44 @@ enum TaskTree {
 pub(crate) struct LocalPlanner;
 
 impl LocalPlanner {
-    pub fn get_execution_plan(task: GlobalTask, bag: &Bag) -> Vec<LocalTask> {
-        let complete_plan = Self::get_tree_plan_for_task(Produce(task.resource));
+    pub fn get_execution_plan(task: &GlobalTask, bag: &Bag) -> Vec<LocalTask> {
+        let complete_plan = Self::get_tree_plan_for_task(&Produce(task.resource));
         let mut reserved: HashMap<ResourceType, usize> = HashMap::new(); // Count resources reserved in bag
-        let pruned_plan = Self::prune_plan(Rc::new(complete_plan), bag, &mut reserved, true);
+        let pruned_plan = Self::prune_plan(&Rc::new(complete_plan), bag, &mut reserved, true);
 
         Self::sorted_topsort(pruned_plan)
     }
 
-    fn get_tree_plan_for_task(task: LocalTask) -> TaskTree {
+    fn get_tree_plan_for_task(task: &LocalTask) -> TaskTree {
         match task {
-            Generate(res_type) => Leaf(res_type),
+            Generate(res_type) => Leaf(*res_type),
             Produce(complex_type) => {
-                let (a, b) = get_resource_recipe(&complex_type);
+                let (a, b) = get_resource_recipe(*complex_type);
                 let plan_a = Self::get_tree_plan_for_resource(a);
                 let plan_b = Self::get_tree_plan_for_resource(b);
-                TaskTree::Node(complex_type, Rc::new(plan_a), Rc::new(plan_b))
+                TaskTree::Node(*complex_type, Rc::new(plan_a), Rc::new(plan_b))
             }
         }
     }
 
     fn get_tree_plan_for_resource(res_type: ResourceType) -> TaskTree {
         match res_type {
-            ResourceType::Basic(basic_type) => Self::get_tree_plan_for_task(Generate(basic_type)),
-            ResourceType::Complex(complex_type) => Self::get_tree_plan_for_task(Produce(complex_type))
+            ResourceType::Basic(basic_type) => Self::get_tree_plan_for_task(&Generate(basic_type)),
+            ResourceType::Complex(complex_type) => Self::get_tree_plan_for_task(&Produce(complex_type))
         }
     }
 
     fn prune_plan(
-        tree: Rc<TaskTree>,
+        tree: &Rc<TaskTree>,
         bag: &Bag,
         reserved: &mut HashMap<ResourceType, usize>,
         is_first: bool
     ) -> TaskTree {
-        match &*tree {
+        match &**tree {
             TaskTree::None => TaskTree::None, // Should not happen
             Leaf(res_type) => {
                 let res_type_enum = ResourceType::Basic(*res_type);
-                let available_count = bag.res.get(&res_type_enum).map(|v| v.len()).unwrap_or(0);
+                let available_count = bag.res.get(&res_type_enum).map_or(0, Vec::len);
                 let reserved_count = *reserved.get(&res_type_enum).unwrap_or(&0);
                 if available_count > reserved_count && !is_first {
                     reserved.entry(res_type_enum).and_modify(|e| *e += 1).or_insert(1);
@@ -71,7 +71,7 @@ impl LocalPlanner {
             }
             TaskTree::Node(complex_type, left, right) => {
                 let complex_type_enum = ResourceType::Complex(*complex_type);
-                let available_count = bag.res.get(&complex_type_enum).map(|v| v.len()).unwrap_or(0);
+                let available_count = bag.res.get(&complex_type_enum).map_or(0, Vec::len);
                 let reserved_count = *reserved.get(&complex_type_enum).unwrap_or(&0);
                 if available_count > reserved_count && !is_first {
                     reserved.entry(complex_type_enum).and_modify(|e| *e += 1).or_insert(1);
@@ -80,8 +80,8 @@ impl LocalPlanner {
                     // Recursively prune left and right subtrees
                     TaskTree::Node(
                         *complex_type,
-                        Rc::new(Self::prune_plan(Rc::clone(left), bag, reserved, false)),
-                        Rc::new(Self::prune_plan(Rc::clone(right), bag, reserved, false))
+                        Rc::new(Self::prune_plan(left, bag, reserved, false)),
+                        Rc::new(Self::prune_plan(right, bag, reserved, false))
                     )
                 }
             }
@@ -95,12 +95,9 @@ impl LocalPlanner {
         while !levels[current_level].is_empty() {
             let mut next_level: Vec<Rc<TaskTree>> = vec![];
             for node in &levels[current_level] {
-                match &**node {
-                    TaskTree::Node(_, left, right) => {
-                        next_level.push(Rc::clone(left));
-                        next_level.push(Rc::clone(right));
-                    }
-                    _ => {}
+                if let TaskTree::Node(_, left, right) = &**node {
+                    next_level.push(Rc::clone(left));
+                    next_level.push(Rc::clone(right));
                 }
             }
             levels.push(next_level);
@@ -117,7 +114,7 @@ impl LocalPlanner {
                     .filter_map(|node| match &*node {
                         TaskTree::Leaf(res_type) => Some(Generate(*res_type)),
                         TaskTree::Node(complex_type, _, _) => Some(Produce(*complex_type)),
-                        _ => None
+                        TaskTree::None => None
                     })
                     .collect::<Vec<LocalTask>>();
                 mapped.sort_by_key(|a| match a {

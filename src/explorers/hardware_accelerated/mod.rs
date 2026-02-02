@@ -6,11 +6,11 @@ mod planning;
 mod probability_estimator;
 mod round_executor;
 
-pub(self) use bag::Bag;
-pub(self) use communication::{OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
-                              PlanetLoggingReceiver, PlanetLoggingSender, PlanetsCommunicator};
-pub(self) use explorer::ExplorerState;
+use bag::Bag;
+use communication::{OrchestratorCommunicator, OrchestratorLoggingReceiver, OrchestratorLoggingSender,
+                    PlanetLoggingReceiver, PlanetLoggingSender, PlanetsCommunicator};
+use explorer::ExplorerState;
 pub(crate) use explorer::HardwareAcceleratedExplorer;
-pub(self) use galaxy_knowledge::GalaxyKnowledge;
-pub(self) use planning::{GlobalPlanner, LocalPlanner, LocalTask, get_resource_recipe, get_resource_request};
-pub(self) use probability_estimator::ProbabilityEstimator;
+use galaxy_knowledge::GalaxyKnowledge;
+use planning::{GlobalPlanner, LocalPlanner, LocalTask, get_resource_recipe, get_resource_request};
+use probability_estimator::ProbabilityEstimator;

@@ -21,7 +21,7 @@ impl GlobalPlanner {
         let min_res = FINAL_RESOURCES
             .iter()
             .map(|res_type| {
-                let count = state.bag.res.get(&ResourceType::Complex(*res_type)).map(|v| v.len()).unwrap_or_default();
+                let count = state.bag.res.get(&ResourceType::Complex(*res_type)).map(Vec::len).unwrap_or_default();
                 (res_type, count)
             })
             .min_by(|a, b| a.1.cmp(&b.1))

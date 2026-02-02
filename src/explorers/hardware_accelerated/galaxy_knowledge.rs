@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
@@ -67,8 +66,6 @@ impl GalaxyKnowledge {
         }
     }
 
-    pub fn has_planet(&self, id: ID) -> bool { self.connections.contains_key(&id) }
-
     /// This is a deterministic lower bound estimate of sunrays received
     pub fn estimate_sunrays_received(&self, new_state: &GalaxyKnowledge) -> u32 {
         self.count_comparison_predicate(new_state, |old, new| new.n_charged_cells > old.n_charged_cells)
@@ -87,10 +84,10 @@ impl GalaxyKnowledge {
     ) -> u32 {
         let mut count = 0;
         for (id, planet_knowledge) in &self.planets_knowledge {
-            if let Some(other_knowledge) = b.planets_knowledge.get(id) {
-                if pred(planet_knowledge, other_knowledge) {
-                    count += 1;
-                }
+            if let Some(other_knowledge) = b.planets_knowledge.get(id)
+                && pred(planet_knowledge, other_knowledge)
+            {
+                count += 1;
             }
         }
         count
@@ -98,11 +95,9 @@ impl GalaxyKnowledge {
 
     /// From 0 to 1, based on already available charged cells.
     /// Planets that would resist longer without help are considered more reliable.
+    #[allow(clippy::cast_precision_loss)] // f32 is precise enough for our needs
     pub fn get_planet_reliability(&self, id: ID) -> f32 {
-        let planet_knowledge = match self.planets_knowledge.get(&id) {
-            Some(pk) => pk,
-            None => return 0.0
-        };
+        let Some(planet_knowledge) = self.planets_knowledge.get(&id) else { return 0.0 };
 
         let mut out = 0.0;
 
@@ -111,14 +106,14 @@ impl GalaxyKnowledge {
         }
 
         if self.has_planet_cell_unbounded(id) {
-            out += 0.2
+            out += 0.2;
         }
 
         if self.max_charged_cells_per_planet != 0 {
             out += (planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32) * 0.3;
         }
 
-        return out;
+        out
     }
 
     pub fn get_n_planets(&self) -> usize { self.connections.len() }
@@ -127,10 +122,10 @@ impl GalaxyKnowledge {
         if let Some(neighbors) = self.connections.get(&planet_id) { Some(neighbors) } else { None }
     }
 
-    pub fn get_planet_ids(&self) -> Vec<ID> { self.connections.keys().cloned().collect() }
+    pub fn get_planet_ids(&self) -> Vec<ID> { self.connections.keys().copied().collect() }
 
     // Infer the planet type from recipes
-    fn can_have_rocket(&self, id: ID) -> bool {
+    pub fn can_have_rocket(&self, id: ID) -> bool {
         if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
             planet_knowledge.basic_resources.len() == 1
         } else {
@@ -141,7 +136,7 @@ impl GalaxyKnowledge {
     // Infer the planet type from recipes
     fn has_planet_cell_unbounded(&self, id: ID) -> bool {
         if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
-            planet_knowledge.complex_resources.len() == 0
+            planet_knowledge.complex_resources.is_empty()
         } else {
             false
         }

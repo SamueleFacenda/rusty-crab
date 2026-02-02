@@ -4,8 +4,7 @@ use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
 
 use super::{ExplorerState, GalaxyKnowledge, GlobalPlanner, LocalPlanner, LocalTask, OrchestratorCommunicator,
-            PlanetsCommunicator};
-use crate::explorers::hardware_accelerated::planning::{get_resource_recipe, get_resource_request};
+            PlanetsCommunicator, get_resource_request};
 
 pub(super) struct RoundExecutor<'a> {
     planets_communicator: &'a mut PlanetsCommunicator,
@@ -26,7 +25,7 @@ impl<'a> RoundExecutor<'a> {
         RoundExecutor { planets_communicator, orchestrator_communicator, state, new_galaxy: GalaxyKnowledge::new() }
     }
 
-    /// Returns the updated GalaxyKnowledge and the ID of the planet where the explorer ended the round
+    /// Returns the updated `GalaxyKnowledge` and the ID of the planet where the explorer ended the round
     pub fn execute_round(mut self) -> Result<(), String> {
         self.explore_galaxy()?; // The only way to get complete galaxy information
         self.update_probabilities(); // Compare with previous state
@@ -65,8 +64,7 @@ impl<'a> RoundExecutor<'a> {
             |pid| {
                 self.new_galaxy
                     .get_planet_neighbours(*pid) // Count connections with explored planets
-                    .map(|neighbors| neighbors.iter().filter(|n| explored.contains(n)).count())
-                    .unwrap_or(0) // If no neighbors, 0 connections
+                    .map_or(0, |neighbors| neighbors.iter().filter(|n| explored.contains(n)).count()) // If no neighbors, 0 connections
             }
         )
     }
@@ -82,6 +80,7 @@ impl<'a> RoundExecutor<'a> {
     }
 
     /// Update probabilities by comparison with previous state
+    #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     fn update_probabilities(&mut self) {
         if let Some(knowledge) = self.state.knowledge.as_ref() {
             let n_planets = knowledge.get_n_planets() as u32;
@@ -108,9 +107,13 @@ impl<'a> RoundExecutor<'a> {
 
     fn pursue_explorer_goal(&mut self) -> Result<(), String> {
         let global_plan = GlobalPlanner::plan_next_task(self.state);
-        let local_plan = LocalPlanner::get_execution_plan(global_plan, &self.state.bag);
+        let local_plan = LocalPlanner::get_execution_plan(&global_plan, &self.state.bag);
         for task in local_plan {
-            let executed = self.execute_task(task)?;
+            if self.evaluate_energy_usage_risk(self.state.current_planet) > 0.5 {
+                break; // Too dangerous to continue executing tasks
+            }
+
+            let executed = self.execute_task(&task)?;
             if !executed {
                 break; // Cannot execute further tasks, it's ok (maybe it's too dangerous)
             }
@@ -119,8 +122,8 @@ impl<'a> RoundExecutor<'a> {
     }
 
     /// Returns Ok(true) if it was possible to execute the task
-    fn execute_task(&mut self, task: LocalTask) -> Result<bool, String> {
-        match task {
+    fn execute_task(&mut self, task: &LocalTask) -> Result<bool, String> {
+        match *task {
             LocalTask::Produce(resource) => self.produce_resource(resource),
             LocalTask::Generate(resource) => self.generate_resource(resource)
         }
@@ -234,8 +237,17 @@ impl<'a> RoundExecutor<'a> {
 
     /// Evaluate the risk of using energy on a planet
     fn evaluate_energy_usage_risk(&self, planet_id: ID) -> f32 {
-        // Placeholder for actual risk evaluation logic
-        0.0
+        let asteroid_prob = self.state.asteroid_probability_estimator.get_probability();
+        let sunray_prob = self.state.sunray_probability_estimator.get_probability();
+        if self.new_galaxy.can_have_rocket(planet_id) {
+            if self.new_galaxy.get_n_charged_cells(planet_id) > 0 {
+                0.0 // No risk if there are energy cells available
+            } else {
+                asteroid_prob * sunray_prob
+            }
+        } else {
+            0.0 // No risk if the planet cannot have a rocket (it's always dangerous to use energy there)
+        }
     }
 
     fn goto_planet(&mut self, planet_id: ID) -> Result<(), String> {
@@ -243,7 +255,7 @@ impl<'a> RoundExecutor<'a> {
         for p in path {
             let opt_sender = self.orchestrator_communicator.travel_to_planet(self.state.current_planet, p)?;
             if opt_sender.is_none() {
-                return Err(format!("Travel to planet {} failed", p));
+                return Err(format!("Travel to planet {p} failed"));
             }
             self.planets_communicator.add_planet(p, opt_sender.unwrap());
             self.planets_communicator.set_current_planet(p);
@@ -263,16 +275,16 @@ impl<'a> RoundExecutor<'a> {
             if node == planet_id {
                 return Ok(path[1..].to_vec()); // Exclude starting planet
             }
-            if !visited.contains(&node) {
-                if let Some(neighbours) = self.new_galaxy.get_planet_neighbours(node) {
-                    for &neighbor in neighbours {
-                        let mut new_path = path.clone();
-                        new_path.push(neighbor);
-                        queue.push_back(new_path);
-                    }
+            if !visited.contains(&node)
+                && let Some(neighbours) = self.new_galaxy.get_planet_neighbours(node)
+            {
+                for &neighbor in neighbours {
+                    let mut new_path = path.clone();
+                    new_path.push(neighbor);
+                    queue.push_back(new_path);
                 }
             }
         }
-        Err(format!("No path found to planet {}", planet_id))
+        Err(format!("No path found to planet {planet_id}"))
     }
 }
