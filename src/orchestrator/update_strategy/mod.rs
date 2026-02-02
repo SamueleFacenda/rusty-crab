@@ -1,7 +1,7 @@
 mod auto_update_strategy;
 mod manual_update_strategy;
 
-use crate::orchestrator::{OrchestratorMode, OrchestratorState, OrchestratorManualAction};
+use crate::orchestrator::{OrchestratorManualAction, OrchestratorMode, OrchestratorState};
 
 pub trait OrchestratorUpdateStrategy {
     fn update(&mut self) -> Result<(), String>;

@@ -5,8 +5,8 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, 
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::orchestrator::{OrchestratorManualAction, OrchestratorState};
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
+use crate::orchestrator::{OrchestratorManualAction, OrchestratorState};
 
 pub(crate) struct ManualUpdateStrategy<'a> {
     state: &'a mut OrchestratorState
@@ -67,20 +67,29 @@ impl ManualUpdateStrategy<'_> {
                 ExplorerToOrchestratorKind::GenerateResourceResponse
             )?
             .into_generate_resource_response()
-            .unwrap().1; // Unwrap is safe due to expected kind
+            .unwrap()
+            .1; // Unwrap is safe due to expected kind
 
         if result.is_ok() {
             self.state.gui_events_buffer.basic_resource_generated(explorer_id, resource);
-            *self.state.explorer_bags
-                .entry(explorer_id).or_default()
-                .content.entry(ResourceType::Basic(resource)).or_default() += 1;
+            *self
+                .state
+                .explorer_bags
+                .entry(explorer_id)
+                .or_default()
+                .content
+                .entry(ResourceType::Basic(resource))
+                .or_default() += 1;
         }
 
-        // if result.is_err() {
-        //     return Err(format!(
-        //         "Basic resource from explorer {exp_id} request has not been generated"
-        //     ));
-        // }
+        if result.is_err() {
+            log::error!(
+                "Basic resource generation failed for explorer {explorer_id} trying to create {resource:?}, going on."
+            );
+            // return Err(format!(
+            //     "Basic resource from explorer {exp_id} request has not been generated"
+            // ));
+        }
         Ok(())
     }
 
@@ -96,7 +105,8 @@ impl ManualUpdateStrategy<'_> {
                 ExplorerToOrchestratorKind::CombineResourceResponse
             )?
             .into_combine_resource_response()
-            .unwrap().1; // Unwrap is safe due to expected kind
+            .unwrap()
+            .1; // Unwrap is safe due to expected kind
 
         if result.is_ok() {
             self.state.gui_events_buffer.complex_resource_generated(explorer_id, complex);
@@ -107,11 +117,14 @@ impl ManualUpdateStrategy<'_> {
             bag.content.entry(b).and_modify(|qty| *qty -= 1);
         }
 
-        // if result.is_err() {
-        //     return Err(format!(
-        //         "Basic resource from explorer {exp_id} request has not been generated"
-        //     ));
-        // }
+        if result.is_err() {
+            log::error!(
+                "Resource combination failed for explorer {explorer_id} trying to create {complex:?}, going on."
+            );
+            // return Err(format!(
+            //     "Basic resource from explorer {exp_id} request has not been generated"
+            // ));
+        }
         Ok(())
     }
 
@@ -162,7 +175,8 @@ impl ManualUpdateStrategy<'_> {
                 PlanetToOrchestratorKind::AsteroidAck
             )?
             .into_asteroid_ack()
-            .unwrap().1; // Unwrap is safe due to expected kind
+            .unwrap()
+            .1; // Unwrap is safe due to expected kind
 
         if rocket.is_none() {
             self.state.handle_planet_destroyed(planet_id)?;
@@ -174,14 +188,9 @@ impl ManualUpdateStrategy<'_> {
     fn handle_send_sunray(&mut self, planet_id: ID) -> Result<(), String> {
         self.check_planet_id(planet_id)?;
         self.state.gui_events_buffer.sunray_sent(planet_id);
-        self
-            .state
+        self.state
             .planets_communication_center
-            .req_ack(
-                planet_id,
-                OrchestratorToPlanet::Sunray(Sunray::default()),
-                PlanetToOrchestratorKind::SunrayAck
-            )?
+            .req_ack(planet_id, OrchestratorToPlanet::Sunray(Sunray::default()), PlanetToOrchestratorKind::SunrayAck)?
             .into_sunray_ack()
             .unwrap(); // Unwrap is safe due to expected kind
 
@@ -207,33 +216,20 @@ impl ManualUpdateStrategy<'_> {
 /// Returns the two resource types needed to create this complex resource.
 pub fn get_recipe(complex: ComplexResourceType) -> (ResourceType, ResourceType) {
     match complex {
-        ComplexResourceType::Water => (
-            ResourceType::Basic(BasicResourceType::Hydrogen),
-            ResourceType::Basic(BasicResourceType::Oxygen)
-        ),
-        ComplexResourceType::Diamond => (
-            ResourceType::Basic(BasicResourceType::Carbon),
-            ResourceType::Basic(BasicResourceType::Carbon)
-        ),
-        ComplexResourceType::Life => (
-            ResourceType::Complex(ComplexResourceType::Water),
-            ResourceType::Basic(BasicResourceType::Carbon)
-        ),
-        ComplexResourceType::Robot => (
-            ResourceType::Basic(BasicResourceType::Silicon),
-            ResourceType::Complex(ComplexResourceType::Life)
-        ),
-        ComplexResourceType::Dolphin => (
-            ResourceType::Complex(ComplexResourceType::Water),
-            ResourceType::Complex(ComplexResourceType::Life)
-        ),
-        ComplexResourceType::AIPartner => (
-            ResourceType::Complex(ComplexResourceType::Robot),
-            ResourceType::Complex(ComplexResourceType::Diamond)
-        ),
+        ComplexResourceType::Water =>
+            (ResourceType::Basic(BasicResourceType::Hydrogen), ResourceType::Basic(BasicResourceType::Oxygen)),
+        ComplexResourceType::Diamond =>
+            (ResourceType::Basic(BasicResourceType::Carbon), ResourceType::Basic(BasicResourceType::Carbon)),
+        ComplexResourceType::Life =>
+            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Basic(BasicResourceType::Carbon)),
+        ComplexResourceType::Robot =>
+            (ResourceType::Basic(BasicResourceType::Silicon), ResourceType::Complex(ComplexResourceType::Life)),
+        ComplexResourceType::Dolphin =>
+            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Complex(ComplexResourceType::Life)),
+        ComplexResourceType::AIPartner =>
+            (ResourceType::Complex(ComplexResourceType::Robot), ResourceType::Complex(ComplexResourceType::Diamond)),
     }
 }
-
 
 impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
     fn update(&mut self) -> Result<(), String> {
@@ -243,15 +239,13 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
 
     fn process_command(&mut self, command: OrchestratorManualAction) -> Result<(), String> {
         match command {
-            OrchestratorManualAction::GenerateBasic {explorer_id, resource} =>
+            OrchestratorManualAction::GenerateBasic { explorer_id, resource } =>
                 self.basic_resource_generation(explorer_id, resource)?,
-            OrchestratorManualAction::GenerateComplex {explorer_id, resource} =>
+            OrchestratorManualAction::GenerateComplex { explorer_id, resource } =>
                 self.resource_combination(explorer_id, resource)?,
-            OrchestratorManualAction::SendAsteroid {planet_id} =>
-                self.handle_send_asteroid(planet_id)?,
-            OrchestratorManualAction::SendSunray {planet_id} =>
-                self.handle_send_sunray(planet_id)?,
-            OrchestratorManualAction::MoveExplorer {explorer_id, destination_planet_id} =>
+            OrchestratorManualAction::SendAsteroid { planet_id } => self.handle_send_asteroid(planet_id)?,
+            OrchestratorManualAction::SendSunray { planet_id } => self.handle_send_sunray(planet_id)?,
+            OrchestratorManualAction::MoveExplorer { explorer_id, destination_planet_id } =>
                 self.handle_travel_request(explorer_id, destination_planet_id)?,
         };
 

@@ -46,15 +46,11 @@ impl Orchestrator {
     pub fn get_explorer_states(&self) -> ExplorerInfoMap {
         let cfg = AppConfig::get();
         let mut map = BTreeMap::new();
-        for id in (cfg.number_of_planets+1)..=(cfg.number_of_planets + cfg.explorers.len() as u32) {
+        for id in (cfg.number_of_planets + 1)..=(cfg.number_of_planets + cfg.explorers.len() as u32) {
             match self.get_explorer_current_planet(id) {
                 Some(current_planet_id) => {
-                    let bag = self.get_explorer_bag(id).map(|b|b.clone()).unwrap_or_default();
-                    map.insert(id as u32, ExplorerInfo {
-                        status: Status::Running,
-                        current_planet_id,
-                        bag
-                    });
+                    let bag = self.get_explorer_bag(id).map(|b| b.clone()).unwrap_or_default();
+                    map.insert(id as u32, ExplorerInfo { status: Status::Running, current_planet_id, bag });
                 }
                 None => {
                     // Explorer not found: already dead
@@ -99,7 +95,6 @@ impl PlanetInfoMap {
     pub fn get_status(&self, id: &ID) -> Status { self.map.get(id).unwrap().status }
 }
 
-
 #[derive(Debug)]
 pub struct ExplorerInfo {
     pub status: Status,
@@ -113,13 +108,9 @@ pub struct ExplorerInfoMap {
 }
 
 impl ExplorerInfoMap {
-    pub fn get(&self, id: &u32) -> Option<&ExplorerInfo> {
-        self.map.get(id)
-    }
+    pub fn get(&self, id: &u32) -> Option<&ExplorerInfo> { self.map.get(id) }
 
-    pub fn get_current_planet(&self, id: &u32) -> u32 {
-        self.map.get(id).unwrap().current_planet_id
-    }
+    pub fn get_current_planet(&self, id: &u32) -> u32 { self.map.get(id).unwrap().current_planet_id }
 }
 
 pub struct SelectedPlanet {
@@ -140,4 +131,38 @@ pub enum OrchestratorEvent {
     ExplorerMoved { explorer_id: u32, destination: u32 },
     BasicResourceGenerated { explorer_id: u32, resource: BasicResourceType },
     ComplexResourceGenerated { explorer_id: u32, resource: ComplexResourceType }
+}
+
+pub fn get_planet_basic_resources(planet_type: &PlanetType) -> Vec<BasicResourceType> {
+    match planet_type {
+        PlanetType::PanicOutOfOxygen | PlanetType::Carbonium | PlanetType::HoustonWeHaveABorrow =>
+            vec![BasicResourceType::Carbon],
+        PlanetType::TheCompilerStrikesBack => vec![BasicResourceType::Silicon],
+        PlanetType::Rustrelli | PlanetType::OneMillionCrabs | PlanetType::RustEze => vec![
+            BasicResourceType::Carbon,
+            BasicResourceType::Silicon,
+            BasicResourceType::Oxygen,
+            BasicResourceType::Hydrogen,
+        ]
+    }
+}
+
+pub fn get_planet_complex_resources(planet_type: &PlanetType) -> Vec<ComplexResourceType> {
+    match planet_type {
+        PlanetType::PanicOutOfOxygen => vec![
+            ComplexResourceType::Water,
+            ComplexResourceType::Life,
+            ComplexResourceType::Dolphin,
+            ComplexResourceType::Robot,
+            ComplexResourceType::Diamond,
+            ComplexResourceType::AIPartner,
+        ],
+        PlanetType::TheCompilerStrikesBack =>
+            vec![ComplexResourceType::Robot, ComplexResourceType::AIPartner, ComplexResourceType::Diamond],
+        PlanetType::Rustrelli
+        | PlanetType::Carbonium
+        | PlanetType::OneMillionCrabs
+        | PlanetType::HoustonWeHaveABorrow
+        | PlanetType::RustEze => vec![]
+    }
 }
