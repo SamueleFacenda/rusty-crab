@@ -1,5 +1,11 @@
 # Rusty Crab advanced programming project
 
+## Run
+Use `cargo run` to execute the project. Inspect the available options
+with `cargu run -- -help`. You can supply a config file with
+`cargo run -- -c config.toml`, the default one is 
+available [here](./default_config.toml).
+
 ## Environment setup
 You can use [nix](https://nixos.org/explore/) to setup a developement environment, better with direnv.
 Just run `nix develop` to enter a shell with all the requirements available, or `nix build` to build
