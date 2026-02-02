@@ -5,26 +5,24 @@
 //! Use `middleware` for a clean separation between the GUI and orchestrator logic.
 
 #[path = "omc-gui/src/ui.rs"]
-pub mod ui;
+pub(self) mod ui;
 
 #[path = "omc-gui/src/galaxy.rs"]
-pub mod galaxy;
+pub(self) mod galaxy;
 
-#[path = "omc-gui/src/assets.rs"]
-pub mod assets;
+#[path = "omc-gui/src/ecs/mod.rs"]
+pub(self) mod ecs;
 
-#[path = "omc-gui/src/events.rs"]
-pub mod events;
+#[path = "omc-gui/src/game.rs"]
+pub(self) mod game;
 
-pub mod routines;
+#[path = "omc-gui/src/utils/mod.rs"]
+pub(self) mod utils;
 
+
+mod routines;
 mod event_buffer;
-mod types;
+pub(self) mod types;
 
 pub(crate) use event_buffer::GuiEventBuffer;
 pub(crate) use routines::run_gui;
-
-// Re-export game-related types for omc-gui imports
-pub(crate) mod game {
-    pub use super::types::{GalaxySnapshot, GameState, OrchestratorResource, PlanetClickRes, SelectedPlanet};
-}

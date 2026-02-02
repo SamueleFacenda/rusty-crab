@@ -1,8 +1,30 @@
+use common_game::components::resource::ResourceType;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
-#[derive(Debug)]
-pub struct BagContent;
+/// Simple DTO
+#[derive(Debug, Clone)]
+pub struct BagContent {
+    pub res: Vec<ResourceType>,
+}
+
+impl BagContent {
+    pub fn remove(&mut self, resource: &ResourceType) -> Option<ResourceType> {
+        if let Some(pos) = self.res.iter().position(|x| x == resource) {
+            Some(self.res.remove(pos))
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for BagContent {
+    fn default() -> Self {
+        BagContent {
+            res: Vec::new(),
+        }
+    }
+}
 
 /// Trait defining the behavior of an Explorer,
 pub trait Explorer {

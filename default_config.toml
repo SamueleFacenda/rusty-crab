@@ -14,7 +14,7 @@ max_wait_time_ms = 200000
 game_tick_seconds = 0.5
 
 # Number of planets in the galaxy (created with a sequential pattern)
-number_of_planets = 7
+number_of_planets = 10
 
 # List of explorers e.g. ["example", "example"]
 explorers = ["hardware_accelerated"]
