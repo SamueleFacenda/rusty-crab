@@ -1,4 +1,4 @@
 mod cetto_explorer;
 pub mod knowledge;
-pub mod explorator_channel;
+pub mod communication;
 

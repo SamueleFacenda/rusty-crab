@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use bevy::ecs::query::EcsAccessType::Resource;
 use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType, ResourceType};
 use common_game::utils::ID;
 
@@ -42,6 +43,26 @@ impl ExplorerKnowledge {
     pub fn remove_bi_connection(&mut self, a: ID, b: ID) {
         self.galaxy.remove_bi_connection(&a, &b);
     }
+
+    pub fn decrease_from_goal(&mut self, resource_type: ResourceType) {
+        if let Some(value) = self.goal.get_mut(&resource_type) {
+            *value -= 1;
+        }
+    }
+
+    pub fn goal_completed(&self) -> bool {
+        self.goal[ResourceType::Complex(ComplexResourceType::AIPartner)] == 0 &&
+            self.goal[ResourceType::Complex(ComplexResourceType::Dolphin)] == 0
+    }
+
+    pub fn complex_goal_completed(&self, resource_type: ComplexResourceType) -> bool {
+        self.goal[ResourceType::Complex(resource_type)] == 0
+    }
+
+    pub fn basic_goal_completed(&self, resource_type: BasicResourceType) -> bool {
+        self.goal[ResourceType::Basic(resource_type)] == 0
+    }
+
 }
 
 struct PlanetInfo {

@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::thread::current;
+use bevy::ecs::system::IntoResult;
 use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceRequest, ComplexResourceType, GenericResource, Oxygen, ResourceType};
 use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
@@ -9,7 +10,7 @@ use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 
 use crate::explorers::{BagContent, Explorer};
-use crate::explorers::cetto::explorator_channel::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
+use crate::explorers::cetto::communication::{OrchestratorLoggingReceiver, OrchestratorLoggingSender, PlanetLoggingReceiver, PlanetLoggingSender};
 use crate::explorers::cetto::knowledge::ExplorerKnowledge;
 
 pub struct CettoExplorer {
@@ -91,6 +92,26 @@ impl Bag {
             *output.entry(ResourceType::Complex(complex.get_type())).or_insert(0) += 1;
         }
         output
+    }
+
+    fn has_basic(&self, typ: BasicResourceType, target_count: i32) -> bool {
+        let mut count = 0;
+        for el in self.basic_resources {
+            if el.get_type() == typ {
+                count += 1;
+            }
+        }
+        count >= target_count
+    }
+
+    fn has_complex(&self, typ: ComplexResourceType, target_count: i32) -> bool {
+        let mut count = 0;
+        for el in self.complex_resources {
+            if el.get_type() == typ {
+                count += 1;
+            }
+        }
+        count >= target_count
     }
 }
 
@@ -221,68 +242,28 @@ impl CettoExplorer {
             },
             OrchestratorToExplorer::GenerateResourceRequest { to_generate} => {
                 // Ask the current planet, wait for response, save resource, respond to the orchestrator
-                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::GenerateResourceRequest {explorer_id: self.id, resource: to_generate})?;
-                let planet_response = self.rx_planet.recv()
-                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?;
-
-                // Add to the bag if produced
-                let data = planet_response.into_generate_resource_response().unwrap();
-                let explorer_response =
-                    if let Some(res) = data {
-                        self.bag.basic_resources.push(*res);
-                        Ok(())
-                    } else {
-                        Err("The resource could not be generated".to_string())
-                    };
+                self.handle_generate_resource_request(to_generate)?;
 
                 self.tx_orchestrator.send(
                     ExplorerToOrchestrator::GenerateResourceResponse {
                         explorer_id: self.id,
-                        generated: explorer_response
+                        generated: Ok(())
                     }
                 )
             },
             OrchestratorToExplorer::CombineResourceRequest { to_generate} => {
-                let comp_res_req = match to_generate {
-                    ComplexResourceType::Water => { self.make_water_request()? },
-                    ComplexResourceType::Diamond => {self.make_diamond_request()? },
-                    ComplexResourceType::Life => {self.make_life_request()? },
-                    ComplexResourceType::Robot => {self.make_robot_request()? },
-                    ComplexResourceType::Dolphin => {self.make_dolphin_request()? },
-                    ComplexResourceType::AIPartner => {self.make_aipartner_request()? },
-                };
-                // Send request to Planet
-                self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::CombineResourceRequest {
-                    explorer_id: self.id,
-                    msg: comp_res_req
-                })?;
-
-                // Process response from Planet
-                let planet_response = self.rx_planet.recv()
-                    .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
-                    .into_combine_resource_response()
-                    .unwrap(); // It's safe because we know the type
-
-
-                match planet_response {
-                    Ok(successful_response) => {
-                        self.bag.complex_resources.push(successful_response);
-                    },
-                    Err((err, res1, res2)) => {
-                        // Add old resources to the bag, and return error
-                        self.bag.push_generic(res1);
-                        self.bag.push_generic(res2);
-                        return Err(format!("The combination has failed: {err}"))
-                    }
-                }
+                self.handle_combine_resource_request(to_generate)?;
                 // Respond to Orchestrator
                 self.tx_orchestrator.send(ExplorerToOrchestrator::CombineResourceResponse {explorer_id: self.id, generated: Ok(()) })
             },
             OrchestratorToExplorer::BagContentRequest => {
+                // Play the turn and then respond
+                self.play_turn();
+
+                // Respond
                 let content = BagContent {
                     content: self.bag.generate_bag_content_hashmap()
                 };
-
                 self.tx_orchestrator.send(
                     ExplorerToOrchestrator::BagContentResponse {
                         explorer_id: self.id,
@@ -298,6 +279,199 @@ impl CettoExplorer {
                 Ok(())
             },
         }
+    }
+
+
+
+
+
+
+    fn play_turn(&mut self) -> Result<(), String> {
+        if self.mode == ExplorerMode::Manual || self.knowledge.goal_completed() {
+            return Ok(());
+        }
+
+        // CASE 2: Visit all planets and exploit them
+
+        let mut visited = HashSet::new();
+        visited.insert(self.current_planet_id);
+        self.exploit_current_planet()?;
+
+
+
+
+
+
+        Ok(())
+
+
+
+
+
+
+
+
+
+
+
+        // FINAL: Go to a safe planet
+
+
+
+
+    }
+
+    fn exploit_current_planet(&mut self) -> Result<(), String>{
+        let mut cells = self.get_available_cells()?;
+        if cells == 0 { return Ok(()); }
+
+        // Create complex resources if possible and needed
+        let complex = self.get_planet_complex_types()?;
+        for comp in complex {
+            if self.can_combine(comp, cells) {
+                self.handle_combine_resource_request(comp)?;
+                cells -= 1;
+            }
+        }
+        if cells == 0 { return Ok(()); }  // Again, to possibly lower the number of comms
+
+        // Obtain basic resources if possible and needed
+        let basic = self.get_planet_basic_types()?;
+        for bas in basic {
+            if !self.knowledge.basic_goal_completed(bas) && cells > 0 {
+                self.handle_generate_resource_request(bas)?;
+                cells -= 1;
+            }
+        }
+        Ok(())
+    }
+
+    fn can_combine(&self, comp: ComplexResourceType, cells: u32) -> bool {
+        !self.knowledge.complex_goal_completed(comp) && self.has_ingredients(comp) && cells > 0
+    }
+
+    fn has_ingredients(&self, typ: ComplexResourceType) -> bool {
+        match typ {
+            ComplexResourceType::Water => {
+                self.bag.has_basic(BasicResourceType::Oxygen, 1) && self.bag.has_basic(BasicResourceType::Hydrogen, 1)
+            },
+            ComplexResourceType::Diamond => {
+                self.bag.has_basic(BasicResourceType::Carbon, 2)
+            },
+            ComplexResourceType::Life => {
+                self.bag.has_complex(ComplexResourceType::Water, 1) && self.bag.has_basic(BasicResourceType::Carbon, 1)
+            },
+            ComplexResourceType::Robot => {
+                self.bag.has_complex(ComplexResourceType::Life, 1) && self.bag.has_basic(BasicResourceType::Silicon, 1)
+            },
+            ComplexResourceType::Dolphin => {
+                self.bag.has_complex(ComplexResourceType::Water, 1) && self.bag.has_complex(ComplexResourceType::Life, 1)
+            },
+            ComplexResourceType::AIPartner => {
+                self.bag.has_complex(ComplexResourceType::Robot, 1) && self.bag.has_complex(ComplexResourceType::Diamond, 1)
+            }
+        }
+    }
+
+    fn get_planet_basic_types(&self) -> Result<HashSet<BasicResourceType>, String> {
+        self.tx_planets[&self.current_planet_id].send(
+            ExplorerToPlanet::SupportedResourceRequest { explorer_id: self.id }
+        )?;
+        let list = self
+            .rx_planet
+            .recv()
+            .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
+            .into_supported_resource_response()
+            .unwrap();  // Safe because we know the type
+        Ok(list)
+    }
+
+    fn get_planet_complex_types(&self) -> Result<HashSet<ComplexResourceType>, String> {
+        self.tx_planets[&self.current_planet_id].send(
+            ExplorerToPlanet::SupportedCombinationRequest { explorer_id: self.id }
+        )?;
+        let list = self
+            .rx_planet
+            .recv()
+            .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
+            .into_supported_combination_response()
+            .unwrap();  // Safe because we know the type
+        Ok(list)
+    }
+
+    fn get_available_cells(&self) -> Result<u32, String> {
+        self.tx_planets[&self.current_planet_id].send(
+            ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: self.id }
+        )?;
+        let cells = self
+            .rx_planet
+            .recv()
+            .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
+            .into_available_energy_cell_response()
+            .unwrap();  // Safe because we know the type
+        Ok(cells)
+    }
+
+
+
+
+
+
+
+    fn handle_combine_resource_request(&mut self, to_generate: ComplexResourceType) -> Result<(), String> {
+        let comp_res_req = match to_generate {
+            ComplexResourceType::Water => { self.make_water_request()? },
+            ComplexResourceType::Diamond => {self.make_diamond_request()? },
+            ComplexResourceType::Life => {self.make_life_request()? },
+            ComplexResourceType::Robot => {self.make_robot_request()? },
+            ComplexResourceType::Dolphin => {self.make_dolphin_request()? },
+            ComplexResourceType::AIPartner => {self.make_aipartner_request()? },
+        };
+        // Send request to Planet
+        self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::CombineResourceRequest {
+            explorer_id: self.id,
+            msg: comp_res_req
+        })?;
+
+        // Process response from Planet
+        let planet_response = self.rx_planet.recv()
+            .map_err(|err| format!("Exception when waiting for planet response: {err}"))?
+            .into_combine_resource_response()
+            .unwrap(); // It's safe because we know the type
+
+
+        match planet_response {
+            Ok(successful_response) => {
+                self.knowledge.decrease_from_goal(ResourceType::Complex(successful_response.get_type()));
+                self.bag.complex_resources.push(successful_response);
+            },
+            Err((err, res1, res2)) => {
+                // Add old resources to the bag, and return error
+                self.bag.push_generic(res1);
+                self.bag.push_generic(res2);
+                return Err(format!("The combination has failed: {err}"))
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_generate_resource_request(&mut self, to_generate: BasicResourceType) -> Result<(), String> {
+        self.tx_planets[&self.current_planet_id].send(ExplorerToPlanet::GenerateResourceRequest {explorer_id: self.id, resource: to_generate})?;
+        let planet_response = self.rx_planet.recv()
+            .map_err(|err| format!("Exception when waiting for planet response: {err}"))?;
+
+        // Add to the bag if produced
+        let data = planet_response.into_generate_resource_response().unwrap();
+        let explorer_response =
+            if let Some(res) = data {
+                self.knowledge.decrease_from_goal(ResourceType::Basic(res.get_type()));
+                self.bag.basic_resources.push(*res);
+
+                Ok(())
+            } else {
+                Err("The resource could not be generated".to_string())
+            };
+        explorer_response
     }
 
     fn handle_nonsense_requests(&mut self, msg: &OrchestratorToExplorer) -> Result<(), String> {
@@ -396,9 +570,4 @@ impl CettoExplorer {
         }
         Ok(ComplexResourceRequest::AIPartner(res1.unwrap().to_robot()?, res2.unwrap().to_diamond()?))
     }
-
-
-
-
-
 }
