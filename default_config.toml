@@ -20,4 +20,4 @@ number_of_planets = 10
 explorers = ["hardware_accelerated"]
 
 # Wether to show the gui or not. This changes the orchestrator mode from auto to manual
-show_gui = false
+show_gui = true

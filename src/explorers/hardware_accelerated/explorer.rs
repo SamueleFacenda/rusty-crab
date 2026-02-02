@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-
+use common_game::components::resource::{GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -32,8 +32,22 @@ pub struct HardwareAcceleratedExplorer {
 }
 
 struct Bag {
-    // not implemented in example
+    res: HashMap<ResourceType, Vec<GenericResource>>
 }
+
+impl Bag {
+    pub fn to_bag_content(&self) -> BagContent {
+        let mut content = BagContent::default();
+        for resources in self.res.values() {
+            for resource in resources {
+                content.res.push(resource.get_type());
+            }
+        }
+        content
+    }
+}
+
+
 struct ExplorerKnowledge {
     // not implemented in example
 }
@@ -50,7 +64,7 @@ impl Explorer for HardwareAcceleratedExplorer {
         HardwareAcceleratedExplorer {
             id,
             state: ExplorerState {
-                bag: Bag {},
+                bag: Bag { res: HashMap::new() },
                 knowledge: None,
                 current_planet,
                 asteroid_probability_estimator: ProbabilityEstimator::new(),
@@ -134,7 +148,7 @@ impl HardwareAcceleratedExplorer {
                 RoundExecutor::new(&mut self.planets_communicator, &self.orchestrator_communicator, &mut self.state)
                     .execute_round()?;
                 // TODO send bag content
-                self.orchestrator_communicator.send_bag_content_ack(BagContent {})?;
+                self.orchestrator_communicator.send_bag_content_ack(self.state.bag.to_bag_content())?;
             }
             _ => return Err(format!("Unexpected message type: {:?}", msg))
         }
