@@ -1,8 +1,7 @@
 use crate::explorers::BagContent as BagContent2;
 use crate::explorers::Explorer;
 use crate::explorers::explorer::BagContent;
-use allegory::explorer::ExplorerMode::Auto;
-use allegory::explorer::{AllegoryExplorer, ExplorerMode};
+use crate::explorers::allegory::explorer::{AllegoryExplorer, ExplorerMode};
 use common_game::components::resource::ComplexResourceType::{Dolphin, Water};
 use common_game::components::resource::{BasicResourceType, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
