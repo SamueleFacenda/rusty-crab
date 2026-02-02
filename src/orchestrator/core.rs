@@ -1,23 +1,16 @@
 use std::thread;
 
 use common_game::components::planet::{DummyPlanetState, Planet};
-use common_game::protocols::orchestrator_explorer::{
-    ExplorerToOrchestratorKind, OrchestratorToExplorer,
-};
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
 use crate::explorers::ExplorerBuilder;
 use crate::gui::GuiEventBuffer;
-use crate::orchestrator::{ExplorerChannelDemultiplexer, PlanetChannelDemultiplexer};
-use crate::orchestrator::{
-    ExplorerHandle, ExplorerState, GalaxyBuilder, OrchestratorState, PlanetHandle,
-};
-use crate::orchestrator::{
-    ExplorerLoggingReceiver, ExplorerLoggingSender, OrchestratorUpdateFactory,
-    PlanetLoggingReceiver, PlanetLoggingSender,
-};
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
+use crate::orchestrator::{ExplorerChannelDemultiplexer, ExplorerHandle, ExplorerLoggingReceiver,
+                          ExplorerLoggingSender, GalaxyBuilder, OrchestratorState, OrchestratorUpdateFactory,
+                          PlanetChannelDemultiplexer, PlanetHandle, PlanetLoggingReceiver, PlanetLoggingSender};
 
 /// The Orchestrator is the main entity that manages the game.
 /// It's responsible for managing the communication and threads (IPC)
@@ -26,21 +19,21 @@ pub(crate) struct Orchestrator {
     // Auto/manual
     mode: OrchestratorMode,
 
-    state: OrchestratorState,
+    state: OrchestratorState
 }
 
 #[allow(dead_code)] // only one at a time is used
 #[derive(Clone, Copy)]
 pub(crate) enum OrchestratorMode {
     Auto,
-    Manual,
+    Manual
 }
 
 impl Orchestrator {
     pub fn new(
         mode: OrchestratorMode,
-        n_planets: usize,
-        explorer_builders: Vec<Box<dyn ExplorerBuilder>>,
+        n_planets: u32,
+        explorer_builders: Vec<Box<dyn ExplorerBuilder>>
     ) -> Result<Self, String> {
         let initial_galaxy = GalaxyBuilder::new()
             .with_fully_connected_topology()
@@ -53,17 +46,11 @@ impl Orchestrator {
             .into_iter()
             .map(|(id, planet_init)| {
                 (
-                    (
-                        id,
-                        PlanetHandle {
-                            thread_handle: Self::start_planet(planet_init.planet, id),
-                            tx_explorer: planet_init.explorer_to_planet_tx,
-                        },
-                    ),
-                    (
-                        id,
-                        PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx),
-                    ),
+                    (id, PlanetHandle {
+                        thread_handle: Self::start_planet(planet_init.planet, id),
+                        tx_explorer: planet_init.explorer_to_planet_tx
+                    }),
+                    (id, PlanetLoggingSender::new(planet_init.orchestrator_to_planet_tx))
                 )
             })
             .unzip();
@@ -73,19 +60,12 @@ impl Orchestrator {
             .into_iter()
             .map(|(id, explorer_init)| {
                 (
-                    (
-                        id,
-                        ExplorerHandle {
-                            current_planet: explorer_init.initial_planet,
-                            thread_handle: Self::start_explorers(explorer_init.explorer, id),
-                            tx_planet: explorer_init.planet_to_explorer_tx,
-                            state: ExplorerState::Autonomous,
-                        },
-                    ),
-                    (
-                        id,
-                        ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx),
-                    ),
+                    (id, ExplorerHandle {
+                        current_planet: explorer_init.initial_planet,
+                        thread_handle: Self::start_explorers(explorer_init.explorer, id),
+                        tx_planet: explorer_init.planet_to_explorer_tx
+                    }),
+                    (id, ExplorerLoggingSender::new(explorer_init.orchestrator_to_explorer_tx))
                 )
             })
             .unzip();
@@ -100,17 +80,17 @@ impl Orchestrator {
                 planets_communication_center: PlanetCommunicationCenter::new(
                     planet_senders,
                     PlanetChannelDemultiplexer::new(PlanetLoggingReceiver::new(
-                        initial_galaxy.planet_to_orchestrator_rx,
-                    )),
+                        initial_galaxy.planet_to_orchestrator_rx
+                    ))
                 ),
                 explorers_communication_center: ExplorerCommunicationCenter::new(
                     explorer_senders,
                     ExplorerChannelDemultiplexer::new(ExplorerLoggingReceiver::new(
-                        initial_galaxy.explorer_to_orchestrator_rx,
-                    )),
+                        initial_galaxy.explorer_to_orchestrator_rx
+                    ))
                 ),
-                gui_events_buffer: GuiEventBuffer::new(),
-            },
+                gui_events_buffer: GuiEventBuffer::new()
+            }
         })
     }
 
@@ -137,29 +117,21 @@ impl Orchestrator {
         Ok(())
     }
 
-    pub fn is_game_over(&self) -> bool {
-        self.state.galaxy.get_planets().is_empty()
-    }
+    pub fn is_game_over(&self) -> bool { self.state.galaxy.get_planets().is_empty() }
 
-    pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer {
-        &mut self.state.gui_events_buffer
-    }
+    pub fn get_gui_events_buffer(&mut self) -> &mut GuiEventBuffer { &mut self.state.gui_events_buffer }
 
-    pub fn get_topology(&self) -> Vec<(ID, ID)> {
-        self.state.galaxy.get_topology()
-    }
+    pub fn get_topology(&self) -> Vec<(ID, ID)> { self.state.galaxy.get_topology() }
 
     pub fn process_commands(&mut self) -> Result<(), String> {
         OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
     }
 
-    pub fn set_mode_auto(&mut self) {
-        self.mode = OrchestratorMode::Auto;
-    }
+    #[allow(dead_code)] // implemented for future gui integrations
+    pub fn set_mode_auto(&mut self) { self.mode = OrchestratorMode::Auto; }
 
-    pub fn set_mode_manual(&mut self) {
-        self.mode = OrchestratorMode::Manual;
-    }
+    #[allow(dead_code)] // implemented for future gui integrations
+    pub fn set_mode_manual(&mut self) { self.mode = OrchestratorMode::Manual; }
 
     fn start_planet(mut planet: Planet, id: ID) -> thread::JoinHandle<()> {
         thread::spawn(move || {
@@ -186,17 +158,21 @@ impl Orchestrator {
             self.state.planets_communication_center.req_ack(
                 planet_id,
                 OrchestratorToPlanet::StartPlanetAI,
-                PlanetToOrchestratorKind::StartPlanetAIResult,
+                PlanetToOrchestratorKind::StartPlanetAIResult
             )?;
         }
         Ok(())
     }
 
     fn notify_planet_explorer_channel(&mut self) -> Result<(), String> {
-        for (explorer_id, explorer_handle) in self.state.explorers.iter() {
+        for (explorer_id, explorer_handle) in &self.state.explorers {
             let current_planet_id = explorer_handle.current_planet;
             let new_sender = explorer_handle.tx_planet.clone();
-            self.state.planets_communication_center.notify_planet_incoming_explorer(*explorer_id, current_planet_id, new_sender)?;
+            self.state.planets_communication_center.notify_planet_incoming_explorer(
+                *explorer_id,
+                current_planet_id,
+                new_sender
+            )?;
         }
         Ok(())
     }
@@ -206,7 +182,7 @@ impl Orchestrator {
             self.state.explorers_communication_center.req_ack(
                 *explorer_id,
                 OrchestratorToExplorer::StartExplorerAI,
-                ExplorerToOrchestratorKind::StartExplorerAIResult,
+                ExplorerToOrchestratorKind::StartExplorerAIResult
             )?;
         }
         Ok(())
@@ -224,17 +200,15 @@ impl Orchestrator {
                 .riskier_req_ack(
                     planet_id,
                     OrchestratorToPlanet::InternalStateRequest,
-                    PlanetToOrchestratorKind::InternalStateResponse,
+                    PlanetToOrchestratorKind::InternalStateResponse
                 )
-                .map(|res| res.into_internal_state_response().unwrap().1),
+                .map(|res| res.into_internal_state_response().unwrap().1)
         ) // Unwrap safe due to the expected kind
     }
 }
 
 impl Default for Orchestrator {
-    fn default() -> Self {
-        Orchestrator::new(OrchestratorMode::Auto, 0, vec![]).unwrap()
-    }
+    fn default() -> Self { Orchestrator::new(OrchestratorMode::Auto, 0, vec![]).unwrap() }
 }
 
 #[cfg(test)]

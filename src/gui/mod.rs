@@ -1,4 +1,4 @@
-//! GUI module from the OneMillionCrabs group.
+//! GUI module from the `OneMillionCrabs` group.
 //! It's necessary to do like this because they do not export a lib (why would they?).
 //!
 //! ## Adapting to the orchestrator
@@ -26,7 +26,5 @@ pub(crate) use routines::run_gui;
 
 // Re-export game-related types for omc-gui imports
 pub(crate) mod game {
-    pub use super::types::{
-        GalaxySnapshot, GameState, OrchestratorResource, PlanetClickRes, SelectedPlanet,
-    };
+    pub use super::types::{GalaxySnapshot, GameState, OrchestratorResource, PlanetClickRes, SelectedPlanet};
 }

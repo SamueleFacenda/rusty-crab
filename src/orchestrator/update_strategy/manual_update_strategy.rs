@@ -1,77 +1,70 @@
-use std::fmt::format;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, ExplorerToOrchestratorKind, OrchestratorToExplorer};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
-use common_game::protocols::planet_explorer::PlanetToExplorerKind::SupportedResourceResponse;
+use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
 use common_game::utils::ID;
+
 use crate::orchestrator::OrchestratorState;
-use crate::orchestrator::update_strategy::auto_update_strategy::AutoUpdateStrategy;
 use crate::orchestrator::update_strategy::OrchestratorUpdateStrategy;
 
 pub(crate) struct ManualUpdateStrategy<'a> {
-    state: &'a mut OrchestratorState,
+    state: &'a mut OrchestratorState
 }
 
+#[allow(dead_code)] // implemented for future gui integrations
 impl ManualUpdateStrategy<'_> {
-    pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> {
-        ManualUpdateStrategy { state }
-    }
+    pub fn new(state: &'_ mut OrchestratorState) -> ManualUpdateStrategy<'_> { ManualUpdateStrategy { state } }
 
-    fn basic_resource_discovery(
-        &mut self,
-        explorer_id: ID,
-    ) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+    fn basic_resource_discovery(&mut self, explorer_id: ID) -> Result<(), String> {
+        self.check_explorer_id(explorer_id)?;
 
-        let (explorer_id, basic_resources) =
-            self.state.explorers_communication_center.req_ack(
-            explorer_id,
-            OrchestratorToExplorer::SupportedResourceRequest,
-            ExplorerToOrchestratorKind::SupportedResourceResult
-        )?
+        let (explorer_id, basic_resources) = self
+            .state
+            .explorers_communication_center
+            .req_ack(
+                explorer_id,
+                OrchestratorToExplorer::SupportedResourceRequest,
+                ExplorerToOrchestratorKind::SupportedResourceResult
+            )?
             .into_supported_resource_result()
             .unwrap(); // Unwrap is safe due to expected kind
 
         if basic_resources.is_empty() {
             return Err(format!(
-                "A SupportedResourceRequest from explorer {explorer_id} returned that a planet produces no basic resource"
+                "A SupportedResourceRequest from explorer {explorer_id} returned that a planet produces no basic \
+                 resource"
             ));
         }
         Ok(())
     }
 
-    fn combination_resource_discovery(
-        &mut self,
-        explorer_id: ID,
-    ) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+    fn combination_resource_discovery(&mut self, explorer_id: ID) -> Result<(), String> {
+        self.check_explorer_id(explorer_id)?;
 
-        let (_, _) =
-            self.state.explorers_communication_center.req_ack(
+        let _ = self
+            .state
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::SupportedCombinationRequest,
                 ExplorerToOrchestratorKind::SupportedCombinationResult
             )?
-                .into_supported_combination_result()
-                .unwrap(); // Unwrap is safe due to expected kind
+            .into_supported_combination_result()
+            .unwrap(); // Unwrap is safe due to expected kind
         Ok(())
     }
 
-    fn basic_resource_generation(
-        &mut self,
-        explorer_id: ID,
-        resource: BasicResourceType,
-    ) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+    fn basic_resource_generation(&mut self, explorer_id: ID, resource: BasicResourceType) -> Result<(), String> {
+        self.check_explorer_id(explorer_id)?;
 
-        let (exp_id, result) =
-            self.state.explorers_communication_center.req_ack(
+        let _ = self
+            .state
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::GenerateResourceRequest { to_generate: resource },
                 ExplorerToOrchestratorKind::GenerateResourceResponse
             )?
-                .into_generate_resource_response()
-                .unwrap(); // Unwrap is safe due to expected kind
+            .into_generate_resource_response()
+            .unwrap(); // Unwrap is safe due to expected kind
 
         // if result.is_err() {
         //     return Err(format!(
@@ -81,21 +74,19 @@ impl ManualUpdateStrategy<'_> {
         Ok(())
     }
 
-    fn resource_combination(
-        &mut self,
-        explorer_id: ID,
-        complex: ComplexResourceType
-    ) -> Result<(), String> {
-        self.check_explorer_id(&explorer_id)?;
+    fn resource_combination(&mut self, explorer_id: ID, complex: ComplexResourceType) -> Result<(), String> {
+        self.check_explorer_id(explorer_id)?;
 
-        let (exp_id, result) =
-            self.state.explorers_communication_center.req_ack(
+        let _ = self
+            .state
+            .explorers_communication_center
+            .req_ack(
                 explorer_id,
                 OrchestratorToExplorer::CombineResourceRequest { to_generate: complex },
                 ExplorerToOrchestratorKind::CombineResourceResponse
             )?
-                .into_combine_resource_response()
-                .unwrap(); // Unwrap is safe due to expected kind
+            .into_combine_resource_response()
+            .unwrap(); // Unwrap is safe due to expected kind
 
         // if result.is_err() {
         //     return Err(format!(
@@ -105,57 +96,50 @@ impl ManualUpdateStrategy<'_> {
         Ok(())
     }
 
-    fn handle_travel_request(
-        &mut self,
-        explorer_id: ID,
-        dst_planet_id: ID,
-    ) -> Result<(), String> {
-        self.check_planet_id(&dst_planet_id)?;
-        self.check_explorer_id(&explorer_id)?;
+    fn handle_travel_request(&mut self, explorer_id: ID, dst_planet_id: ID) -> Result<(), String> {
+        self.check_planet_id(dst_planet_id)?;
+        self.check_explorer_id(explorer_id)?;
 
         let current_planet_id = self.state.explorers[&explorer_id].current_planet;
 
         // Communicate invalid travel if planets are not connected
-        if !self.state
-            .galaxy
-            .are_planets_connected(current_planet_id, dst_planet_id)
-        {
+        if !self.state.galaxy.are_planets_connected(current_planet_id, dst_planet_id) {
             return Err(format!(
-                "This travel request cannot be granted because the destination planet {dst_planet_id}\
-                 is not directly linked to the current one ({current_planet_id})"
+                "This travel request cannot be granted because the destination planet {dst_planet_id}is not directly \
+                 linked to the current one ({current_planet_id})"
             ));
         }
 
         let new_sender = self.state.explorers[&explorer_id].tx_planet.clone();
-        self.state.planets_communication_center.notify_planet_incoming_explorer(explorer_id, dst_planet_id, new_sender)?;
+        self.state
+            .planets_communication_center
+            .notify_planet_incoming_explorer(explorer_id, dst_planet_id, new_sender)?;
         self.state.planets_communication_center.notify_planet_explorer_left(explorer_id, current_planet_id)?;
         let new_sender = self.state.planets[&dst_planet_id].tx_explorer.clone();
-        self.state.explorers_communication_center.notify_explorer_successful_movement(explorer_id, dst_planet_id, new_sender)?;
+        self.state
+            .explorers_communication_center
+            .notify_explorer_successful_movement(explorer_id, dst_planet_id, new_sender)?;
 
         // Update internal state
         self.state
             .explorers
             .get_mut(&explorer_id)
-            .unwrap()  // It is checked above that the explorer exists
+            .unwrap() // It is checked above that the explorer exists
             .current_planet = dst_planet_id;
 
         Ok(())
     }
 
-    fn check_planet_id(&self, id: &ID) -> Result<(), String> {
-        if !self.state.planets.contains_key(&id){
-            return Err(format!(
-                "Planet with ID: {id} does not exist."
-            ))
+    fn check_planet_id(&self, id: ID) -> Result<(), String> {
+        if !self.state.planets.contains_key(&id) {
+            return Err(format!("Planet with ID: {id} does not exist."));
         }
         Ok(())
     }
 
-    fn check_explorer_id(&self, id: &ID) -> Result<(), String> {
-        if !self.state.explorers.contains_key(&id){
-            return Err(format!(
-                "Explorer with ID: {id} does not exist."
-            ));
+    fn check_explorer_id(&self, id: ID) -> Result<(), String> {
+        if !self.state.explorers.contains_key(&id) {
+            return Err(format!("Explorer with ID: {id} does not exist."));
         }
         Ok(())
     }

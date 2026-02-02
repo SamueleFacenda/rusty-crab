@@ -8,16 +8,11 @@ use crate::app::AppConfig;
 /// This wrapper around a channel receiver divides the stream per sender (planet and explorer IDs).
 pub(crate) struct ChannelDemultiplexer<A: ActorMarker> {
     receiver: LoggingReceiver<A>,
-    buffers: HashMap<ID, VecDeque<A::RecvMsg>>,
+    buffers: HashMap<ID, VecDeque<A::RecvMsg>>
 }
 
 impl<A: ActorMarker> ChannelDemultiplexer<A> {
-    pub fn new(receiver: LoggingReceiver<A>) -> Self {
-        Self {
-            receiver,
-            buffers: HashMap::new(),
-        }
-    }
+    pub fn new(receiver: LoggingReceiver<A>) -> Self { Self { receiver, buffers: HashMap::new() } }
 
     pub fn recv_from(&mut self, id: ID) -> Result<A::RecvMsg, String> {
         let timeout = std::time::Duration::from_millis(AppConfig::get().max_wait_time_ms);
@@ -51,9 +46,7 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
     pub fn recv_any(&self) -> Result<A::RecvMsg, String> {
         let timeout = std::time::Duration::from_millis(AppConfig::get().max_wait_time_ms);
 
-        self.receiver
-            .recv_timeout(timeout)
-            .map_err(|e| format!("Error waiting for message: {e}"))
+        self.receiver.recv_timeout(timeout).map_err(|e| format!("Error waiting for message: {e}"))
     }
 }
 
@@ -61,22 +54,19 @@ impl<A: ActorMarker> ChannelDemultiplexer<A> {
 pub type PlanetChannelDemultiplexer = ChannelDemultiplexer<PlanetMarker>;
 pub type ExplorerChannelDemultiplexer = ChannelDemultiplexer<ExplorerMarker>;
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crossbeam_channel::unbounded;
-    use crate::explorers::BagContent;
     use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator;
+    use crossbeam_channel::unbounded;
+
+    use super::*;
+    use crate::explorers::BagContent;
 
     fn msg(id: ID) -> ExplorerToOrchestrator<BagContent> {
         ExplorerToOrchestrator::StartExplorerAIResult { explorer_id: id }
     }
 
-    fn make_mux() -> (
-        crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>,
-        ExplorerChannelDemultiplexer,
-    ) {
+    fn make_mux() -> (crossbeam_channel::Sender<ExplorerToOrchestrator<BagContent>>, ExplorerChannelDemultiplexer) {
         let (tx, rx) = unbounded();
         let logging_rx = LoggingReceiver::<ExplorerMarker>::new(rx);
         let demux = ExplorerChannelDemultiplexer::new(logging_rx);
@@ -117,5 +107,4 @@ mod tests {
         let result = mux.recv_from(67);
         assert!(result.is_err());
     }
-
 }
