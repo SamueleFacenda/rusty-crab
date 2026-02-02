@@ -46,15 +46,14 @@ impl Orchestrator {
     pub fn get_explorer_states(&self) -> ExplorerInfoMap {
         let cfg = AppConfig::get();
         let mut map = BTreeMap::new();
-        for id in (cfg.number_of_planets+1)..=(cfg.explorers.len() as u32) {
-            match self.get_explorer_bag(id) {
-                Some(bag) => {
-                    // Unwrap is safe because the explorer exists
-                    let current_planet = self.get_explorer_current_planet(id).unwrap();
+        for id in (cfg.number_of_planets+1)..=(cfg.number_of_planets + cfg.explorers.len() as u32) {
+            match self.get_explorer_current_planet(id) {
+                Some(current_planet_id) => {
+                    let bag = self.get_explorer_bag(id).map(|b|b.clone()).unwrap_or_default();
                     map.insert(id as u32, ExplorerInfo {
                         status: Status::Running,
-                        current_planet_id: current_planet,
-                        bag: bag.clone()
+                        current_planet_id,
+                        bag
                     });
                 }
                 None => {
@@ -108,6 +107,7 @@ pub struct ExplorerInfo {
     pub bag: BagContent
 }
 
+#[derive(Debug)]
 pub struct ExplorerInfoMap {
     map: BTreeMap<u32, ExplorerInfo>
 }

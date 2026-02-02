@@ -35,6 +35,7 @@
             systemd
             libxkbcommon
             vulkan-loader
+            pipewire
           ];
           
           cargoTestFlags = [ "--workspace" ];
@@ -62,7 +63,7 @@
             ];
             RUST_BACKTRACE = 1;
             RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
-            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libxkbcommon pkgs.vulkan-loader];
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libxkbcommon pkgs.vulkan-loader pkgs.pipewire];
           };
         };
       }
