@@ -3,6 +3,7 @@ use common_game::components::resource::ResourceType;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
+/// Simple DTO
 #[derive(Debug)]
 pub struct BagContent{
     content: HashMap<ResourceType, usize>
