@@ -10,9 +10,10 @@ use common_game::protocols::orchestrator_explorer::{
     ExplorerToOrchestrator, OrchestratorToExplorer,
 };
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
+use common_game::utils::ID;
 use crate::explorers::allegory::explorer::{AllegoryExplorer, ExplorerMode};
 use std::collections::HashSet;
-use crate::explorers::allegory::logging::{emit_error, emit_warning};
+use crate::explorers::allegory::logging::{emit_error, emit_info, emit_warning};
 
 impl AllegoryExplorer {
     pub(crate) fn handle_orchestrator_message(
@@ -370,6 +371,61 @@ impl AllegoryExplorer {
                 self.id,
                 e.to_string()
             )),
+        }
+    }
+    
+    pub (crate) fn move_to_planet(&mut self, planet_id: ID) -> Result<(), String> {
+        self.send_to_orchestrator(ExplorerToOrchestrator::TravelToPlanetRequest {
+            explorer_id: self.id,
+            current_planet_id: self.current_planet_id,
+            dst_planet_id: planet_id,
+        });
+
+        // Block wait for response
+        loop {
+            // Need to handle both orchestrator (for MoveToPlanet or other requests) 
+            // We ignore rx_planet messages during travel as we are "in transit" or "departing"
+             match self.rx_orchestrator.recv() { 
+                 Ok(msg) => {
+                     match msg {
+                        OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id: new_id } => {
+                             if new_id == planet_id {
+                                 self.current_planet_id = new_id;
+                                 if let Some(sender) = sender_to_new_planet {
+                                     self.tx_planet = sender;
+                                 }
+                                 emit_info(self.id, format!("Arrived at planet {}", new_id));
+                                 self.send_to_orchestrator(ExplorerToOrchestrator::MovedToPlanetResult {
+                                     explorer_id: self.id,
+                                     planet_id: self.current_planet_id,
+                                 });
+                                 return Ok(());
+                             } else {
+                                 // This might happen if we get a MoveToPlanet for a previous request? Or logic error.
+                                 // But let's accept it as a valid move anyway.
+                                  self.current_planet_id = new_id;
+                                 if let Some(sender) = sender_to_new_planet {
+                                     self.tx_planet = sender;
+                                 }
+                                 self.send_to_orchestrator(ExplorerToOrchestrator::MovedToPlanetResult {
+                                     explorer_id: self.id,
+                                     planet_id: self.current_planet_id,
+                                 });
+                                 return Err(format!("Unexpectedly moved to planet {} instead of {}", new_id, planet_id));
+                             }
+                        }
+                        OrchestratorToExplorer::BagContentRequest => { 
+                             // not handling this here causes errors
+                             log::warn!("Ignoring BagContentRequest during movement handshake to prevent protocol error");
+                        }
+                        _ => {
+                            // Delegate other messages
+                            self.handle_orchestrator_message(msg)?;
+                        }
+                     }
+                 }
+                 Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
+             }
         }
     }
 }

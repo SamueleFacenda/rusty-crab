@@ -31,7 +31,7 @@ pub enum StrategyState {
 /// - List of resources and combinations
 pub(crate) struct PlanetKnowledge {
     id: ID,
-    planet_type: PlanetType,
+    planet_type: Option<PlanetType>,
     is_destroyed: bool,
     neighbors: HashSet<ID>,
     resource_type: HashSet<BasicResourceType>,
@@ -41,7 +41,7 @@ pub(crate) struct PlanetKnowledge {
 impl PlanetKnowledge {
     pub(crate) fn new(
         id: ID,
-        planet_type: PlanetType,
+        planet_type: Option<PlanetType>,
         neighbors: HashSet<ID>,
         resource_type: HashSet<BasicResourceType>,
         combinations: HashSet<ComplexResourceType>,
@@ -63,7 +63,7 @@ impl PlanetKnowledge {
         self.id
     }
 
-    pub(crate) fn get_planet_type(&self) -> PlanetType {
+    pub(crate) fn get_planet_type(&self) -> Option<PlanetType> {
         self.planet_type
     }
 
@@ -130,6 +130,16 @@ impl ExplorerKnowledge {
         // Modify or add given vector
         if let Some(planet) = self.planets.iter_mut().find(|p| p.id == planet_id) {
             planet.neighbors = neighbors;
+        } else {
+            self.planets.push(PlanetKnowledge {
+                id: planet_id,
+                planet_type: None,
+                is_destroyed: false,
+                neighbors,
+                resource_type: HashSet::new(),
+                combinations: HashSet::new(),
+                latest_cells_number: 0,
+            });
         }
     }
 
@@ -141,12 +151,32 @@ impl ExplorerKnowledge {
         // Same
         if let Some(planet) = self.planets.iter_mut().find(|p| p.id == planet_id) {
             planet.resource_type = resources;
+        } else {
+             self.planets.push(PlanetKnowledge {
+                id: planet_id,
+                planet_type: None,
+                is_destroyed: false,
+                neighbors: HashSet::new(),
+                resource_type: resources,
+                combinations: HashSet::new(),
+                latest_cells_number: 0,
+            });
         }
     }
 
     pub(crate) fn add_cell(&mut self, planet_id: ID, value: u32) {
         if let Some(planet) = self.planets.iter_mut().find(|p| p.id == planet_id) {
             planet.latest_cells_number = value;
+        } else { // Should not happen usually, but why not
+             self.planets.push(PlanetKnowledge {
+                id: planet_id,
+                planet_type: None,
+                is_destroyed: false,
+                neighbors: HashSet::new(),
+                resource_type: HashSet::new(),
+                combinations: HashSet::new(),
+                latest_cells_number: value,
+            });
         }
     }
 
@@ -164,6 +194,16 @@ impl ExplorerKnowledge {
         {
             if let Some(planet) = self.planets.iter_mut().find(|p| p.id == planet_id) {
                 planet.combinations = combination_list;
+            } else {
+                 self.planets.push(PlanetKnowledge {
+                    id: planet_id,
+                    planet_type: None,
+                    is_destroyed: false,
+                    neighbors: HashSet::new(),
+                    resource_type: HashSet::new(),
+                    combinations: combination_list,
+                    latest_cells_number: 0,
+                });
             }
         }
     }

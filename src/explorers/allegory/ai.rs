@@ -16,6 +16,8 @@ impl AllegoryExplorer {
     pub fn run_loop(&mut self) -> Result<(), String> {
         emit_info(self.id, "Starting turn".to_string());
         self.explore();
+        let n = self.knowledge.get_explored_planets().len();
+        emit_info(self.id, format!("Exploration performed on {} planets. Collecting/crafting...", n));
         self.perform_next_step();
         self.conclude_turn()?;
         emit_info(self.id, "Ending turn".to_string());
@@ -29,7 +31,10 @@ impl AllegoryExplorer {
             // Check termination condition
             let unexplored = self.knowledge.get_unexplored_planets();
             if unexplored.is_empty() {
-                return;
+                // If we haven't explored anything yet, we must start somewhere (here).
+                if !self.knowledge.get_explored_planets().is_empty() {
+                    return;
+                }
             }
 
             // Request info for current planet: neighbors, cells, resources and combination if needed
@@ -73,34 +78,10 @@ impl AllegoryExplorer {
                 Some(id) => {
                     self.knowledge.set_destination(Some(id));
                     let next_hop = self.knowledge.get_next_hop(self.current_planet_id);
-                    self.send_to_orchestrator(ExplorerToOrchestrator::TravelToPlanetRequest {
-                        explorer_id: self.id,
-                        current_planet_id: self.current_planet_id,
-                        dst_planet_id: next_hop,
-                    });
-
-                    // Wait for arrival confirmation
-                    loop {
-                        select! {
-                            recv(self.rx_orchestrator) -> msg => {
-                                if let Ok(m) = msg {
-                                    let is_move = matches!(&m, OrchestratorToExplorer::MoveToPlanet { .. });
-                                    if let Err(e) = self.handle_orchestrator_message(m) {
-                                         log::error!("Error handling orchestrator message: {}", e);
-                                    }
-                                    if is_move {
-                                        break; // Arrived
-                                    }
-                                } else { return; }
-                            },
-                             recv(self.rx_planet) -> msg => {
-                                 if let Ok(m) = msg {
-                                     if let Err(e) = self.handle_planet_message(m) {
-                                          log::error!("Error handling planet message: {}", e);
-                                     }
-                                 }
-                             }
-                        }
+                    
+                    if let Err(e) = self.move_to_planet(next_hop) {
+                        log::error!("Movement failed: {}", e);
+                        return;
                     }
                 }
             }
@@ -293,7 +274,7 @@ impl AllegoryExplorer {
                                             .find(|p| {
                                                 matches!(
                                                     p.get_planet_type(),
-                                                    common_game::components::planet::PlanetType::A
+                                                    Some(common_game::components::planet::PlanetType::A)
                                                 )
                                             })
                                             .or_else(|| candidates.first()); // otherwise any works
@@ -431,7 +412,7 @@ impl AllegoryExplorer {
                                             .find(|p| {
                                                 matches!(
                                                     p.get_planet_type(),
-                                                    common_game::components::planet::PlanetType::C
+                                                    Some(common_game::components::planet::PlanetType::C)
                                                 )
                                             })
                                             .or_else(|| candidates.first());
@@ -547,7 +528,7 @@ mod test {
         let neighbors = HashSet::from([2, 3]);
         let pk = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             neighbors,
             HashSet::new(), // empty resources
             HashSet::new(),
@@ -578,7 +559,7 @@ mod test {
         let resources = HashSet::from([BasicResourceType::Oxygen, BasicResourceType::Silicon]);
         let pk = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             neighbors,
             resources,
             HashSet::new(), // empty combinations
@@ -635,7 +616,7 @@ mod test {
 
         let pk1 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
             1,
-            common_game::components::planet::PlanetType::A,
+            Some(common_game::components::planet::PlanetType::A),
             neighbors,
             resources,
             combinations,
@@ -644,7 +625,7 @@ mod test {
 
         let pk2 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
             2,
-            common_game::components::planet::PlanetType::B,
+            Some(common_game::components::planet::PlanetType::B),
             HashSet::new(),
             HashSet::new(),
             HashSet::new(),
@@ -653,7 +634,7 @@ mod test {
 
         let pk3 = crate::explorers::allegory::knowledge::PlanetKnowledge::new(
             3,
-            common_game::components::planet::PlanetType::C,
+            Some(common_game::components::planet::PlanetType::C),
             HashSet::new(),
             HashSet::new(),
             HashSet::new(),
