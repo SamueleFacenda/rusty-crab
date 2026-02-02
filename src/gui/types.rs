@@ -8,6 +8,7 @@ use crate::app::AppConfig;
 use crate::explorers::BagContent;
 use crate::orchestrator::{Orchestrator, PLANET_ORDER, PlanetType};
 
+// Functions to bridge the orchestrator state with the GUI resources
 impl Orchestrator {
     pub fn get_planets_info(&self) -> PlanetInfoMap {
         let mut map = BTreeMap::new();
@@ -43,6 +44,30 @@ impl Orchestrator {
     }
 
     pub fn get_explorer_states(&self) -> ExplorerInfoMap {
+        let cfg = AppConfig::get();
+        let mut map = BTreeMap::new();
+        for id in (cfg.number_of_planets+1)..=(cfg.explorers.len() as u32) {
+            match self.get_explorer_bag(id) {
+                Some(bag) => {
+                    // Unwrap is safe because the explorer exists
+                    let current_planet = self.get_explorer_current_planet(id).unwrap();
+                    map.insert(id as u32, ExplorerInfo {
+                        status: Status::Running,
+                        current_planet_id: current_planet,
+                        bag: bag.clone()
+                    });
+                }
+                None => {
+                    // Explorer not found: already dead
+                    map.insert(id as u32, ExplorerInfo {
+                        status: Status::Dead,
+                        current_planet_id: 0,
+                        bag: BagContent::default()
+                    });
+                }
+            }
+        }
+        
         ExplorerInfoMap {
             map: BTreeMap::new()
         }

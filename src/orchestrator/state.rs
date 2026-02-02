@@ -6,7 +6,7 @@ use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetTo
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::Sender;
-
+use crate::explorers::BagContent;
 use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 use crate::orchestrator::galaxy::Galaxy;
@@ -41,6 +41,7 @@ pub(crate) struct OrchestratorState {
     pub explorers_communication_center: ExplorerCommunicationCenter,
 
     pub gui_events_buffer: GuiEventBuffer,
+    pub explorer_bags: HashMap<ID, BagContent> // Used by GUI to show explorer bags
 }
 
 #[derive(Debug)]

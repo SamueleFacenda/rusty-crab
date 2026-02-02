@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::thread;
 use common_game::components::asteroid::Asteroid;
 use common_game::components::planet::{DummyPlanetState, Planet};
@@ -6,7 +7,7 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, 
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::explorers::ExplorerBuilder;
+use crate::explorers::{BagContent, ExplorerBuilder};
 use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 use crate::orchestrator::{ExplorerChannelDemultiplexer, ExplorerHandle, ExplorerLoggingReceiver,
@@ -23,7 +24,7 @@ pub(crate) struct Orchestrator {
 
     state: OrchestratorState,
 
-    pub manual_commands: Vec<OrchestratorManualAction>,
+    manual_commands: Vec<OrchestratorManualAction>,
 }
 
 #[allow(dead_code)] // only one at a time is used
@@ -95,6 +96,7 @@ impl Orchestrator {
                     ))
                 ),
                 gui_events_buffer: GuiEventBuffer::new(),
+                explorer_bags: HashMap::new(),
             }
         })
     }
@@ -135,7 +137,7 @@ impl Orchestrator {
         }
         Ok(())
     }
-    
+
     pub fn schedule_manual_action(&mut self, action: OrchestratorManualAction) {
         self.manual_commands.push(action);
     }
@@ -221,6 +223,14 @@ impl Orchestrator {
 
     pub fn get_alive_planets(&self) -> Vec<ID> {
         self.state.galaxy.get_planets()
+    }
+
+    pub fn get_explorer_bag(&self, explorer_id: ID) -> Option<&BagContent> {
+        self.state.explorer_bags.get(&explorer_id)
+    }
+
+    pub fn get_explorer_current_planet(&self, explorer_id: ID) -> Option<ID> {
+        self.state.explorers.get(&explorer_id).map(|handle| handle.current_planet)
     }
 }
 
