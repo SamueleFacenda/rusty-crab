@@ -190,7 +190,10 @@ impl HardwareAcceleratedExplorer {
                 self.orchestrator_communicator.send_bag_content_ack(self.state.bag.to_bag_content())?;
             }
             OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet: Some(sender), planet_id } => {
-                // TODO
+                self.planets_communicator.add_planet(planet_id, sender);
+                self.planets_communicator.set_current_planet(planet_id);
+                self.state.current_planet = planet_id;
+                self.orchestrator_communicator.send_move_ack(planet_id)?;
             }
             _ => return Err(format!("Unexpected message type: {:?}", msg))
         }
