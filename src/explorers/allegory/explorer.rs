@@ -144,11 +144,12 @@ impl AllegoryExplorer {
 
     /// Determines the resources left to craft
     /// Uses the difference between task and complex resources in bag_content
+    #[allow(dead_code)]
     pub(crate) fn anything_left_on_the_crafting_list(
         &self,
     ) -> Option<HashMap<ComplexResourceType, usize>> {
         let mut missing = HashMap::new();
-        let bag_content = BagContent::from_bag(&self.bag);
+        let bag_content = BagContent::from_bag(&self.bsag);
 
         // Iterate through simple_resources_task, find what's needed and get how much there is
         for (resource_type, &needed_count) in &self.task {

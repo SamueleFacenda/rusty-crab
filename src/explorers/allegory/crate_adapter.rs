@@ -94,7 +94,7 @@ impl Explorer for AllegoryExplorer {
             // debug: priority Check for Kill 
             // kept getting [ERROR] Orchestrator terminated with error: Expected explorer 8 to respond with KillExplorerResult, but got BagContentResponse { explorer_id: 8, bag_content: BagContent { content: {} } }
             // If the orchestrator sent a Kill request,  prioritize it and ignore previous requests
-            if let Some(_) = messages.iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)) {
+            if messages.iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)).is_some() {
                  let kill_msg = messages.into_iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)).unwrap();
                  self.handle_orchestrator_message(kill_msg)?;
                  break; // Break the outer loop immediately

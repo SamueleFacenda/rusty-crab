@@ -2,7 +2,6 @@ use crate::explorers::BagContent;
 use common_game::components::resource::{
     BasicResourceType, ComplexResourceRequest, GenericResource,
 };
-use crate::explorers::Explorer;
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::{
     CurrentPlanetResult, KillExplorerResult, MovedToPlanetResult, ResetExplorerAIResult,
     StartExplorerAIResult, StopExplorerAIResult,
@@ -38,11 +37,8 @@ impl AllegoryExplorer {
                 // Erase the knowledge, keep the bag
                 // Is this actually what should happen?
                 // Keep modes auto, killed and stopped; set to auto if manual
-                match self.mode {
-                    ExplorerMode::Manual => {
-                        self.mode = ExplorerMode::Auto;
-                    }
-                    _ => {}
+                if let ExplorerMode::Manual = self.mode {
+                    self.mode = ExplorerMode::Auto;
                 }
 
                 // Reset knowledge
@@ -301,7 +297,7 @@ impl AllegoryExplorer {
     }
 
     pub(crate) fn handle_planet_message(&mut self, msg: PlanetToExplorer) -> Result<(), String> {
-        return match msg {
+        match msg {
             PlanetToExplorer::SupportedResourceResponse { resource_list } => {
                 self.knowledge
                     .update_planet_resource(self.current_planet_id, resource_list);
@@ -359,7 +355,7 @@ impl AllegoryExplorer {
                 self.knowledge.update_killed_planet(self.current_planet_id);
                 Ok(())
             }
-        };
+        }
     }
     // Helper functions
     pub(crate) fn send_to_orchestrator(&self, msg: ExplorerToOrchestrator<BagContent>) {
@@ -414,7 +410,7 @@ impl AllegoryExplorer {
             Err(e) => Err(format!(
                 "Planet {} failed to generate resource: {}",
                 self.id,
-                e.to_string()
+                e
             )),
         }
     }
@@ -481,6 +477,7 @@ mod tests {
         BasicResource, BasicResourceType, ComplexResourceType, Hydrogen, Oxygen, ResourceType
     };
     use crossbeam_channel::{Receiver, Sender, unbounded};
+    use crate::explorers::Explorer;
 
     pub fn create_test_explorer() -> (
         AllegoryExplorer,

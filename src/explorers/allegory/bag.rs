@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 /// Struct to store the actual items
 #[allow(dead_code)]
+#[derive(Default)]
 pub struct Bag {
     pub (crate) basic_resources: HashMap<BasicResourceType, Vec<BasicResource>>,
     pub (crate) complex_resources: HashMap<ComplexResourceType, Vec<ComplexResource>>,
@@ -27,14 +28,6 @@ impl Bag {
     ) -> Option<ComplexResource> {
         let vec = self.complex_resources.get_mut(&resource);
         vec?.pop()
-    }
-}
-impl Default for Bag {
-    fn default() -> Self {
-        Bag {
-            basic_resources: HashMap::new(),
-            complex_resources: HashMap::new(),
-        }
     }
 }
 

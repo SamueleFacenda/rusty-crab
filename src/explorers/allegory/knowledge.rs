@@ -28,6 +28,7 @@ pub enum StrategyState {
 /// - is_destroyed: ...
 /// - Unordered list of neighbors
 /// - List of resources and combinations
+#[allow(dead_code)]
 pub(crate) struct PlanetKnowledge {
     id: ID,
     planet_type: Option<PlanetType>,
@@ -116,17 +117,11 @@ impl ExplorerKnowledge {
     }
 
     pub(crate) fn get_resource_by_id(&self, id: ID) -> Option<HashSet<BasicResourceType>> {
-        match self.planets.iter().find(|planet| planet.id == id) {
-            None => None,
-            Some(planet_knowledge) => Some(planet_knowledge.resource_type.clone()),
-        }
+        self.planets.iter().find(|planet| planet.id == id).map(|planet_knowledge| planet_knowledge.resource_type.clone())
     }
 
     pub(crate) fn get_combinations_by_id(&self, id: ID) -> Option<HashSet<ComplexResourceType>> {
-        match self.planets.iter().find(|planet| planet.id == id) {
-            None => None,
-            Some(planet_knowledge) => Some(planet_knowledge.combinations.clone()),
-        }
+        self.planets.iter().find(|planet| planet.id == id).map(|planet_knowledge| planet_knowledge.combinations.clone())
     }
 
     /// Returns all the energy cells the explorer knows of
@@ -139,11 +134,10 @@ impl ExplorerKnowledge {
     }
 
     pub(crate) fn consume_energy_cell(&mut self, planet: ID) {
-        if let Some(planet_knowledge) = self.planets.iter_mut().find(|p| p.id == planet) {
-            if planet_knowledge.latest_cells_number > 0 {
+        if let Some(planet_knowledge) = self.planets.iter_mut().find(|p| p.id == planet)
+            && planet_knowledge.latest_cells_number > 0 {
                 planet_knowledge.latest_cells_number -= 1;
             }
-        }
     }
     
 

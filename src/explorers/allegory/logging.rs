@@ -1,7 +1,7 @@
 use common_game::logging::ActorType::Explorer;
 use common_game::logging::{Channel, EventType, LogEvent, Participant, Payload};
 use common_game::utils::ID;
-use log::{Level, LevelFilter, Metadata, Record, SetLoggerError};
+use log::{Level, Metadata, Record};
 
 static LOGGER: AllegoryLogger = AllegoryLogger;
 
@@ -19,10 +19,6 @@ impl log::Log for AllegoryLogger {
     }
 
     fn flush(&self) {}
-}
-
-pub fn init() -> Result<(), SetLoggerError> {
-    log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Trace))
 }
 
 pub fn explorer_log(id: ID, event_type: EventType, channel: Channel, payload: Payload) -> LogEvent {

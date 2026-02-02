@@ -8,7 +8,7 @@ use common_game::protocols::{
 use crossbeam_channel::select;
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::BagContentResponse;
 use crate::explorers::allegory::explorer::AllegoryExplorer;
-use crate::explorers::allegory::logging::{emit_error, emit_info};
+use crate::explorers::allegory::logging::{emit_info};
 
 impl AllegoryExplorer {
     /// Function to execute a loop. Begins with galaxy exploration, then performs its algorithm.
@@ -315,56 +315,9 @@ impl AllegoryExplorer {
 
 
     // Blocking Helpers
-    fn gather_resource(&mut self, res: common_game::components::resource::BasicResourceType) -> Result<bool, String> {
-        self.request_resource_generation(res);
-
-        // Some planets time out and cause full orchestrator crash, trying to avoid that
-        let timeout = crossbeam_channel::after(std::time::Duration::from_millis(500));
-        
-        // Wait for response
-        loop {
-            select! {
-                recv(self.rx_planet) -> msg => {
-                    match msg {
-                        Ok(m) => {
-                            let (is_response, success) = match &m {
-                                PlanetToExplorer::GenerateResourceResponse { resource } => (true, resource.is_some()),
-                                _ => (false, false),
-                            };
-                            
-                            if let Err(e) = self.handle_planet_message(m) {
-                                emit_error(self.id, format!("Error handling planet message: {}", e));
-                            }
-                            if is_response { return Ok(success); }
-                        },
-                        Err(e) => return Err(format!("Planet channel closed: {}", e)),
-                    }
-                },
-                recv(self.rx_orchestrator) -> msg => {
-                    match msg {
-                        Ok(m) => {
-                             // Handle interruptions
-                             self.handle_orchestrator_message(m)?;
-                             if matches!(self.mode, crate::explorers::allegory::explorer::ExplorerMode::Killed | crate::explorers::allegory::explorer::ExplorerMode::Retired) {
-                                 return Ok(false);
-                             }
-                        },
-                        Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
-                    }
-                },
-                recv(timeout) -> _ => {
-                    emit_warning(self.id, "Timeout waiting for planet resource generation".to_string());
-                    return Ok(false);
-                }
-            }
-        }
-    }
-
     fn combine_resource(&mut self, res: common_game::components::resource::ComplexResourceType) -> Result<(), String> {
          let request = self.create_complex_request(res).ok_or("Failed to create request")?;
-         if let Err(e) = self.request_resource_combination(request) {
-             return Err(e);
-         }
+         self.request_resource_combination(request)?;
          
          let timeout = crossbeam_channel::after(std::time::Duration::from_millis(500));
 
@@ -451,11 +404,9 @@ impl AllegoryExplorer {
             .iter()
             .find(|p| matches!(p.get_planet_type(), Some(common_game::components::planet::PlanetType::C)))
             .map(|p| p.get_id())
-        {
-            if safe_planet != self.current_planet_id {
+            && safe_planet != self.current_planet_id {
                 let _ = self.move_to_planet(safe_planet);
             }
-        }
     }
 
 
