@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+
 use bevy_tweening::AnimTargetKind::Resource;
-use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType, GenericResource, ResourceType};
 use common_game::components::resource::BasicResource::Carbon;
+use common_game::components::resource::{BasicResourceType, ComplexResourceRequest, ComplexResourceType,
+                                        GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -130,10 +132,15 @@ impl HardwareAcceleratedExplorer {
                     self.planets_communicator.generate_basic_resource(self.state.current_planet, to_generate)?;
 
                 self.orchestrator_communicator
-                    .send_generation_ack(generated.as_ref().map(|_|()).ok_or("Cannot create resource".to_string()))?;
+                    .send_generation_ack(generated.as_ref().map(|_| ()).ok_or("Cannot create resource".to_string()))?;
 
                 if let Some(resource) = generated.take() {
-                    self.state.bag.res.entry(ResourceType::Basic(resource.get_type())).or_default().push(GenericResource::BasicResources(resource));
+                    self.state
+                        .bag
+                        .res
+                        .entry(ResourceType::Basic(resource.get_type()))
+                        .or_default()
+                        .push(GenericResource::BasicResources(resource));
                 }
             }
             OrchestratorToExplorer::CombineResourceRequest { to_generate } => {
@@ -141,7 +148,8 @@ impl HardwareAcceleratedExplorer {
                 let res_a = self.state.bag.res.entry(a).or_default();
                 if res_a.is_empty() {
                     // Not enough resources to combine
-                    self.orchestrator_communicator.send_combination_ack(Err("Not enough resources to combine".to_string()))?;
+                    self.orchestrator_communicator
+                        .send_combination_ack(Err("Not enough resources to combine".to_string()))?;
                     return Ok(true);
                 }
                 let a_resource = res_a.pop().unwrap();
@@ -149,7 +157,8 @@ impl HardwareAcceleratedExplorer {
                 if res_b.is_empty() {
                     // Not enough resources to combine, put back a_resource
                     self.state.bag.res.entry(a).or_default().push(a_resource);
-                    self.orchestrator_communicator.send_combination_ack(Err("Not enough resources to combine".to_string()))?;
+                    self.orchestrator_communicator
+                        .send_combination_ack(Err("Not enough resources to combine".to_string()))?;
                     return Ok(true);
                 }
                 let b_resource = res_b.pop().unwrap();
@@ -159,9 +168,15 @@ impl HardwareAcceleratedExplorer {
                 match self.planets_communicator.combine_resources(self.state.current_planet, req)? {
                     Ok(res) => {
                         // Store generated resource in bag
-                        self.state.bag.res.entry(ResourceType::Complex(res.get_type())).or_default().push(GenericResource::ComplexResources(res));
+                        self.state
+                            .bag
+                            .res
+                            .entry(ResourceType::Complex(res.get_type()))
+                            .or_default()
+                            .push(GenericResource::ComplexResources(res));
                         self.orchestrator_communicator.send_combination_ack(Ok(()))?;
-                    } Err((e, a, b))=> {
+                    }
+                    Err((e, a, b)) => {
                         // Store the unused resources back in the bag
                         self.state.bag.res.entry(a.get_type()).or_default().push(a);
                         self.state.bag.res.entry(b.get_type()).or_default().push(b);
@@ -185,40 +200,33 @@ impl HardwareAcceleratedExplorer {
 
 fn get_resource_recipe(resource: &ComplexResourceType) -> (ResourceType, ResourceType) {
     match resource {
-        ComplexResourceType::Water => (
-            ResourceType::Basic(BasicResourceType::Hydrogen),
-            ResourceType::Basic(BasicResourceType::Oxygen),
-        ),
-        ComplexResourceType::Diamond => (
-            ResourceType::Basic(BasicResourceType::Carbon),
-            ResourceType::Basic(BasicResourceType::Carbon),
-        ),
-        ComplexResourceType::Life => (
-            ResourceType::Complex(ComplexResourceType::Water),
-            ResourceType::Basic(BasicResourceType::Carbon),
-        ),
-        ComplexResourceType::Robot => (
-            ResourceType::Basic(BasicResourceType::Silicon),
-            ResourceType::Complex(ComplexResourceType::Life),
-        ),
-        ComplexResourceType::Dolphin => (
-            ResourceType::Complex(ComplexResourceType::Water),
-            ResourceType::Complex(ComplexResourceType::Life),
-        ),
-        ComplexResourceType::AIPartner => (
-            ResourceType::Complex(ComplexResourceType::Robot),
-            ResourceType::Complex(ComplexResourceType::Diamond),
-        ),
+        ComplexResourceType::Water =>
+            (ResourceType::Basic(BasicResourceType::Hydrogen), ResourceType::Basic(BasicResourceType::Oxygen)),
+        ComplexResourceType::Diamond =>
+            (ResourceType::Basic(BasicResourceType::Carbon), ResourceType::Basic(BasicResourceType::Carbon)),
+        ComplexResourceType::Life =>
+            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Basic(BasicResourceType::Carbon)),
+        ComplexResourceType::Robot =>
+            (ResourceType::Basic(BasicResourceType::Silicon), ResourceType::Complex(ComplexResourceType::Life)),
+        ComplexResourceType::Dolphin =>
+            (ResourceType::Complex(ComplexResourceType::Water), ResourceType::Complex(ComplexResourceType::Life)),
+        ComplexResourceType::AIPartner =>
+            (ResourceType::Complex(ComplexResourceType::Robot), ResourceType::Complex(ComplexResourceType::Diamond)),
     }
 }
 
-fn get_resource_request(res_type: ComplexResourceType, a: GenericResource, b: GenericResource) -> ComplexResourceRequest {
+fn get_resource_request(
+    res_type: ComplexResourceType,
+    a: GenericResource,
+    b: GenericResource
+) -> ComplexResourceRequest {
     match res_type {
         ComplexResourceType::Water => ComplexResourceRequest::Water(a.to_hydrogen().unwrap(), b.to_oxygen().unwrap()),
         ComplexResourceType::Diamond => ComplexResourceRequest::Diamond(a.to_carbon().unwrap(), b.to_carbon().unwrap()),
         ComplexResourceType::Life => ComplexResourceRequest::Life(a.to_water().unwrap(), b.to_carbon().unwrap()),
         ComplexResourceType::Robot => ComplexResourceRequest::Robot(a.to_silicon().unwrap(), b.to_life().unwrap()),
         ComplexResourceType::Dolphin => ComplexResourceRequest::Dolphin(a.to_water().unwrap(), b.to_life().unwrap()),
-        ComplexResourceType::AIPartner => ComplexResourceRequest::AIPartner(a.to_robot().unwrap(), b.to_diamond().unwrap())
+        ComplexResourceType::AIPartner =>
+            ComplexResourceRequest::AIPartner(a.to_robot().unwrap(), b.to_diamond().unwrap()),
     }
 }

@@ -7,7 +7,7 @@ use common_game::utils::ID;
 struct PlanetKnowledge {
     basic_resources: HashSet<BasicResourceType>,
     complex_resources: HashSet<ComplexResourceType>,
-    n_charged_cells: u32,
+    n_charged_cells: u32
 }
 
 impl PlanetKnowledge {
