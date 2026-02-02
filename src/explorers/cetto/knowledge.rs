@@ -31,16 +31,16 @@ impl Default for ExplorerKnowledge {
 }
 
 impl ExplorerKnowledge {
-    fn update_planet(&mut self, id: ID, planet_info: PlanetInfo) {
+    pub fn update_planet(&mut self, id: ID, planet_info: PlanetInfo) {
         self.planets.insert(id, planet_info);
     }
 
-    fn add_connection(&mut self, a: ID, b: ID) {
-        self.galaxy.add_connection(a, b);
+    pub fn add_bi_connection(&mut self, a: ID, b: ID) {
+        self.galaxy.add_bi_connection(a, b);
     }
 
-    fn remove_connection(&mut self, a: ID, b: ID) {
-        self.galaxy.remove_connection(&a, &b);
+    pub fn remove_bi_connection(&mut self, a: ID, b: ID) {
+        self.galaxy.remove_bi_connection(&a, &b);
     }
 }
 
@@ -82,15 +82,19 @@ impl Default for GalaxyInfo {
 }
 
 impl GalaxyInfo {
-    fn add_connection(&mut self, a: ID, b: ID) {
+    fn add_bi_connection(&mut self, a: ID, b: ID) {
         self.connections
             .entry(a)
             .or_insert_with(HashSet::new)
             .insert(b);
+        self.connections
+            .entry(b)
+            .or_insert_with(HashSet::new)
+            .insert(a);
     }
 
     // Used when planets get destroyed, it removes the connection both ways
-    fn remove_connection(&mut self, a: &ID, b: &ID) {
+    fn remove_bi_connection(&mut self, a: &ID, b: &ID) {
         if let Some(conns) = self.connections.get_mut(a) {
             conns.remove(b);
         }

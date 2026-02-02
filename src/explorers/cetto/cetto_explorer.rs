@@ -192,7 +192,11 @@ impl CettoExplorer {
 
             },
             OrchestratorToExplorer::NeighborsResponse { neighbors} => {
-
+                // Update galaxyKnowledge
+                for neighbor_id in neighbors {
+                    self.knowledge.add_bi_connection(self.current_planet_id, neighbor_id);
+                }
+                Ok(())
             },
             OrchestratorToExplorer::MoveToPlanet { sender_to_new_planet, planet_id } => {
 
