@@ -5,13 +5,9 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, Orch
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
 /// Simple DTO
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BagContent {
     pub content: HashMap<ResourceType, usize>
-}
-
-impl Default for BagContent {
-    fn default() -> Self { BagContent { content: HashMap::new() } }
 }
 
 /// Trait defining the behavior of an Explorer,

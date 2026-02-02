@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use bevy::prelude::Resource;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::utils::ID;
 
@@ -43,18 +42,19 @@ impl Orchestrator {
         PlanetInfoMap { map }
     }
 
+    #[allow(clippy::cast_possible_truncation)] // We will never have that many planets
     pub fn get_explorer_states(&self) -> ExplorerInfoMap {
         let cfg = AppConfig::get();
         let mut map = BTreeMap::new();
         for id in (cfg.number_of_planets + 1)..=(cfg.number_of_planets + cfg.explorers.len() as u32) {
             match self.get_explorer_current_planet(id) {
                 Some(current_planet_id) => {
-                    let bag = self.get_explorer_bag(id).map(|b| b.clone()).unwrap_or_default();
-                    map.insert(id as u32, ExplorerInfo { status: Status::Running, current_planet_id, bag });
+                    let bag = self.get_explorer_bag(id).cloned().unwrap_or_default();
+                    map.insert(id, ExplorerInfo { status: Status::Running, current_planet_id, bag });
                 }
                 None => {
                     // Explorer not found: already dead
-                    map.insert(id as u32, ExplorerInfo {
+                    map.insert(id, ExplorerInfo {
                         status: Status::Dead,
                         current_planet_id: 0,
                         bag: BagContent::default()
@@ -67,6 +67,7 @@ impl Orchestrator {
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
+#[allow(dead_code)] // not used yet by the gui
 pub enum Status {
     Running,
     Paused,
@@ -92,6 +93,7 @@ impl PlanetInfoMap {
 
     pub fn get_info(&self, id: u32) -> Option<PlanetInfo> { self.map.get(&id).cloned() }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)] // defined in gui, not out api
     pub fn get_status(&self, id: &ID) -> Status { self.map.get(id).unwrap().status }
 }
 
@@ -108,19 +110,11 @@ pub struct ExplorerInfoMap {
 }
 
 impl ExplorerInfoMap {
+    #[allow(clippy::trivially_copy_pass_by_ref)] // defined in gui, not out api
     pub fn get(&self, id: &u32) -> Option<&ExplorerInfo> { self.map.get(id) }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)] // defined in gui, not out api
     pub fn get_current_planet(&self, id: &u32) -> u32 { self.map.get(id).unwrap().current_planet_id }
-}
-
-pub struct SelectedPlanet {
-    pub id: u32,
-    pub name: PlanetType
-}
-
-#[derive(Resource)]
-pub struct PlanetClickRes {
-    pub planet: Option<SelectedPlanet>
 }
 
 pub enum OrchestratorEvent {
@@ -133,7 +127,7 @@ pub enum OrchestratorEvent {
     ComplexResourceGenerated { explorer_id: u32, resource: ComplexResourceType }
 }
 
-pub fn get_planet_basic_resources(planet_type: &PlanetType) -> Vec<BasicResourceType> {
+pub fn get_planet_basic_resources(planet_type: PlanetType) -> Vec<BasicResourceType> {
     match planet_type {
         PlanetType::PanicOutOfOxygen | PlanetType::Carbonium | PlanetType::HoustonWeHaveABorrow =>
             vec![BasicResourceType::Carbon],
@@ -147,7 +141,7 @@ pub fn get_planet_basic_resources(planet_type: &PlanetType) -> Vec<BasicResource
     }
 }
 
-pub fn get_planet_complex_resources(planet_type: &PlanetType) -> Vec<ComplexResourceType> {
+pub fn get_planet_complex_resources(planet_type: PlanetType) -> Vec<ComplexResourceType> {
     match planet_type {
         PlanetType::PanicOutOfOxygen => vec![
             ComplexResourceType::Water,
