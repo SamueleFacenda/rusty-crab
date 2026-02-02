@@ -9,7 +9,9 @@ use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
 use std::collections::HashMap;
+use crate::explorers::allegory::bag::Bag;
 use crate::explorers::allegory::explorer::ExplorerMode::{Auto, Retired};
+use crate::explorers::allegory::knowledge::ExplorerKnowledge;
 
 impl Explorer for AllegoryExplorer {
     fn new(
@@ -35,9 +37,9 @@ impl Explorer for AllegoryExplorer {
             tx_orchestrator,
             tx_planet: tx_first_planet,
             rx_planet,
-            bag: Default::default(),
+            bag: Bag::default(),
             bag_content: BagContent{content: HashMap::new()},
-            knowledge: Default::default(),
+            knowledge: ExplorerKnowledge::default(),
             task,
             simple_resources_task: HashMap::new(),
         };
@@ -50,19 +52,11 @@ impl Explorer for AllegoryExplorer {
         // Await starting message
         loop {
             let start_message = self.rx_orchestrator.recv();
-            match start_message {
-                Ok(msg) => {
-                    match msg {
-                        OrchestratorToExplorer::StartExplorerAI => {
-                            self.mode = Auto;
-                            self.handle_orchestrator_message(msg)?;
-                            break;
-                        }
-                        _ => {} // Discard anything else
-                    }
-                }
-                _ => {} // Discard errors too before startup
-            }
+            if let Ok(msg) = start_message && let OrchestratorToExplorer::StartExplorerAI = msg {
+                self.mode = Auto;
+                self.handle_orchestrator_message(msg)?;
+                break;
+            } // Discard anything else (including errors) before startup
         }
         // Start real execution
         emit_info(self.id, format!("Started Allegory loop with ID {}", self.id));
@@ -94,7 +88,7 @@ impl Explorer for AllegoryExplorer {
             // debug: priority Check for Kill 
             // kept getting [ERROR] Orchestrator terminated with error: Expected explorer 8 to respond with KillExplorerResult, but got BagContentResponse { explorer_id: 8, bag_content: BagContent { content: {} } }
             // If the orchestrator sent a Kill request,  prioritize it and ignore previous requests
-            if messages.iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)).is_some() {
+            if messages.iter().any(|m| matches!(m, OrchestratorToExplorer::KillExplorer)) {
                  let kill_msg = messages.into_iter().find(|m| matches!(m, OrchestratorToExplorer::KillExplorer)).unwrap();
                  self.handle_orchestrator_message(kill_msg)?;
                  break; // Break the outer loop immediately

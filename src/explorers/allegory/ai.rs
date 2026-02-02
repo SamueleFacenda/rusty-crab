@@ -8,6 +8,7 @@ use common_game::protocols::{
 use crossbeam_channel::select;
 use common_game::protocols::orchestrator_explorer::ExplorerToOrchestrator::BagContentResponse;
 use crate::explorers::allegory::explorer::AllegoryExplorer;
+use crate::explorers::allegory::knowledge::PlanetKnowledge;
 use crate::explorers::allegory::logging::{emit_info};
 
 impl AllegoryExplorer {
@@ -39,7 +40,7 @@ impl AllegoryExplorer {
                             Ok(m) => {
                                 let is_neighbors_response = matches!(&m, OrchestratorToExplorer::NeighborsResponse { .. });
                                 if let Err(e) = self.handle_orchestrator_message(m) {
-                                    log::error!("Error handling orchestrator message: {}", e);
+                                    log::error!("Error handling orchestrator message: {e}");
                                 }
                                 if is_neighbors_response {
                                     break;
@@ -49,7 +50,7 @@ impl AllegoryExplorer {
                                 }
                             },
                             Err(e) => {
-                                log::error!("Orchestrator channel closed: {}", e);
+                                log::error!("Orchestrator channel closed: {e}");
                                 return;
                             }
                         }
@@ -58,11 +59,11 @@ impl AllegoryExplorer {
                         match msg {
                             Ok(m) => {
                                 if let Err(e) = self.handle_planet_message(m) {
-                                    log::error!("Error handling planet message: {}", e);
+                                    log::error!("Error handling planet message: {e}");
                                 }
                             },
                             Err(e) => {
-                                log::error!("Planet channel closed: {}", e);
+                                log::error!("Planet channel closed: {e}");
                                 return;
                             }
                         }
@@ -89,8 +90,8 @@ impl AllegoryExplorer {
                 }, 
                 Some(id) => {
                     match self.move_to_planet(id) {
-                        Ok(_) => {},
-                        Err(e) => emit_warning(self.id, format!("Failed to move to planet {}: {}", id, e)),
+                        Ok(()) => {},
+                        Err(e) => emit_warning(self.id, format!("Failed to move to planet {id}: {e}")),
                     }
                 }
             }
@@ -104,16 +105,15 @@ impl AllegoryExplorer {
         match self.knowledge.get_current_state() {
             Collecting => {
                 if let Err(e) = self.trivial_collecting() {
-                    emit_warning(self.id, format!("Recoverable error in collecting strategy: {}", e));
+                    emit_warning(self.id, format!("Recoverable error in collecting strategy: {e}"));
                 }
             },
             Crafting => {
                 if let Err(e) = self.trivial_crafting() {
-                    emit_warning(self.id, format!("Recoverable error in crafting strategy: {}", e));
+                    emit_warning(self.id, format!("Recoverable error in crafting strategy: {e}"));
                 }
             },
-            Finished => {},
-            Failed => {},
+            Finished | Failed => {},
         }
         if self.anything_left_on_the_shopping_list().is_none() {
             emit_info(self.id, "Collected all basic resources".to_string());
@@ -253,7 +253,7 @@ impl AllegoryExplorer {
                             }
                             // Attempt to combine the resource
                             if let Err(e) = self.combine_resource(complex_res) {
-                                emit_warning(self.id, format!("Error combining resource: {}", e));
+                                emit_warning(self.id, format!("Error combining resource: {e}"));
                             }
                         }
                         None => continue,
@@ -329,11 +329,11 @@ impl AllegoryExplorer {
                         Ok(m) => {
                             let is_response = matches!(m, PlanetToExplorer::CombineResourceResponse{..});
                             if let Err(e) = self.handle_planet_message(m) {
-                                log::error!("Error handling planet message: {}", e);
+                                log::error!("Error handling planet message: {e}");
                             }
                             if is_response { return Ok(()); }
                         },
-                        Err(e) => return Err(format!("Planet channel closed: {}", e)),
+                        Err(e) => return Err(format!("Planet channel closed: {e}")),
                     }
                 },
                 recv(self.rx_orchestrator) -> msg => {
@@ -344,7 +344,7 @@ impl AllegoryExplorer {
                                 return Ok(());
                             }
                         },
-                        Err(e) => return Err(format!("Orchestrator channel closed: {}", e)),
+                        Err(e) => return Err(format!("Orchestrator channel closed: {e}")),
                     }
                 },
                 recv(timeout) -> _ => {
@@ -361,14 +361,14 @@ impl AllegoryExplorer {
         self.knowledge.planets.iter()
             .filter(|p| p.get_resource_type().contains(&res))
             .max_by_key(|p| p.get_latest_cells_number())
-            .map(|p| p.get_id())
+            .map(PlanetKnowledge::get_id)
     }
 
     fn find_best_planet_for_combination(&self, res: common_game::components::resource::ComplexResourceType) -> Option<common_game::utils::ID> {
         self.knowledge.planets.iter()
             .filter(|p| p.get_combinations().contains(&res))
             .max_by_key(|p| p.get_latest_cells_number())
-            .map(|p| p.get_id())
+            .map(PlanetKnowledge::get_id)
     }
 
     fn conclude_turn(&mut self) -> Result<(), String> {
@@ -389,8 +389,8 @@ impl AllegoryExplorer {
                 )
             }
         ){
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("Error sending to orchestrator: {}", e))
+            Ok(()) => Ok(()),
+            Err(e) => Err(format!("Error sending to orchestrator: {e}"))
         }
             }
         }
@@ -403,7 +403,7 @@ impl AllegoryExplorer {
             .planets
             .iter()
             .find(|p| matches!(p.get_planet_type(), Some(common_game::components::planet::PlanetType::C)))
-            .map(|p| p.get_id())
+            .map(PlanetKnowledge::get_id)
             && safe_planet != self.current_planet_id {
                 let _ = self.move_to_planet(safe_planet);
             }

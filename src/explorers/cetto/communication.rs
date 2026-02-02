@@ -80,6 +80,7 @@ impl<A: ActorMarker> LoggingReceiver<A> {
         Self { receiver, explorer_id, other_id, _marker: PhantomData }
     }
 
+    #[allow(dead_code)] // kept for completeness
     pub fn set_other_id(&mut self, other_id: ID) { self.other_id = other_id; }
 
     #[allow(dead_code)] // kept for completeness
