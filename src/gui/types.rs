@@ -85,6 +85,7 @@ pub struct ExplorerInfo {
     pub current_planet_id: ID,
     pub bag: BagContent
 }
+
 pub struct ExplorerInfoMap {
     map: BTreeMap<u32, ExplorerInfo>
 }
@@ -93,7 +94,7 @@ impl ExplorerInfoMap {
     pub fn get(&self, id: &u32) -> Option<&ExplorerInfo> {
         self.map.get(id)
     }
-    
+
     pub fn get_current_planet(&self, id: &u32) -> u32 {
         self.map.get(id).unwrap().current_planet_id
     }

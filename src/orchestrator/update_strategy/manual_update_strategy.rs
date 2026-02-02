@@ -58,7 +58,7 @@ impl ManualUpdateStrategy<'_> {
     fn basic_resource_generation(&mut self, explorer_id: ID, resource: BasicResourceType) -> Result<(), String> {
         self.check_explorer_id(explorer_id)?;
 
-        let _ = self
+        let result = self
             .state
             .explorers_communication_center
             .req_ack(
@@ -67,7 +67,11 @@ impl ManualUpdateStrategy<'_> {
                 ExplorerToOrchestratorKind::GenerateResourceResponse
             )?
             .into_generate_resource_response()
-            .unwrap(); // Unwrap is safe due to expected kind
+            .unwrap().1; // Unwrap is safe due to expected kind
+
+        if result.is_ok() {
+            self.state.gui_events_buffer.basic_resource_generated(explorer_id, resource);
+        }
 
         // if result.is_err() {
         //     return Err(format!(
@@ -80,7 +84,7 @@ impl ManualUpdateStrategy<'_> {
     fn resource_combination(&mut self, explorer_id: ID, complex: ComplexResourceType) -> Result<(), String> {
         self.check_explorer_id(explorer_id)?;
 
-        let _ = self
+        let result = self
             .state
             .explorers_communication_center
             .req_ack(
@@ -89,7 +93,11 @@ impl ManualUpdateStrategy<'_> {
                 ExplorerToOrchestratorKind::CombineResourceResponse
             )?
             .into_combine_resource_response()
-            .unwrap(); // Unwrap is safe due to expected kind
+            .unwrap().1; // Unwrap is safe due to expected kind
+
+        if result.is_ok() {
+            self.state.gui_events_buffer.complex_resource_generated(explorer_id, complex);
+        }
 
         // if result.is_err() {
         //     return Err(format!(
@@ -129,10 +137,11 @@ impl ManualUpdateStrategy<'_> {
             .get_mut(&explorer_id)
             .unwrap() // It is checked above that the explorer exists
             .current_planet = dst_planet_id;
+        self.state.gui_events_buffer.explorer_moved(explorer_id, dst_planet_id);
 
         Ok(())
     }
-    
+
     fn handle_send_asteroid(&mut self, planet_id: ID) -> Result<(), String> {
         self.check_planet_id(planet_id)?;
         self.state.gui_events_buffer.asteroid_sent(planet_id);
@@ -146,14 +155,14 @@ impl ManualUpdateStrategy<'_> {
             )?
             .into_asteroid_ack()
             .unwrap().1; // Unwrap is safe due to expected kind
-        
+
         if rocket.is_none() {
             self.state.handle_planet_destroyed(planet_id)?;
         }
-        
+
         Ok(())
     }
-    
+
     fn handle_send_sunray(&mut self, planet_id: ID) -> Result<(), String> {
         self.check_planet_id(planet_id)?;
         self.state.gui_events_buffer.sunray_sent(planet_id);
@@ -167,7 +176,7 @@ impl ManualUpdateStrategy<'_> {
             )?
             .into_sunray_ack()
             .unwrap(); // Unwrap is safe due to expected kind
-        
+
         self.state.gui_events_buffer.sunray_received(planet_id);
         Ok(())
     }
@@ -199,14 +208,14 @@ impl OrchestratorUpdateStrategy for ManualUpdateStrategy<'_> {
                 self.basic_resource_generation(explorer_id, resource)?,
             OrchestratorManualAction::GenerateComplex {explorer_id, resource} =>
                 self.resource_combination(explorer_id, resource)?,
-            OrchestratorManualAction::SendAsteroid {planet_id} => 
+            OrchestratorManualAction::SendAsteroid {planet_id} =>
                 self.handle_send_asteroid(planet_id)?,
-            OrchestratorManualAction::SendSunray {planet_id} => 
+            OrchestratorManualAction::SendSunray {planet_id} =>
                 self.handle_send_sunray(planet_id)?,
             OrchestratorManualAction::MoveExplorer {explorer_id, destination_planet_id} =>
                 self.handle_travel_request(explorer_id, destination_planet_id)?,
         };
-        
+
         Ok(())
     }
 }
