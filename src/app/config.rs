@@ -39,6 +39,7 @@ config_fields! {
     number_of_planets: u32 = 7,
     explorers: Vec<String> = vec![],
     show_gui: bool = false,
+    explorer_probability_estimator_sensitivity: f32 = 0.1,
     initial_planet_id: u32 = 1, // from 1 to <number_of_planets>
 }
 

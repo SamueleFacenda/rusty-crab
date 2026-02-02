@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::thread;
 
 use common_game::components::planet::{DummyPlanetState, Planet};
@@ -5,9 +6,10 @@ use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, 
 use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::utils::ID;
 
-use crate::explorers::ExplorerBuilder;
+use crate::explorers::{BagContent, ExplorerBuilder};
 use crate::gui::GuiEventBuffer;
 use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
+use crate::orchestrator::state::OrchestratorManualAction;
 use crate::orchestrator::{ExplorerChannelDemultiplexer, ExplorerHandle, ExplorerLoggingReceiver,
                           ExplorerLoggingSender, GalaxyBuilder, OrchestratorState, OrchestratorUpdateFactory,
                           PlanetChannelDemultiplexer, PlanetHandle, PlanetLoggingReceiver, PlanetLoggingSender};
@@ -19,7 +21,9 @@ pub(crate) struct Orchestrator {
     // Auto/manual
     mode: OrchestratorMode,
 
-    state: OrchestratorState
+    state: OrchestratorState,
+
+    manual_commands: Vec<OrchestratorManualAction>
 }
 
 #[allow(dead_code)] // only one at a time is used
@@ -72,6 +76,7 @@ impl Orchestrator {
 
         Ok(Orchestrator {
             mode,
+            manual_commands: vec![],
             state: OrchestratorState {
                 time: 0,
                 galaxy: initial_galaxy.galaxy,
@@ -89,7 +94,8 @@ impl Orchestrator {
                         initial_galaxy.explorer_to_orchestrator_rx
                     ))
                 ),
-                gui_events_buffer: GuiEventBuffer::new()
+                gui_events_buffer: GuiEventBuffer::new(),
+                explorer_bags: HashMap::new()
             }
         })
     }
@@ -124,8 +130,14 @@ impl Orchestrator {
     pub fn get_topology(&self) -> Vec<(ID, ID)> { self.state.galaxy.get_topology() }
 
     pub fn process_commands(&mut self) -> Result<(), String> {
-        OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state).process_commands()
+        let mut strategy = OrchestratorUpdateFactory::get_strategy(self.mode, &mut self.state);
+        for command in self.manual_commands.drain(..) {
+            strategy.process_command(command)?;
+        }
+        Ok(())
     }
+
+    pub fn schedule_manual_action(&mut self, action: OrchestratorManualAction) { self.manual_commands.push(action); }
 
     #[allow(dead_code)] // implemented for future gui integrations
     pub fn set_mode_auto(&mut self) { self.mode = OrchestratorMode::Auto; }
@@ -204,6 +216,16 @@ impl Orchestrator {
                 )
                 .map(|res| res.into_internal_state_response().unwrap().1)
         ) // Unwrap safe due to the expected kind
+    }
+
+    pub fn get_alive_planets(&self) -> Vec<ID> { self.state.galaxy.get_planets() }
+
+    pub fn get_explorer_bag(&self, explorer_id: ID) -> Option<&BagContent> {
+        self.state.explorer_bags.get(&explorer_id)
+    }
+
+    pub fn get_explorer_current_planet(&self, explorer_id: ID) -> Option<ID> {
+        self.state.explorers.get(&explorer_id).map(|handle| handle.current_planet)
     }
 }
 

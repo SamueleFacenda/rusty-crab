@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+
 use common_game::components::resource::ResourceType;
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
-#[derive(Debug)]
-pub struct BagContent{
+/// Simple DTO
+#[derive(Debug, Clone, Default)]
+pub struct BagContent {
     pub content: HashMap<ResourceType, usize>
 }
 
