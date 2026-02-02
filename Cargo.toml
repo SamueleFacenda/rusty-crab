@@ -15,8 +15,9 @@ log = "0.4.29"
 clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 fern = { version = "0.7.1", features = ["colored"] }
-config = "0.15.19"
 rand = "0.9.2"
+config = "0.15.19"
+ctor = "0.6.3"
 # Planets
 the-compiler-strikes-back = "0.2.0"
 air_fryer = {git = "https://github.com/Advanced-Panic-Programming/AirFryer.git"} # panic out of oxygen
