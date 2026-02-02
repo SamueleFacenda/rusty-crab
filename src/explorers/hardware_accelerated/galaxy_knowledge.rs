@@ -7,7 +7,7 @@ use common_game::utils::ID;
 struct PlanetKnowledge {
     basic_resources: HashSet<BasicResourceType>,
     complex_resources: HashSet<ComplexResourceType>,
-    n_charged_cells: u32
+    n_charged_cells: u32,
 }
 
 impl PlanetKnowledge {
@@ -96,18 +96,27 @@ impl GalaxyKnowledge {
 
     /// From 0 to 1, based on already available charged cells.
     /// Planets that would resist longer without help are considered more reliable.
-    pub fn get_planet_reliability(&self, id: &ID) -> f32 {
+    pub fn get_planet_reliability(&self, id: ID) -> f32 {
         let planet_knowledge = match self.planets_knowledge.get(&id) {
             Some(pk) => pk,
             None => return 0.0
         };
 
-        if self.max_charged_cells_per_planet == 0 {
-            // Avoid division by zero
-            return 0.0;
+        let mut out = 0.0;
+
+        if self.can_have_rocket(id) {
+            out += 0.5;
         }
 
-        planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32
+        if self.has_planet_cell_unbounded(id) {
+            out += 0.2
+        }
+
+        if self.max_charged_cells_per_planet != 0 {
+            out += (planet_knowledge.n_charged_cells as f32 / self.max_charged_cells_per_planet as f32) * 0.3;
+        }
+
+        return out;
     }
 
     pub fn get_n_planets(&self) -> usize { self.connections.len() }
@@ -117,6 +126,24 @@ impl GalaxyKnowledge {
     }
 
     pub fn get_planet_ids(&self) -> Vec<ID> { self.connections.keys().cloned().collect() }
+
+    // Infer the planet type from recipes
+    fn can_have_rocket(&self, id: ID) -> bool {
+        if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
+            planet_knowledge.basic_resources.len() == 1
+        } else {
+            false
+        }
+    }
+
+    // Infer the planet type from recipes
+    fn has_planet_cell_unbounded(&self, id: ID) -> bool {
+        if let Some(planet_knowledge) = self.planets_knowledge.get(&id) {
+            planet_knowledge.complex_resources.len() == 0
+        } else {
+            false
+        }
+    }
 }
 
 #[cfg(test)]
@@ -136,8 +163,8 @@ mod test {
     #[test]
     fn test_planet_reliability() {
         let gk = get_dummy_knowledge();
-        let r1 = gk.get_planet_reliability(&1);
-        let r2 = gk.get_planet_reliability(&2);
+        let r1 = gk.get_planet_reliability(1);
+        let r2 = gk.get_planet_reliability(2);
         assert!(r1 > r2);
     }
 
