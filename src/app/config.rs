@@ -1,7 +1,8 @@
+use std::sync::OnceLock;
+
 use clap::Parser;
 use config::{Config, Environment, File};
 use serde::Deserialize;
-use std::sync::OnceLock;
 
 macro_rules! config_fields {
     ( $( $field:ident: $ty:ty = $default:expr ),* $(,)? ) => {
@@ -35,9 +36,10 @@ config_fields! {
     initial_asteroid_probability: f32 = 0.01,
     max_wait_time_ms: u64 = 2000,
     game_tick_seconds: f32 = 0.5,
-    number_of_planets: usize = 7,
+    number_of_planets: u32 = 7,
     explorers: Vec<String> = vec![],
     show_gui: bool = false,
+    initial_planet_id: u32 = 1, // from 1 to <number_of_planets>
 }
 
 #[derive(Parser, Debug)]
@@ -51,7 +53,7 @@ pub struct CliArgs {
     pub log_level: String,
     /// Log file path
     #[arg(long)]
-    pub log_file: Option<String>,
+    pub log_file: Option<String>
 }
 
 static CONFIG: OnceLock<AppConfig> = OnceLock::new();
@@ -64,12 +66,8 @@ impl AppConfig {
             .add_source(Environment::with_prefix("RUSTY_CRAB").separator("_"))
             .build()
             .expect("Failed to build configuration"); // we cannot use logging here since it's not initialized yet
-        CONFIG
-            .set(AppConfig::from_settings(&settings, args))
-            .expect("AppConfig can only be initialized once");
+        CONFIG.set(AppConfig::from_settings(&settings, args)).expect("AppConfig can only be initialized once");
     }
 
-    pub fn get() -> &'static AppConfig {
-        CONFIG.get().expect("AppConfig is not initialized")
-    }
+    pub fn get() -> &'static AppConfig { CONFIG.get().expect("AppConfig is not initialized") }
 }

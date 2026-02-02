@@ -1,33 +1,29 @@
-use crate::gui::GuiEventBuffer;
-use crate::orchestrator::galaxy::Galaxy;
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
+use std::collections::HashMap;
+use std::thread;
+
+use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestratorKind, OrchestratorToExplorer};
+use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestratorKind};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::Sender;
-use std::collections::HashMap;
-use std::thread;
-use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
 
-pub enum ExplorerState {
-    Autonomous,
-    Manual,
-    Stopped,
-    Destroyed,
-}
+use crate::explorers::BagContent;
+use crate::gui::GuiEventBuffer;
+use crate::orchestrator::communication::{ExplorerCommunicationCenter, PlanetCommunicationCenter};
+use crate::orchestrator::galaxy::Galaxy;
 
 /// struct used to handle the list of planets.
 pub(crate) struct PlanetHandle {
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx_explorer: Sender<ExplorerToPlanet>, // Passed to explorers to communicate with the planet
+    pub tx_explorer: Sender<ExplorerToPlanet> // Passed to explorers to communicate with the planet
 }
 
 /// Struct to hold explorers handles and state;
 pub(crate) struct ExplorerHandle {
     pub current_planet: ID,
     pub thread_handle: thread::JoinHandle<()>,
-    pub tx_planet: Sender<PlanetToExplorer>, // Passed to planets to communicate with the explorer
-    pub state: ExplorerState,
+    pub tx_planet: Sender<PlanetToExplorer> // Passed to planets to communicate with the explorer
 }
 
 /// Struct that holds the state of the orchestrator, with some basic methods to manipulate it.
@@ -47,6 +43,16 @@ pub(crate) struct OrchestratorState {
     pub explorers_communication_center: ExplorerCommunicationCenter,
 
     pub gui_events_buffer: GuiEventBuffer,
+    pub explorer_bags: HashMap<ID, BagContent> // Used by GUI to show explorer bags
+}
+
+#[derive(Debug)]
+pub(crate) enum OrchestratorManualAction {
+    SendSunray { planet_id: ID },
+    SendAsteroid { planet_id: ID },
+    GenerateBasic { explorer_id: ID, resource: BasicResourceType },
+    GenerateComplex { explorer_id: ID, resource: ComplexResourceType },
+    MoveExplorer { explorer_id: ID, destination_planet_id: ID }
 }
 
 impl OrchestratorState {
@@ -68,7 +74,7 @@ impl OrchestratorState {
             self.planets_communication_center.req_ack(
                 planet_id,
                 OrchestratorToPlanet::KillPlanet,
-                PlanetToOrchestratorKind::KillPlanetResult,
+                PlanetToOrchestratorKind::KillPlanetResult
             )?;
 
             planet_handle.thread_handle.join().unwrap_or_else(|e| {
@@ -86,7 +92,7 @@ impl OrchestratorState {
             self.explorers_communication_center.req_ack(
                 explorer_id,
                 OrchestratorToExplorer::KillExplorer,
-                ExplorerToOrchestratorKind::KillExplorerResult,
+                ExplorerToOrchestratorKind::KillExplorerResult
             )?;
 
             explorer_handle.thread_handle.join().unwrap_or_else(|e| {
