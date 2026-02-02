@@ -1,8 +1,13 @@
+use std::collections::HashMap;
+use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 
 #[derive(Debug)]
-pub struct BagContent;
+pub struct BagContent {
+    pub (crate) basic_resources: HashMap<BasicResourceType, Vec<BasicResource>>,
+    pub (crate) complex_resources: HashMap<ComplexResourceType, Vec<ComplexResource>>,
+}
 
 /// Trait defining the behavior of an Explorer,
 pub trait Explorer {

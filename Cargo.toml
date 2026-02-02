@@ -15,6 +15,7 @@ log = "0.4.29"
 clap = { version = "4.5.53", features = ["derive"] }
 serde = { version = "1.0.228", features = ["derive"] }
 fern = { version = "0.7.1", features = ["colored"] }
+rand = "0.10.0-rc.8"
 config = "0.15.19"
 ctor = "0.6.3"
 # Planets
@@ -26,5 +27,3 @@ one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_mill
 HWHAB = { package = "Planet", git = "https://github.com/Houston-we-have-a-borrow/Planet.git"} # Houston-we-have-a-borrow
 rust-eze = {package = "pub-rust-eze", git = "https://github.com/Rust-eze-Advanced-Programming/pub-Rust-eze.git"}
 # bevy = "0.18.0"
-# Explorers
-allegory = { path = "src/explorers/allegory", package = "allegory-explorer" }

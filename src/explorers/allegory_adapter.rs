@@ -1,15 +1,15 @@
-use std::collections::HashMap;
+use crate::explorers::BagContent as BagContent2;
+use crate::explorers::Explorer;
+use crate::explorers::explorer::BagContent;
+use allegory::explorer::ExplorerMode::Auto;
+use allegory::explorer::{AllegoryExplorer, ExplorerMode};
 use common_game::components::resource::ComplexResourceType::{Dolphin, Water};
 use common_game::components::resource::{BasicResourceType, ResourceType};
-use crate::explorers::Explorer;
-use allegory::explorer::{AllegoryExplorer, ExplorerMode};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
 use crossbeam_channel::{Receiver, Sender};
-use allegory::explorer::ExplorerMode::Auto;
-use crate::explorers::explorer::BagContent;
-use crate::explorers::BagContent as BagContent2;
+use std::collections::HashMap;
 
 impl Explorer for AllegoryExplorer {
     fn new(
@@ -20,13 +20,13 @@ impl Explorer for AllegoryExplorer {
         tx_first_planet: Sender<ExplorerToPlanet>,
         rx_planet: Receiver<PlanetToExplorer>,
     ) -> Self {
-        let task = HashMap::from(
-            [(ResourceType::Complex(Dolphin),2),
-                (ResourceType::Complex(Water),4),
-                (ResourceType::Basic(BasicResourceType::Hydrogen), 4),
-                (ResourceType::Basic(BasicResourceType::Oxygen), 2),]
-        );
-        AllegoryExplorer{
+        let task = HashMap::from([
+            (ResourceType::Complex(Dolphin), 2),
+            (ResourceType::Complex(Water), 4),
+            (ResourceType::Basic(BasicResourceType::Hydrogen), 4),
+            (ResourceType::Basic(BasicResourceType::Oxygen), 2),
+        ]);
+        AllegoryExplorer {
             id,
             current_planet_id: 0, // Orchestrator as a placeholder for now
             mode: ExplorerMode::Stopped,
@@ -39,10 +39,9 @@ impl Explorer for AllegoryExplorer {
             knowledge: Default::default(),
             task,
             simple_resources_task: HashMap::new(),
-            
         }
     }
-    
+
     fn run(&mut self) -> Result<(), String> {
         // Await starting message
         loop {
@@ -57,18 +56,17 @@ impl Explorer for AllegoryExplorer {
                         _ => {} // Discard anything else
                     }
                 }
-                Err(_) => {}
+                Err(_) => {} // Discard errors too before startup
             }
         }
         // Start real execution
-        
+        loop {
+            match self.mode {
+                ExplorerMode::Killed | ExplorerMode::Retired => break,
+                _ => {}
+            }
+        }
 
         Ok(())
     }
-    
-    fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
-        todo!()
-    }
-
-    
 }
