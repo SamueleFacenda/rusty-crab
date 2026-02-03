@@ -1,11 +1,5 @@
 # Rusty Crab advanced programming project
 
-> [!WARNING]
-> OneMillionCrabs sometimes causes issues and
-> crashes (the bug is reported), if it happens (stack overflow)
-> comment line 31 [here](./src/orchestrator/init/galaxy_builder.rs)
-> and adjust the array size
-
 ## Run
 Use `cargo run` to execute the project. Inspect the available options
 with `cargu run -- -help`. You can supply a config file with

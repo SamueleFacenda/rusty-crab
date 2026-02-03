@@ -23,7 +23,7 @@ the-compiler-strikes-back = "0.2.0"
 air_fryer = {git = "https://github.com/Advanced-Panic-Programming/AirFryer.git"} # panic out of oxygen
 rustrelli = {git = "https://github.com/Rustrelli/rustrelli.git"}
 carbonium = {git = "https://github.com/AP-2025-No-Crustaceans-Sky/Carbonium.git"} # no crustacean's sky
-one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_million_crabs.git"}
+one-million-crabs = {git = "https://github.com/Advance-Programming-2025/One_million_crabs.git", branch = "dev"}
 HWHAB = { package = "Planet", git = "https://github.com/Houston-we-have-a-borrow/Planet.git"} # Houston-we-have-a-borrow
 rust-eze = {package = "pub-rust-eze", git = "https://github.com/Rust-eze-Advanced-Programming/pub-Rust-eze.git"}
 bevy = "0.17.0"

@@ -2525,7 +2525,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3088,7 +3088,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -3387,15 +3387,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
-name = "logging_utils"
-version = "0.1.0"
-source = "git+https://github.com/Advance-Programming-2025/omc-galaxy.git#2c8a4a4dec9c9752eefc71e70bda0524b59e2622"
-dependencies = [
- "common-game",
- "crossbeam-channel",
-]
-
-[[package]]
 name = "mach2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3618,7 +3609,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3962,14 +3953,13 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "one-million-crabs"
 version = "0.1.0"
-source = "git+https://github.com/Advance-Programming-2025/One_million_crabs.git#9ee13d1298a4f6095d294562e9f3cf66884f4700"
+source = "git+https://github.com/Advance-Programming-2025/One_million_crabs.git?branch=dev#d5799a1da47affd8e7b9c0313e5c44e53084ebd3"
 dependencies = [
  "common-game",
  "crossbeam-channel",
  "env_logger",
  "flexi_logger",
  "log",
- "logging_utils",
 ]
 
 [[package]]
@@ -4533,7 +4523,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.11.0",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5730,7 +5720,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
