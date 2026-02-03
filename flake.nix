@@ -6,6 +6,8 @@
   inputs.nixpkgs.url = "nixpkgs/nixos-25.11";
 
   inputs.flake-utils.url = "github:numtide/flake-utils";
+  
+  inputs.self.submodules = true; # Use submodules
 
   outputs = { self, nixpkgs, flake-utils }:
     let
@@ -23,31 +25,32 @@
       in
       {
 
-        packages = let buildArgs = {
-          pname = "rustycrab";
-          src = pkgs.lib.cleanSource ./.;
-          inherit version;
-
-          nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [ 
-            wayland 
-            alsa-lib
-            systemd
-            libxkbcommon
-            vulkan-loader
-            pipewire
-          ];
-          
-          cargoTestFlags = [ "--workspace" ];
-        };
-        in rec {
+        packages = rec {
           default = rustycrab;
-          rustycrab = pkgs.rustPlatform.buildRustPackage (buildArgs // {
+          rustycrab = pkgs.rustPlatform.buildRustPackage {
+            pname = "rustycrab";
+            src = pkgs.lib.cleanSource ./.;
+            inherit version;
+
+            nativeBuildInputs = with pkgs; [ 
+              pkg-config 
+              rustPlatform.bindgenHook
+              ];
+            buildInputs = with pkgs; [ 
+              libxkbcommon
+              vulkan-loader
+              pipewire
+              wayland 
+              alsa-lib
+              systemd
+            ];
+            
+            cargoTestFlags = [ "--workspace" ];
             cargoLock = {
               lockFile = ./Cargo.lock;
               allowBuiltinFetchGit = true;
             };
-          });
+          };
         };
         devShells = {
           default = pkgs.mkShell {
@@ -64,6 +67,10 @@
             RUST_BACKTRACE = 1;
             RUST_SRC_PATH = pkgs.rustPlatform.rustLibSrc;
             LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libxkbcommon pkgs.vulkan-loader pkgs.pipewire];
+            # LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath self.packages.${system}.rustycrab.buildInputs;
+            shellHook = ''
+              source ${pkgs.rustPlatform.bindgenHook}/nix-support/setup-hook && populateBindgenEnv
+            '';
           };
         };
       }
