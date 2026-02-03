@@ -60,6 +60,7 @@ pub struct PlanetInfo {
     energy_available: i32,
     is_destroyed: bool
 }
+#[derive(Default)]
 pub struct GalaxyInfo {
     pub connections: HashMap<ID, HashSet<ID>>
 }
@@ -76,14 +77,11 @@ impl PlanetInfo {
     fn update(&mut self, energy: i32) { self.energy_available = energy; }
 }
 
-impl Default for GalaxyInfo {
-    fn default() -> Self { GalaxyInfo { connections: HashMap::new() } }
-}
 
 impl GalaxyInfo {
     fn add_bi_connection(&mut self, a: ID, b: ID) {
-        self.connections.entry(a).or_insert_with(HashSet::new).insert(b);
-        self.connections.entry(b).or_insert_with(HashSet::new).insert(a);
+        self.connections.entry(a).or_default().insert(b);
+        self.connections.entry(b).or_default().insert(a);
     }
 
     // Used when planets get destroyed, it removes the connection both ways

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use common_game::components::resource::{BasicResource, BasicResourceType, ComplexResource, ComplexResourceRequest,
-                                        ComplexResourceType, GenericResource, Oxygen, ResourceType};
+                                        ComplexResourceType, GenericResource, ResourceType};
 use common_game::protocols::orchestrator_explorer::{ExplorerToOrchestrator, OrchestratorToExplorer};
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
@@ -39,14 +39,12 @@ enum ExplorerMode {
     Killed
 }
 
+#[derive(Default)]
 struct Bag {
     basic_resources: Vec<BasicResource>,
     complex_resources: Vec<ComplexResource>
 }
 
-impl Default for Bag {
-    fn default() -> Self { Bag { basic_resources: Vec::new(), complex_resources: Vec::new() } }
-}
 
 impl Bag {
     fn get_basic(&mut self, target_type: BasicResourceType) -> Option<BasicResource> {
@@ -155,9 +153,7 @@ impl Explorer for CettoExplorer {
 
 impl CettoExplorer {
     fn handle_orchestrator_message(&mut self, msg: OrchestratorToExplorer) -> Result<(), String> {
-        if let Err(e) = self.handle_nonsense_requests(&msg) {
-            return Err(e);
-        }
+        self.handle_nonsense_requests(&msg)?;
 
         match msg {
             OrchestratorToExplorer::StartExplorerAI => {
@@ -458,15 +454,15 @@ impl CettoExplorer {
 
         // Add to the bag if produced
         let data = planet_response.into_generate_resource_response().unwrap();
-        let explorer_response = if let Some(res) = data {
+        
+        if let Some(res) = data {
             self.knowledge.decrease_from_goal(ResourceType::Basic(res.get_type()));
             self.bag.basic_resources.push(res);
 
             Ok(())
         } else {
             Err("The resource could not be generated".to_string())
-        };
-        explorer_response
+        }
     }
 
     fn handle_nonsense_requests(&mut self, msg: &OrchestratorToExplorer) -> Result<(), String> {
